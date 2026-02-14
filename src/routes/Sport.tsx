@@ -105,7 +105,6 @@ function ContestSection({
   activeProfileRules: ProfileMatchRules
 }) {
   const grouped = groupContestsByState(sportData.contests)
-  const playersById = new Map(sportData.players.map((player) => [player.player_id, player]))
 
   return (
     <>
@@ -143,11 +142,10 @@ function ContestSection({
                         <p className="item-title">{lineup.display_name}</p>
                         <ol className="sport-lineup-slots">
                           {lineup.slots.map((slot, index) => {
-                            const player = playersById.get(slot.player_id)
                             const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
                             return (
                               <li key={`${lineup.vip_entry_key}-${index}`}>
-                                {slot.slot}: {player?.name ?? slot.player_id}
+                                {slot.slot}: {slot.player_name}
                                 {multiplier}
                               </li>
                             )

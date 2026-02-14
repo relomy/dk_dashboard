@@ -7,10 +7,6 @@ import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } fro
 import type { VipLineup } from '../lib/types'
 
 function resolveCashing(lineup: VipLineup): boolean {
-  if (lineup.live?.is_cashing === true || lineup.live?.is_cashing === false) {
-    return lineup.live.is_cashing
-  }
-
   return lineup.payout_cents !== undefined
 }
 
@@ -94,7 +90,6 @@ function Live() {
         null
       : null)
 
-  const playersById = new Map(sportData.players.map((player) => [player.player_id, player]))
   const ownershipWatchlist = primaryContest?.ownership_watchlist
   const topN = ownershipWatchlist?.top_n_default ?? 10
   const topEntries = ownershipWatchlist ? ownershipWatchlist.entries.slice(0, Math.max(0, topN)) : []
@@ -170,11 +165,10 @@ function Live() {
                   <p className="meta-text">Last updated: {updatedAt}</p>
                   <ol>
                     {lineup.slots.map((slot, index) => {
-                      const playerName = playersById.get(slot.player_id)?.name ?? slot.player_id
                       const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
                       return (
                         <li key={`${lineup.vip_entry_key}-${index}`}>
-                          {slot.slot}: {playerName}
+                          {slot.slot}: {slot.player_name}
                           {multiplier}
                         </li>
                       )
@@ -261,11 +255,10 @@ function Live() {
                       <p className="meta-text">Composition</p>
                       <ol>
                         {cluster.composition.map((slot, index) => {
-                          const playerName = playersById.get(slot.player_id)?.name ?? slot.player_id
                           const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
                           return (
                             <li key={`${cluster.cluster_key}-composition-${index}`}>
-                              {slot.slot}: {playerName}
+                              {slot.slot}: {slot.player_name}
                               {multiplier}
                             </li>
                           )

@@ -5,7 +5,7 @@
   "snapshots": [
     {
       "snapshot_at": "2026-02-13T18:25:00Z",
-      "path": "snapshots/2026-02-13T18-25-00Z.json",
+      "path": "snapshots/dk-two-sport-bundle-v6.json",
       "byte_size": 4212,
       "sports_present": ["nba", "nfl"],
       "contest_counts_by_sport": {

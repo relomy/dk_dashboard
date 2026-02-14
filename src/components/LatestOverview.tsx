@@ -41,24 +41,15 @@ function formatContestState(state: ContestState): string {
   return state.charAt(0).toUpperCase() + state.slice(1)
 }
 
-function renderLineupSlots(lineup: VipLineup, playersById: Map<string, { name: string }>): string {
+function renderLineupSlots(lineup: VipLineup): string {
   return lineup.slots
     .map((slot) => {
-      const playerName = playersById.get(slot.player_id)?.name ?? slot.player_id
-      return `${slot.slot}:${playerName}${slot.multiplier ? ` x${slot.multiplier}` : ''}`
+      return `${slot.slot}:${slot.player_name}${slot.multiplier ? ` x${slot.multiplier}` : ''}`
     })
     .join(' | ')
 }
 
-function ContestBlock({
-  contest,
-  lineups,
-  playersById,
-}: {
-  contest: Contest
-  lineups: VipLineup[]
-  playersById: Map<string, { name: string }>
-}) {
+function ContestBlock({ contest, lineups }: { contest: Contest; lineups: VipLineup[] }) {
   return (
     <article className="latest-contest">
       <div className="latest-contest-head">
@@ -78,7 +69,7 @@ function ContestBlock({
             {lineups.map((lineup) => (
               <li key={lineup.vip_entry_key}>
                 <strong>{lineup.display_name}</strong>
-                <div className="latest-slot-line">{renderLineupSlots(lineup, playersById)}</div>
+                <div className="latest-slot-line">{renderLineupSlots(lineup)}</div>
               </li>
             ))}
           </ul>
@@ -100,11 +91,6 @@ function LatestSportCard({
   activeProfileRules: ProfileMatchRules
 }) {
   const grouped = useMemo(() => groupByState(data.contests), [data.contests])
-  const playersById = useMemo(
-    () => new Map(data.players.map((player) => [player.player_id, { name: player.name }])),
-    [data.players],
-  )
-
   const liveRef = useRef<HTMLElement | null>(null)
   const upcomingRef = useRef<HTMLDetailsElement | null>(null)
   const completedRef = useRef<HTMLDetailsElement | null>(null)
@@ -161,7 +147,7 @@ function LatestSportCard({
           <h3 className="subsection-title">Live Contests</h3>
           {grouped.live.map((contest) => {
             const lineups = filterVipLineups(contest.vip_lineups, activeProfileRules, vipFilterMode)
-            return <ContestBlock key={contest.contest_key} contest={contest} lineups={lineups} playersById={playersById} />
+            return <ContestBlock key={contest.contest_key} contest={contest} lineups={lineups} />
           })}
         </section>
       ) : (
@@ -189,7 +175,7 @@ function LatestSportCard({
               </summary>
               {contests.map((contest) => {
                 const lineups = filterVipLineups(contest.vip_lineups, activeProfileRules, vipFilterMode)
-                return <ContestBlock key={contest.contest_key} contest={contest} lineups={lineups} playersById={playersById} />
+                return <ContestBlock key={contest.contest_key} contest={contest} lineups={lineups} />
               })}
             </details>
           )

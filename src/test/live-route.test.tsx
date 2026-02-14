@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import snapshotFixture from '../../public/mock/snapshots/2026-02-13T18-25-00Z.json'
+import snapshotFixture from '../../public/mock/snapshots/dk-two-sport-bundle-v6.json'
 import Live from '../routes/Live'
 
 afterEach(() => {
@@ -19,7 +19,7 @@ it('resolves and renders the selected primary contest for live route', async () 
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -68,7 +68,7 @@ it('shows explicit state when primary contest is not configured', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -118,7 +118,7 @@ it('prefers contest.is_primary before primary_contest key/id fallbacks', async (
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -152,9 +152,10 @@ it('prefers contest.is_primary before primary_contest key/id fallbacks', async (
   expect(screen.queryByText(/contest key: nba:1002/i)).not.toBeInTheDocument()
 })
 
-it('uses cashing fallback from payout and preserves slot order with player-name fallback', async () => {
+it('uses payout presence for cashing and preserves vip slot order', async () => {
   const snapshotWithUnknownSlotPlayer = structuredClone(snapshotFixture) as any
-  snapshotWithUnknownSlotPlayer.sports.nba.contests[0].vip_lineups[1].slots[1].player_id = 'nba-p999'
+  snapshotWithUnknownSlotPlayer.sports.nba.contests[0].vip_lineups[1].slots[1].player_name = 'Unknown Player'
+  snapshotWithUnknownSlotPlayer.sports.nba.contests[0].vip_lineups[1].live.is_cashing = false
 
   vi.stubGlobal(
     'fetch',
@@ -164,7 +165,7 @@ it('uses cashing fallback from payout and preserves slot order with player-name 
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -205,7 +206,7 @@ it('uses cashing fallback from payout and preserves slot order with player-name 
 
   const slotItems = within(fallbackCard).getAllByRole('listitem')
   expect(slotItems[0]).toHaveTextContent('PG: Guard One')
-  expect(slotItems[1]).toHaveTextContent('UTIL: nba-p999')
+  expect(slotItems[1]).toHaveTextContent('UTIL: Unknown Player')
 })
 
 it('renders ownership watchlist total and respects top_n_default', async () => {
@@ -220,7 +221,7 @@ it('renders ownership watchlist total and respects top_n_default', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -273,7 +274,7 @@ it('shows ownership placeholder when watchlist is missing', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -316,8 +317,8 @@ it('renders train clusters with cluster rule and sorts by entry_count desc', asy
     avg_pmr: 1.8,
     avg_ownership_remaining_pct: 50.5,
     composition: [
-      { slot: 'PG', player_id: 'nba-p1' },
-      { slot: 'SG', player_id: 'nba-p2' },
+      { slot: 'PG', player_name: 'Guard One' },
+      { slot: 'SG', player_name: 'Guard Two' },
     ],
     sample_entries: [
       { entry_key: 'entry-b-1', display_name: 'Sample B1' },
@@ -335,7 +336,7 @@ it('renders train clusters with cluster rule and sorts by entry_count desc', asy
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -373,10 +374,10 @@ it('renders train clusters with cluster rule and sorts by entry_count desc', asy
   expect(screen.queryByText(/Sample B4/i)).not.toBeInTheDocument()
 })
 
-it('preserves composition slot order and joins player names with fallback', async () => {
+it('preserves composition slot order with name-only composition', async () => {
   const snapshotWithUnknownCompositionPlayer = structuredClone(snapshotFixture) as any
-  snapshotWithUnknownCompositionPlayer.sports.nba.contests[0].train_clusters.clusters[0].composition[1].player_id =
-    'nba-p999'
+  snapshotWithUnknownCompositionPlayer.sports.nba.contests[0].train_clusters.clusters[0].composition[1].player_name =
+    'Unknown Cluster Player'
 
   vi.stubGlobal(
     'fetch',
@@ -386,7 +387,7 @@ it('preserves composition slot order and joins player names with fallback', asyn
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -423,7 +424,7 @@ it('preserves composition slot order and joins player names with fallback', asyn
 
   const compositionItems = within(clusterCard).getAllByRole('listitem').slice(0, 4)
   expect(compositionItems[0]).toHaveTextContent('PG: Guard One')
-  expect(compositionItems[1]).toHaveTextContent('SG: nba-p999')
+  expect(compositionItems[1]).toHaveTextContent('SG: Unknown Cluster Player')
   expect(compositionItems[2]).toHaveTextContent('SF: Forward One')
   expect(compositionItems[3]).toHaveTextContent('PF: Forward Two')
 })
@@ -440,7 +441,7 @@ it('shows train finder placeholder when train clusters are missing', async () =>
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -482,7 +483,7 @@ it('renders standings table when standings data is present', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -534,7 +535,7 @@ it('shows standings placeholder when standings data is missing', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],

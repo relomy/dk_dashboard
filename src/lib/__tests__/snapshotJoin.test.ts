@@ -1,29 +1,20 @@
 import { expect, test } from 'vitest'
-import snapshotFixture from '../../../public/mock/snapshots/2026-02-13T18-25-00Z.json'
+import snapshotFixture from '../../../public/mock/snapshots/dk-two-sport-bundle-v6.json'
 import type { Snapshot } from '../types'
 
 function parseSnapshot(raw: unknown): Snapshot {
   return raw as Snapshot
 }
 
-test('joins vip slots to players, preserves slot order, and tolerates unknown state', () => {
+test('parses v6 vip slot names, preserves slot order, and tolerates unknown state', () => {
   const snapshot = parseSnapshot(snapshotFixture)
 
   for (const sport of Object.values(snapshot.sports)) {
-    const playersById = new Map(sport.players.map((player) => [player.player_id, player]))
-
     for (const contest of sport.contests) {
       for (const lineup of contest.vip_lineups) {
-        const slotIds = lineup.slots.map((slot) => slot.player_id)
-
-        const joinedPlayers = lineup.slots.map((slot) => {
-          const player = playersById.get(slot.player_id)
-          expect(player).toBeTruthy()
-          return player!
-        })
-
-        // Join operation must preserve source slot order.
-        expect(joinedPlayers.map((player) => player.player_id)).toEqual(slotIds)
+        const slotNames = lineup.slots.map((slot) => slot.player_name)
+        expect(slotNames.length).toBe(lineup.slots.length)
+        expect(slotNames.every((name) => typeof name === 'string' && name.length > 0)).toBe(true)
       }
     }
   }

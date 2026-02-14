@@ -4,7 +4,7 @@ export type ContestState = 'upcoming' | 'live' | 'completed' | 'cancelled' | 'un
 
 export interface VipLineupSlot {
   slot: string
-  player_id: string
+  player_name: string
   multiplier?: number
 }
 

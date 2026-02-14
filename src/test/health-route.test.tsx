@@ -17,7 +17,7 @@ it('shows snapshot age and per-sport status from latest+snapshot', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],

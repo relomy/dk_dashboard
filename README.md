@@ -32,7 +32,7 @@ Expected shape (minimum):
 
 ### `GET /api/snapshot?path=...`
 Returns JSON content addressed by `path`, for example:
-- snapshot: `snapshots/2026-02-13T18-25-00Z.json`
+- snapshot: `snapshots/dk-two-sport-bundle-v6.json`
 - manifest: `manifest/2026-02-13.json`
 
 Auth:
