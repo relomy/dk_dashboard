@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
+import missingSectionsFixture from '../../public/mock/snapshots/canonical-live-snapshot-missing-sections.json'
 import History from '../routes/History'
 
 vi.mock('../context/ProfileContext', () => ({
@@ -13,20 +14,6 @@ vi.mock('../context/ProfileContext', () => ({
     },
   }),
 }))
-
-const snapshotPayload = {
-  schema_version: 1,
-  snapshot_at: '2026-02-13T18:25:00Z',
-  generated_at: '2026-02-13T18:25:07Z',
-  sports: {
-    nba: {
-      status: 'ok',
-      updated_at: '2026-02-13T18:25:00Z',
-      contests: [],
-      players: [],
-    },
-  },
-}
 
 function LocationProbe() {
   const location = useLocation()
@@ -53,7 +40,7 @@ it('resolves timestamp via UTC day manifest and renders snapshot', async () => {
             snapshots: [
               {
                 snapshot_at: '2026-02-13T18:25:00Z',
-                path: 'snapshots/canonical-live-snapshot.json',
+                path: 'snapshots/canonical-live-snapshot-missing-sections.json',
                 sports_present: ['nba'],
                 contest_counts_by_sport: { nba: 0 },
                 state_counts: {},
@@ -67,7 +54,7 @@ it('resolves timestamp via UTC day manifest and renders snapshot', async () => {
         )
       }
 
-      return new Response(JSON.stringify(snapshotPayload), { status: 200 })
+      return new Response(JSON.stringify(missingSectionsFixture), { status: 200 })
     }),
   )
 
@@ -211,7 +198,7 @@ it('renders timeline list from manifest metadata and navigates on item click', a
         )
       }
 
-      return new Response(JSON.stringify(snapshotPayload), { status: 200 })
+      return new Response(JSON.stringify(missingSectionsFixture), { status: 200 })
     }),
   )
 

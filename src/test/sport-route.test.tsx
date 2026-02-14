@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.json'
+import noPrimaryFixture from '../../public/mock/snapshots/canonical-live-snapshot-no-primary.json'
 import Sport from '../routes/Sport'
 
 vi.mock('../context/ProfileContext', () => ({
@@ -98,4 +99,26 @@ it('loads latest snapshot when cache is empty', async () => {
 
   expect(await screen.findByRole('heading', { name: /sport: nfl/i })).toBeInTheDocument()
   expect(await screen.findByRole('heading', { name: /unknown \(1\)/i })).toBeInTheDocument()
+})
+
+it('renders sport route even when primary contest config is missing (live-only contract)', async () => {
+  const fetchSpy = vi.fn()
+  vi.stubGlobal('fetch', fetchSpy)
+
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  queryClient.setQueryData(['snapshot', 'cached.json'], noPrimaryFixture)
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/sport/nba']}>
+        <Routes>
+          <Route path="/sport/:sport" element={<Sport />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  expect(await screen.findByRole('heading', { name: /sport: nba/i })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: /live \(1\)/i })).toBeInTheDocument()
+  expect(fetchSpy).not.toHaveBeenCalled()
 })
