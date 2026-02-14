@@ -446,6 +446,26 @@ summary:focus-visible {
   gap: var(--space-1);
 }
 
+.history-filter-grid {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.history-item {
+  gap: var(--space-2);
+}
+
+.history-item-time {
+  min-height: 2.75rem;
+  text-align: left;
+  width: 100%;
+}
+
+.history-item-row {
+  line-height: 1.4;
+}
+
 .sport-header-top {
   align-items: center;
   display: flex;
@@ -504,6 +524,10 @@ summary:focus-visible {
 
   .sport-contest-headline {
     grid-template-columns: 1fr;
+  }
+
+  .history-item-time {
+    min-height: 3rem;
   }
 
   main {

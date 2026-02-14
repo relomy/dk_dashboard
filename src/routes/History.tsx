@@ -115,73 +115,79 @@ function History() {
 
     return (
       <section className="page page-stack">
-        <div className="action-row">
-          <button
-            type="button"
-            onClick={() => {
-              if (!timeline.latestQuery.data?.snapshot_at) {
-                return
-              }
-              navigate(`/history/${formatHistoryTimestampForUrl(timeline.latestQuery.data.snapshot_at)}`)
-            }}
-          >
-            Jump to latest
-          </button>
-          {timeline.yesterdayManifestPath ? (
-            <button type="button" onClick={() => timeline.yesterdayManifestQuery.refetch()}>
-              Load yesterday
-            </button>
-          ) : null}
-        </div>
-
         <h1 className="page-title">History</h1>
-        <div className="panel action-row">
-          <label htmlFor="history-sport-filter">Sport filter</label>
-          <select
-            id="history-sport-filter"
-            value={sportFilter}
-            onChange={(event) => setSportFilter(event.target.value)}
-          >
-            <option value="all">All sports</option>
-            {availableSports.map((sport) => (
-              <option key={sport} value={sport}>
-                {sport}
-              </option>
-            ))}
-          </select>
-          <label htmlFor="history-state-filter">State filter</label>
-          <select
-            id="history-state-filter"
-            value={stateFilter}
-            onChange={(event) => setStateFilter(event.target.value)}
-          >
-            <option value="all">All states</option>
-            {availableStates.map((state) => (
-              <option key={state} value={state}>
-                {state}
-              </option>
-            ))}
-          </select>
+        <div className="panel page-stack-sm">
+          <div className="action-row">
+            <button
+              type="button"
+              onClick={() => {
+                if (!timeline.latestQuery.data?.snapshot_at) {
+                  return
+                }
+                navigate(`/history/${formatHistoryTimestampForUrl(timeline.latestQuery.data.snapshot_at)}`)
+              }}
+            >
+              Jump to latest
+            </button>
+            {timeline.yesterdayManifestPath ? (
+              <button type="button" onClick={() => timeline.yesterdayManifestQuery.refetch()}>
+                Load yesterday
+              </button>
+            ) : null}
+          </div>
+          <div className="history-filter-grid">
+            <div className="field-inline">
+              <label htmlFor="history-sport-filter">Sport filter</label>
+              <select
+                id="history-sport-filter"
+                value={sportFilter}
+                onChange={(event) => setSportFilter(event.target.value)}
+              >
+                <option value="all">All sports</option>
+                {availableSports.map((sport) => (
+                  <option key={sport} value={sport}>
+                    {sport}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field-inline">
+              <label htmlFor="history-state-filter">State filter</label>
+              <select
+                id="history-state-filter"
+                value={stateFilter}
+                onChange={(event) => setStateFilter(event.target.value)}
+              >
+                <option value="all">All states</option>
+                {availableStates.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
         <ul className="list-panel">
           {filteredSnapshots.map((item) => (
-            <li key={item.snapshot_at} className="item-card page-stack-sm">
+            <li key={item.snapshot_at} className="item-card page-stack-sm history-item">
               <button
+                className="history-item-time"
                 type="button"
                 onClick={() => navigate(`/history/${formatHistoryTimestampForUrl(item.snapshot_at)}`)}
               >
                 {new Date(item.snapshot_at).toLocaleString()}
               </button>
-              <p className="meta-text">Sports: {item.sports_present.join(', ') || '-'}</p>
-              <div className="status-list">
+              <p className="meta-text history-item-row">Sports: {item.sports_present.join(', ') || '-'}</p>
+              <div className="status-list history-item-row">
                 {Object.entries(item.sports_status ?? {}).map(([sport, details]) => (
                   <span key={`${item.snapshot_at}-${sport}`} className="status-item">
                     {sport}: <StatusBadge status={details.status} />
                   </span>
                 ))}
               </div>
-              <p className="meta-text">
+              <p className="meta-text history-item-row">
                 Contest counts:{' '}
                 {Object.entries(item.contest_counts_by_sport ?? {})
                   .map(([sport, count]) => `${sport} ${count}`)
