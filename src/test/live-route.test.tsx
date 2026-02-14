@@ -132,6 +132,31 @@ it('shows unavailable distance-to-cash when metrics are missing', async () => {
   expect(within(lineupCard).getByText(/distance to cash: unavailable/i)).toBeInTheDocument()
 })
 
+it('renders threat metrics from schema v2 snapshots', async () => {
+  await renderLive(v2Fixture, 'snapshots/canonical-live-snapshot.v2.json')
+  const threatPanel = screen.getByRole('heading', { name: /threat & leverage/i }).closest('.panel')
+  if (!(threatPanel instanceof HTMLElement)) {
+    throw new Error('Threat panel not found')
+  }
+  const swingCard = within(threatPanel).getByText(/Kevin Porter Jr./i).closest('li')
+  if (!swingCard) {
+    throw new Error('Swing card not found')
+  }
+  expect(within(swingCard).getByText(/VIP x3/i)).toBeInTheDocument()
+  const leveragePanel = within(threatPanel).getByRole('heading', { name: /vip vs field leverage/i }).closest('.panel-subtle')
+  if (!(leveragePanel instanceof HTMLElement)) {
+    throw new Error('Leverage panel not found')
+  }
+  const leverageTable = within(leveragePanel).getByRole('table')
+  const leverageRows = within(leverageTable).getAllByRole('row')
+  expect(within(leverageRows[1]).getByText(/cglenn91/i)).toBeInTheDocument()
+})
+
+it('shows unavailable threat state when metrics are missing', async () => {
+  await renderLive(v2MissingMetricsFixture, 'snapshots/canonical-live-snapshot.v2-missing-metrics.json')
+  expect(screen.getByText(/threat metrics unavailable for this contest/i)).toBeInTheDocument()
+})
+
 it('renders VIP and train slot names directly from name-only fields', async () => {
   const snapshotWithUnknownNames = structuredClone(snapshotFixture) as any
   snapshotWithUnknownNames.sports.nba.contests[0].vip_lineups[0].slots[0].player_name = 'Unknown Slot Name'
