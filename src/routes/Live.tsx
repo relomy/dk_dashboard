@@ -100,6 +100,7 @@ function Live() {
   const topEntries = ownershipWatchlist ? ownershipWatchlist.entries.slice(0, Math.max(0, topN)) : []
   const trainClusters = primaryContest?.train_clusters
   const sortedClusters = trainClusters ? [...trainClusters.clusters].sort((a, b) => b.entry_count - a.entry_count) : []
+  const standings = primaryContest?.standings
 
   if (!sportData.primary_contest) {
     return (
@@ -294,7 +295,44 @@ function Live() {
 
       <div className="panel page-stack-sm">
         <h2 className="section-title">Standings</h2>
-        <p className="meta-text">Data unavailable: section implementation starts in the next commit.</p>
+        {!standings ? (
+          <p className="meta-text">Standings unavailable for this contest.</p>
+        ) : (
+          <>
+            <p className="meta-text">Updated: {new Date(standings.updated_at).toLocaleString()}</p>
+            <p className="meta-text">Rows: {standings.rows.length}</p>
+            {standings.total_rows !== undefined ? <p className="meta-text">Total rows: {standings.total_rows}</p> : null}
+            {standings.is_truncated ? <p className="meta-text">Showing truncated standings payload.</p> : null}
+            {standings.rows.length === 0 ? (
+              <p className="meta-text">No standings rows available.</p>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Entry</th>
+                    <th>Rank</th>
+                    <th>Points</th>
+                    <th>PMR</th>
+                    <th>Own. Remaining</th>
+                    <th>Payout</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {standings.rows.map((row) => (
+                    <tr key={row.entry_key}>
+                      <td>{row.display_name ?? row.entry_key}</td>
+                      <td>{formatValue(row.rank)}</td>
+                      <td>{formatValue(row.points)}</td>
+                      <td>{formatValue(row.pmr)}</td>
+                      <td>{formatValue(row.ownership_remaining_pct, { suffix: '%' })}</td>
+                      <td>{row.payout_cents === undefined ? '—' : `${row.payout_cents / 100}`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
       </div>
     </section>
   )

@@ -252,11 +252,11 @@ it('renders ownership watchlist total and respects top_n_default', async () => {
   expect(await screen.findByRole('heading', { name: /live: nba/i })).toBeInTheDocument()
   expect(screen.getByText(/ownership remaining total: 62.5%/i)).toBeInTheDocument()
   expect(screen.getByText(/^top 1$/i)).toBeInTheDocument()
-  const ownershipSection = screen.getByRole('heading', { name: /ownership remaining/i }).closest('section')
-  if (!ownershipSection) {
-    throw new Error('Ownership section not found')
+  const ownershipPanel = screen.getByRole('heading', { name: /ownership remaining/i }).closest('.panel')
+  if (!(ownershipPanel instanceof HTMLElement)) {
+    throw new Error('Ownership panel not found')
   }
-  const ownershipTable = within(ownershipSection).getByRole('table')
+  const ownershipTable = within(ownershipPanel).getByRole('table')
   expect(within(ownershipTable).getByText(/train head a/i)).toBeInTheDocument()
   expect(within(ownershipTable).queryByText(/train head b/i)).not.toBeInTheDocument()
 })
@@ -471,4 +471,98 @@ it('shows train finder placeholder when train clusters are missing', async () =>
 
   expect(await screen.findByRole('heading', { name: /live: nba/i })).toBeInTheDocument()
   expect(screen.getByText(/train cluster data unavailable for this contest/i)).toBeInTheDocument()
+})
+
+it('renders standings table when standings data is present', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
+        return new Response(
+          JSON.stringify({
+            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            snapshot_at: '2026-02-13T18:25:00Z',
+            generated_at: '2026-02-13T18:25:07Z',
+            available_sports: ['nba', 'nfl'],
+            manifest_today_path: 'manifest/2026-02-13.json',
+          }),
+          { status: 200 },
+        )
+      }
+
+      return new Response(JSON.stringify(snapshotFixture), { status: 200 })
+    }),
+  )
+
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/live/nba']}>
+        <Routes>
+          <Route path="/live/:sport" element={<Live />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
+  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
+
+  expect(await screen.findByRole('heading', { name: /live: nba/i })).toBeInTheDocument()
+  const standingsPanel = screen.getByRole('heading', { name: /standings/i }).closest('.panel')
+  if (!(standingsPanel instanceof HTMLElement)) {
+    throw new Error('Standings panel not found')
+  }
+  expect(within(standingsPanel).getByText(/updated:/i)).toBeInTheDocument()
+  expect(within(standingsPanel).getByText(/rows: 2/i)).toBeInTheDocument()
+  const standingsTable = within(standingsPanel).getByRole('table')
+  expect(within(standingsTable).getByText(/train head a/i)).toBeInTheDocument()
+})
+
+it('shows standings placeholder when standings data is missing', async () => {
+  const snapshotWithoutStandings = structuredClone(snapshotFixture) as any
+  delete snapshotWithoutStandings.sports.nba.contests[0].standings
+
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
+        return new Response(
+          JSON.stringify({
+            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            snapshot_at: '2026-02-13T18:25:00Z',
+            generated_at: '2026-02-13T18:25:07Z',
+            available_sports: ['nba', 'nfl'],
+            manifest_today_path: 'manifest/2026-02-13.json',
+          }),
+          { status: 200 },
+        )
+      }
+
+      return new Response(JSON.stringify(snapshotWithoutStandings), { status: 200 })
+    }),
+  )
+
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/live/nba']}>
+        <Routes>
+          <Route path="/live/:sport" element={<Live />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
+  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
+
+  expect(await screen.findByRole('heading', { name: /live: nba/i })).toBeInTheDocument()
+  expect(screen.getByText(/standings unavailable for this contest/i)).toBeInTheDocument()
 })
