@@ -47,8 +47,8 @@ function Latest() {
           : 'Unable to load latest snapshot.'
 
     return (
-      <section>
-        <h1>Latest</h1>
+      <section className="page">
+        <h1 className="page-title">Latest</h1>
         <p className="error-text">{message}</p>
         <button type="button" onClick={handleChangeKey}>
           Change key
@@ -62,8 +62,8 @@ function Latest() {
   }
 
   return (
-    <section>
-      <div className="inline-actions">
+    <section className="page page-stack">
+      <div className="action-row">
         <button type="button" onClick={() => latestQuery.refetch()}>
           Refresh
         </button>
@@ -71,8 +71,8 @@ function Latest() {
           Change key ({getStoredMode()})
         </button>
       </div>
-      <div>
-        <label htmlFor="latest-vip-filter">VIP filter</label>{' '}
+      <div className="panel field-inline">
+        <label htmlFor="latest-vip-filter">VIP filter</label>
         <select
           id="latest-vip-filter"
           value={vipFilterMode}

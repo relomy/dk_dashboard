@@ -43,8 +43,8 @@ function Health() {
           : 'Unable to load health data.'
 
     return (
-      <section>
-        <h1>Health</h1>
+      <section className="page page-stack">
+        <h1 className="page-title">Health</h1>
         <p className="error-text">{message}</p>
         <button type="button" onClick={handleChangeKey}>
           Change key
@@ -58,8 +58,8 @@ function Health() {
   }
 
   return (
-    <section>
-      <div className="inline-actions">
+    <section className="page page-stack">
+      <div className="action-row">
         <button type="button" onClick={() => snapshotQuery.refetch()}>
           Refresh
         </button>
@@ -67,13 +67,15 @@ function Health() {
           Change key ({getStoredMode()})
         </button>
       </div>
-      <h1>Health</h1>
-      <p>Latest snapshot path: {latestQuery.data.latest_snapshot_path}</p>
-      <p>Snapshot timestamp: {snapshotQuery.data.snapshot_at}</p>
-      <p>Snapshot age: {snapshotAgeSeconds ?? 'unknown'} seconds</p>
+      <h1 className="page-title">Health</h1>
+      <div className="panel page-stack-sm">
+        <p className="meta-text">Latest snapshot path: {latestQuery.data.latest_snapshot_path}</p>
+        <p className="meta-text">Snapshot timestamp: {snapshotQuery.data.snapshot_at}</p>
+        <p className="meta-text">Snapshot age: {snapshotAgeSeconds ?? 'unknown'} seconds</p>
+      </div>
 
-      <h2>Per-sport status</h2>
-      <table>
+      <h2 className="section-title">Per-sport status</h2>
+      <table className="data-table">
         <thead>
           <tr>
             <th>Sport</th>

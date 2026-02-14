@@ -91,7 +91,7 @@ function History() {
     }
 
     if (timeline.latestQuery.isLoading || timeline.todayManifestQuery.isLoading) {
-      return <p>Loading history timeline...</p>
+      return <p className="page">Loading history timeline...</p>
     }
 
     if (timeline.latestQuery.error || timeline.todayManifestQuery.error) {
@@ -103,8 +103,8 @@ function History() {
             : 'Unable to load timeline.'
 
       return (
-        <section>
-          <h1>History</h1>
+        <section className="page page-stack">
+          <h1 className="page-title">History</h1>
           <p className="error-text">{message}</p>
           <button type="button" onClick={handleChangeKey}>
             Change key
@@ -114,8 +114,8 @@ function History() {
     }
 
     return (
-      <section>
-        <div className="inline-actions">
+      <section className="page page-stack">
+        <div className="action-row">
           <button
             type="button"
             onClick={() => {
@@ -134,9 +134,9 @@ function History() {
           ) : null}
         </div>
 
-        <h1>History</h1>
-        <div>
-          <label htmlFor="history-sport-filter">Sport filter</label>{' '}
+        <h1 className="page-title">History</h1>
+        <div className="panel action-row">
+          <label htmlFor="history-sport-filter">Sport filter</label>
           <select
             id="history-sport-filter"
             value={sportFilter}
@@ -148,8 +148,8 @@ function History() {
                 {sport}
               </option>
             ))}
-          </select>{' '}
-          <label htmlFor="history-state-filter">State filter</label>{' '}
+          </select>
+          <label htmlFor="history-state-filter">State filter</label>
           <select
             id="history-state-filter"
             value={stateFilter}
@@ -164,24 +164,24 @@ function History() {
           </select>
         </div>
 
-        <ul>
+        <ul className="list-panel">
           {filteredSnapshots.map((item) => (
-            <li key={item.snapshot_at}>
+            <li key={item.snapshot_at} className="item-card page-stack-sm">
               <button
                 type="button"
                 onClick={() => navigate(`/history/${formatHistoryTimestampForUrl(item.snapshot_at)}`)}
               >
                 {new Date(item.snapshot_at).toLocaleString()}
               </button>
-              <p>Sports: {item.sports_present.join(', ') || '-'}</p>
-              <div>
+              <p className="meta-text">Sports: {item.sports_present.join(', ') || '-'}</p>
+              <div className="status-list">
                 {Object.entries(item.sports_status ?? {}).map(([sport, details]) => (
-                  <span key={`${item.snapshot_at}-${sport}`}>
-                    {sport}: <StatusBadge status={details.status} />{' '}
+                  <span key={`${item.snapshot_at}-${sport}`} className="status-item">
+                    {sport}: <StatusBadge status={details.status} />
                   </span>
                 ))}
               </div>
-              <p>
+              <p className="meta-text">
                 Contest counts:{' '}
                 {Object.entries(item.contest_counts_by_sport ?? {})
                   .map(([sport, count]) => `${sport} ${count}`)
@@ -199,7 +199,7 @@ function History() {
   }
 
   if (manifestQuery.isLoading || snapshotQuery.isLoading) {
-    return <p>Loading historical snapshot...</p>
+    return <p className="page">Loading historical snapshot...</p>
   }
 
   if (manifestQuery.error || snapshotQuery.error) {
@@ -211,8 +211,8 @@ function History() {
           : 'Unable to load historical snapshot.'
 
     return (
-      <section>
-        <h1>History</h1>
+      <section className="page page-stack">
+        <h1 className="page-title">History</h1>
         <p className="error-text">{message}</p>
         <button type="button" onClick={handleChangeKey}>
           Change key
@@ -223,21 +223,21 @@ function History() {
 
   if (snapshotNotFound) {
     return (
-      <section>
-        <h1>History</h1>
+      <section className="page page-stack">
+        <h1 className="page-title">History</h1>
         <p>Snapshot not found for {timestamp}.</p>
-        <p>Manifest checked: {manifestPath}</p>
+        <p className="meta-text">Manifest checked: {manifestPath}</p>
       </section>
     )
   }
 
   if (!snapshotQuery.data) {
-    return <p>Snapshot not available.</p>
+    return <p className="page">Snapshot not available.</p>
   }
 
   return (
-    <section>
-      <div className="inline-actions">
+    <section className="page page-stack">
+      <div className="action-row">
         <button type="button" onClick={() => snapshotQuery.refetch()}>
           Refresh
         </button>

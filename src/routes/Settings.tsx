@@ -72,34 +72,36 @@ function Settings() {
   }
 
   return (
-    <section>
-      <h1>Settings</h1>
-      <h2>Profiles</h2>
-      <ul>
+    <section className="page page-stack">
+      <h1 className="page-title">Settings</h1>
+      <h2 className="section-title">Profiles</h2>
+      <ul className="list-panel">
         {profiles.map((profile) => (
-          <li key={profile.id}>
+          <li key={profile.id} className="item-card page-stack-sm">
             <p>
               <strong>{profile.name}</strong>
               {profile.id === activeProfileId ? ' (active)' : ''}
             </p>
-            <p>contains: {profile.rules.contains ?? '-'}</p>
-            <p>exact: {profile.rules.exact ?? '-'}</p>
-            <p>username: {profile.rules.username ?? '-'}</p>
-            <button type="button" onClick={() => setActiveProfileId(profile.id)}>
-              Set active
-            </button>{' '}
-            <button type="button" onClick={() => startEdit(profile.id)}>
-              Edit
-            </button>{' '}
-            <button type="button" onClick={() => deleteProfile(profile.id)}>
-              Delete
-            </button>
+            <p className="meta-text">contains: {profile.rules.contains ?? '-'}</p>
+            <p className="meta-text">exact: {profile.rules.exact ?? '-'}</p>
+            <p className="meta-text">username: {profile.rules.username ?? '-'}</p>
+            <div className="action-row">
+              <button type="button" onClick={() => setActiveProfileId(profile.id)}>
+                Set active
+              </button>
+              <button type="button" onClick={() => startEdit(profile.id)}>
+                Edit
+              </button>
+              <button type="button" onClick={() => deleteProfile(profile.id)}>
+                Delete
+              </button>
+            </div>
           </li>
         ))}
       </ul>
 
-      <h2>{editingProfile ? `Edit profile: ${editingProfile.name}` : 'Add profile'}</h2>
-      <form onSubmit={onSubmit}>
+      <h2 className="section-title">{editingProfile ? `Edit profile: ${editingProfile.name}` : 'Add profile'}</h2>
+      <form onSubmit={onSubmit} className="panel form-grid">
         <label htmlFor="profile-name">Profile name</label>
         <input
           id="profile-name"
@@ -128,10 +130,12 @@ function Settings() {
           onChange={(event) => setUsername(event.target.value)}
         />
 
-        <button type="submit">{editingProfile ? 'Save profile' : 'Add profile'}</button>{' '}
-        <button type="button" onClick={resetForm}>
-          Clear
-        </button>
+        <div className="action-row">
+          <button type="submit">{editingProfile ? 'Save profile' : 'Add profile'}</button>
+          <button type="button" onClick={resetForm}>
+            Clear
+          </button>
+        </div>
       </form>
     </section>
   )

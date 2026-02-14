@@ -19,29 +19,31 @@ function KeyGate({ onSave }: KeyGateProps) {
   }
 
   return (
-    <section className="key-gate">
-      <h1>Enter Access Key</h1>
-      <p>Provide your API key to load contest snapshots.</p>
-      <form onSubmit={submit}>
-        <label htmlFor="api-key">Access key</label>
-        <input
-          id="api-key"
-          type="password"
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          autoComplete="off"
-          placeholder="dk_..."
-        />
-        <label className="checkbox-line">
+    <section className="page page-centered">
+      <div className="key-gate panel">
+        <h1 className="page-title">Enter Access Key</h1>
+        <p className="page-meta">Provide your API key to load contest snapshots.</p>
+        <form onSubmit={submit} className="form-grid">
+          <label htmlFor="api-key">Access key</label>
           <input
-            type="checkbox"
-            checked={mode === 'session'}
-            onChange={(event) => setMode(event.target.checked ? 'session' : 'local')}
+            id="api-key"
+            type="password"
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            autoComplete="off"
+            placeholder="dk_..."
           />
-          Session only
-        </label>
-        <button type="submit">Save key</button>
-      </form>
+          <label className="checkbox-line">
+            <input
+              type="checkbox"
+              checked={mode === 'session'}
+              onChange={(event) => setMode(event.target.checked ? 'session' : 'local')}
+            />
+            Session only
+          </label>
+          <button type="submit">Save key</button>
+        </form>
+      </div>
     </section>
   )
 }

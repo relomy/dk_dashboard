@@ -14,18 +14,20 @@ function AppShell() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <Link className="brand" to="/latest">
-          DK Dashboard
-        </Link>
-        <nav>
+        <div className="topbar-brand-row">
+          <Link className="brand" to="/latest">
+            DK Dashboard
+          </Link>
+        </div>
+        <nav className="topbar-nav" aria-label="Primary navigation">
           {navItems.map((item) => (
             <NavLink key={item.to} to={item.to}>
               {item.label}
             </NavLink>
           ))}
         </nav>
-        <div>
-          <label htmlFor="active-profile">Active profile</label>{' '}
+        <div className="field-inline topbar-profile">
+          <label htmlFor="active-profile">Active profile</label>
           <select
             id="active-profile"
             value={activeProfileId}

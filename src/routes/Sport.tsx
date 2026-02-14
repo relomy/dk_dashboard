@@ -50,17 +50,19 @@ function PlayerPoolTable({ players }: { players: Player[] }) {
   }, [players, search])
 
   return (
-    <section>
-      <h2>Player pool</h2>
-      <label htmlFor="player-search">Search players</label>
-      <input
-        id="player-search"
-        type="text"
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        placeholder="Search by name"
-      />
-      <table>
+    <section className="panel page-stack">
+      <h2 className="section-title">Player pool</h2>
+      <div className="field-inline">
+        <label htmlFor="player-search">Search players</label>
+        <input
+          id="player-search"
+          type="text"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search by name"
+        />
+      </div>
+      <table className="data-table">
         <thead>
           <tr>
             <th>Name</th>
@@ -103,8 +105,8 @@ function ContestSection({
   return (
     <>
       {contestStates.map((state) => (
-        <section key={state}>
-          <h2>
+        <section key={state} className="panel page-stack">
+          <h2 className="section-title">
             {state} ({grouped[state].length})
           </h2>
           {grouped[state].map((contest) => (
@@ -112,20 +114,20 @@ function ContestSection({
               const lineups = filterVipLineups(contest.vip_lineups, activeProfileRules, vipFilterMode)
 
               return (
-                <article key={contest.contest_key}>
-                  <h3>{contest.name}</h3>
-                  <p>Entry fee: {formatMoney(contest.entry_fee_cents, contest.currency)}</p>
-                  <p>
+                <article key={contest.contest_key} className="item-card page-stack-sm">
+                  <h3 className="subsection-title">{contest.name}</h3>
+                  <p className="meta-text">Entry fee: {formatMoney(contest.entry_fee_cents, contest.currency)}</p>
+                  <p className="meta-text">
                     Entries: {contest.entries_count}/{contest.max_entries}
                   </p>
-                  <p>Prize pool: {formatMoney(contest.prize_pool_cents, contest.currency)}</p>
-                  <h4>VIP lineups</h4>
+                  <p className="meta-text">Prize pool: {formatMoney(contest.prize_pool_cents, contest.currency)}</p>
+                  <h4 className="subsection-title">VIP lineups</h4>
                   {lineups.length === 0 ? (
-                    <p>No matching VIP lineups.</p>
+                    <p className="muted-text">No matching VIP lineups.</p>
                   ) : (
                     lineups.map((lineup) => (
-                      <div key={lineup.vip_entry_key}>
-                        <p>{lineup.display_name}</p>
+                      <div key={lineup.vip_entry_key} className="panel-subtle">
+                        <p className="item-title">{lineup.display_name}</p>
                         <ol>
                           {lineup.slots.map((slot, index) => {
                             const player = playersById.get(slot.player_id)
@@ -178,7 +180,7 @@ function Sport() {
   }
 
   if (!sport) {
-    return <p>Sport not specified.</p>
+    return <p className="page">Sport not specified.</p>
   }
 
   const sportKey = sport.toLowerCase()
@@ -193,8 +195,8 @@ function Sport() {
 
   if (error instanceof Error) {
     return (
-      <section>
-        <h1>Sport: {sport.toUpperCase()}</h1>
+      <section className="page page-stack">
+        <h1 className="page-title">Sport: {sport.toUpperCase()}</h1>
         <p className="error-text">{error.message}</p>
         <button type="button" onClick={handleChangeKey}>
           Change key
@@ -207,22 +209,22 @@ function Sport() {
 
   if (!sportData) {
     return (
-      <section>
-        <h1>Sport: {sport.toUpperCase()}</h1>
+      <section className="page page-stack">
+        <h1 className="page-title">Sport: {sport.toUpperCase()}</h1>
         <p>Sport not found in snapshot.</p>
       </section>
     )
   }
 
   return (
-    <section>
-      <div className="inline-actions">
+    <section className="page page-stack">
+      <div className="action-row">
         <button type="button" onClick={handleChangeKey}>
           Change key ({getStoredMode()})
         </button>
       </div>
-      <div>
-        <label htmlFor="sport-vip-filter">VIP filter</label>{' '}
+      <div className="panel field-inline">
+        <label htmlFor="sport-vip-filter">VIP filter</label>
         <select
           id="sport-vip-filter"
           value={vipFilterMode}
@@ -232,8 +234,8 @@ function Sport() {
           <option value="active">Active profile only</option>
         </select>
       </div>
-      <h1>Sport: {sport.toUpperCase()}</h1>
-      <p>Snapshot at: {new Date(snapshot.snapshot_at).toLocaleString()}</p>
+      <h1 className="page-title">Sport: {sport.toUpperCase()}</h1>
+      <p className="page-meta">Snapshot at: {new Date(snapshot.snapshot_at).toLocaleString()}</p>
       <ContestSection
         sportData={sportData}
         vipFilterMode={vipFilterMode}

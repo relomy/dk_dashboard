@@ -138,7 +138,7 @@ function LatestSportCard({
   return (
     <article className="latest-sport-card">
       <div className="latest-sport-head">
-        <h2>{sport.toUpperCase()}</h2>
+        <h2 className="section-title">{sport.toUpperCase()}</h2>
         <StatusBadge status={data.status} />
       </div>
 
@@ -157,8 +157,8 @@ function LatestSportCard({
       </div>
 
       {grouped.live.length > 0 ? (
-        <section ref={liveRef}>
-          <h3>Live Contests</h3>
+        <section ref={liveRef} className="page-stack-sm">
+          <h3 className="subsection-title">Live Contests</h3>
           {grouped.live.map((contest) => {
             const lineups = filterVipLineups(contest.vip_lineups, activeProfileRules, vipFilterMode)
             return <ContestBlock key={contest.contest_key} contest={contest} lineups={lineups} playersById={playersById} />
@@ -197,8 +197,8 @@ function LatestSportCard({
 
       <details>
         <summary>Sport health</summary>
-        <p className="latest-muted">Players tracked: {data.players.length}</p>
-        <p className="latest-muted">Sport updated: {new Date(data.updated_at).toLocaleString()}</p>
+        <p className="latest-muted meta-text">Players tracked: {data.players.length}</p>
+        <p className="latest-muted meta-text">Sport updated: {new Date(data.updated_at).toLocaleString()}</p>
         {data.error ? <p className="error-text">Error: {data.error}</p> : null}
       </details>
     </article>
@@ -209,10 +209,10 @@ function LatestOverview({ snapshot, vipFilterMode, activeProfileRules }: LatestO
   const sports = Object.entries(snapshot.sports)
 
   return (
-    <section>
+    <section className="page-stack">
       <div className="section-header">
-        <h1>Latest</h1>
-        <p>Last updated: {new Date(snapshot.generated_at).toLocaleString()}</p>
+        <h1 className="page-title">Latest</h1>
+        <p className="page-meta">Last updated: {new Date(snapshot.generated_at).toLocaleString()}</p>
       </div>
 
       <div className="latest-sports-grid">
