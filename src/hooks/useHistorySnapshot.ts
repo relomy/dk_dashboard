@@ -15,7 +15,7 @@ export function useHistorySnapshot(apiKey: string, timestampParam?: string) {
     staleTime: 300_000,
   })
 
-  const snapshotPath = manifestQuery.data?.snapshots.find((item) => item.snapshot_at === timestamp)?.path
+  const snapshotPath = manifestQuery.data?.snapshots?.find((item) => item.snapshot_at === timestamp)?.path
 
   const snapshotQuery = useQuery({
     queryKey: ['history-snapshot', snapshotPath],

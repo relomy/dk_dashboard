@@ -9,3 +9,8 @@ export function parseHistoryTimestamp(value: string): string {
 export function getUtcManifestDate(timestamp: string): string {
   return new Date(timestamp).toISOString().slice(0, 10)
 }
+
+export function formatHistoryTimestampForUrl(timestamp: string): string {
+  const [datePart, timePart = ''] = timestamp.split('T')
+  return `${datePart}T${timePart.replace(/:/g, '-')}`
+}

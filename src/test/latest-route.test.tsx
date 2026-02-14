@@ -64,7 +64,7 @@ it('renders latest snapshot summary', async () => {
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
-      if (url.includes('/api/latest')) {
+      if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(JSON.stringify(latestPayload), { status: 200 })
       }
       return new Response(JSON.stringify(snapshotPayload), { status: 200 })

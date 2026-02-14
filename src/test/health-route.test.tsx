@@ -14,7 +14,7 @@ it('shows snapshot age and per-sport status from latest+snapshot', async () => {
     vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
 
-      if (url.includes('/api/latest')) {
+      if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
             latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
