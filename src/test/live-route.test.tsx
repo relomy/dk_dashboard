@@ -207,3 +207,96 @@ it('uses cashing fallback from payout and preserves slot order with player-name 
   expect(slotItems[0]).toHaveTextContent('PG: Guard One')
   expect(slotItems[1]).toHaveTextContent('UTIL: nba-p999')
 })
+
+it('renders ownership watchlist total and respects top_n_default', async () => {
+  const snapshotWithTopN = structuredClone(snapshotFixture) as any
+  snapshotWithTopN.sports.nba.contests[0].ownership_watchlist.top_n_default = 1
+
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
+        return new Response(
+          JSON.stringify({
+            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            snapshot_at: '2026-02-13T18:25:00Z',
+            generated_at: '2026-02-13T18:25:07Z',
+            available_sports: ['nba', 'nfl'],
+            manifest_today_path: 'manifest/2026-02-13.json',
+          }),
+          { status: 200 },
+        )
+      }
+
+      return new Response(JSON.stringify(snapshotWithTopN), { status: 200 })
+    }),
+  )
+
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/live/nba']}>
+        <Routes>
+          <Route path="/live/:sport" element={<Live />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
+  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
+
+  expect(await screen.findByRole('heading', { name: /live: nba/i })).toBeInTheDocument()
+  expect(screen.getByText(/ownership remaining total: 62.5%/i)).toBeInTheDocument()
+  expect(screen.getByText(/^top 1$/i)).toBeInTheDocument()
+  expect(screen.getByText(/train head a/i)).toBeInTheDocument()
+  expect(screen.queryByText(/train head b/i)).not.toBeInTheDocument()
+})
+
+it('shows ownership placeholder when watchlist is missing', async () => {
+  const snapshotWithoutWatchlist = structuredClone(snapshotFixture) as any
+  delete snapshotWithoutWatchlist.sports.nba.contests[0].ownership_watchlist
+
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
+        return new Response(
+          JSON.stringify({
+            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            snapshot_at: '2026-02-13T18:25:00Z',
+            generated_at: '2026-02-13T18:25:07Z',
+            available_sports: ['nba', 'nfl'],
+            manifest_today_path: 'manifest/2026-02-13.json',
+          }),
+          { status: 200 },
+        )
+      }
+
+      return new Response(JSON.stringify(snapshotWithoutWatchlist), { status: 200 })
+    }),
+  )
+
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/live/nba']}>
+        <Routes>
+          <Route path="/live/:sport" element={<Live />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
+  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
+
+  expect(await screen.findByRole('heading', { name: /live: nba/i })).toBeInTheDocument()
+  expect(screen.getByText(/ownership watchlist unavailable for this contest/i)).toBeInTheDocument()
+})

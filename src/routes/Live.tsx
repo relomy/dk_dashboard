@@ -14,6 +14,14 @@ function resolveCashing(lineup: VipLineup): boolean {
   return lineup.payout_cents !== undefined
 }
 
+function formatValue(value: number | null | undefined, opts?: { suffix?: string }): string {
+  if (value === null || value === undefined) {
+    return '—'
+  }
+
+  return `${value}${opts?.suffix ?? ''}`
+}
+
 function Live() {
   const queryClient = useQueryClient()
   const { sport } = useParams()
@@ -87,6 +95,9 @@ function Live() {
       : null)
 
   const playersById = new Map(sportData.players.map((player) => [player.player_id, player]))
+  const ownershipWatchlist = primaryContest?.ownership_watchlist
+  const topN = ownershipWatchlist?.top_n_default ?? 10
+  const topEntries = ownershipWatchlist ? ownershipWatchlist.entries.slice(0, Math.max(0, topN)) : []
 
   if (!sportData.primary_contest) {
     return (
@@ -175,7 +186,42 @@ function Live() {
 
       <div className="panel page-stack-sm">
         <h2 className="section-title">Ownership remaining</h2>
-        <p className="meta-text">Data unavailable: section implementation starts in the next commit.</p>
+        {!ownershipWatchlist ? (
+          <p className="meta-text">Ownership watchlist unavailable for this contest.</p>
+        ) : (
+          <>
+            <p className="item-title">
+              Ownership remaining total: {formatValue(ownershipWatchlist.ownership_remaining_total_pct, { suffix: '%' })}
+            </p>
+            <p className="meta-text">Top {topN}</p>
+            {topEntries.length === 0 ? (
+              <p className="meta-text">No ownership watchlist entries available.</p>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Entry</th>
+                    <th>Own. Remaining</th>
+                    <th>PMR</th>
+                    <th>Rank</th>
+                    <th>Points</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topEntries.map((entry) => (
+                    <tr key={entry.entry_key}>
+                      <td>{entry.display_name ?? entry.entry_key}</td>
+                      <td>{formatValue(entry.ownership_remaining_pct, { suffix: '%' })}</td>
+                      <td>{formatValue(entry.pmr)}</td>
+                      <td>{formatValue(entry.current_rank)}</td>
+                      <td>{formatValue(entry.current_points)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
       </div>
 
       <div className="panel page-stack-sm">
