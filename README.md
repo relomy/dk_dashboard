@@ -16,6 +16,9 @@ VITE_USE_MOCK=true npm run dev
 Notes:
 - Mock mode is dev-only.
 - Optional API base override is available for dev/preview: `VITE_API_BASE_URL`.
+- Optional snapshot-only helper is available for real-data validation without manifests:
+  `VITE_MOCK_SNAPSHOT_ONLY=true` and optional `VITE_MOCK_SNAPSHOT_PATH=snapshots/canonical-live-snapshot.json`.
+  In this mode, `/api/latest` is synthesized locally and History is disabled with `History requires manifest files.`.
 
 ## API contract (`/api/latest`, `/api/snapshot`)
 The app expects same-origin endpoints in production.

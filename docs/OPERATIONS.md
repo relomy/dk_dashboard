@@ -17,6 +17,8 @@
 ## Environment
 - `VITE_API_BASE_URL` (optional): override API base for dev/preview.
 - `VITE_USE_MOCK=true` (dev-only): route `/api/*` calls to `public/mock/*` fixtures.
+- `VITE_MOCK_SNAPSHOT_ONLY=true` (dev-only, optional): synthesize `/api/latest` locally and point directly to one snapshot.
+- `VITE_MOCK_SNAPSHOT_PATH` (dev-only, optional): snapshot path used by snapshot-only mode.
 
 ## Canonical fixtures
 - Baseline snapshot fixture: `public/mock/snapshots/canonical-live-snapshot.json`.

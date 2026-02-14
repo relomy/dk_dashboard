@@ -8,6 +8,7 @@ import { useProfiles } from '../context/ProfileContext'
 import { useHistorySnapshot } from '../hooks/useHistorySnapshot'
 import { useHistoryTimeline } from '../hooks/useHistoryTimeline'
 import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
+import { config } from '../lib/env'
 import { formatHistoryTimestampForUrl } from '../lib/time'
 
 function History() {
@@ -88,6 +89,15 @@ function History() {
   if (!timestampParam) {
     if (!apiKey) {
       return <KeyGate onSave={handleSaveKey} />
+    }
+
+    if (config.useMock && config.mockSnapshotOnly) {
+      return (
+        <section className="page page-stack">
+          <h1 className="page-title">History</h1>
+          <p>History requires manifest files.</p>
+        </section>
+      )
     }
 
     if (timeline.latestQuery.isLoading || timeline.todayManifestQuery.isLoading) {
@@ -202,6 +212,15 @@ function History() {
 
   if (!apiKey) {
     return <KeyGate onSave={handleSaveKey} />
+  }
+
+  if (config.useMock && config.mockSnapshotOnly) {
+    return (
+      <section className="page page-stack">
+        <h1 className="page-title">History</h1>
+        <p>History requires manifest files.</p>
+      </section>
+    )
   }
 
   if (manifestQuery.isLoading || snapshotQuery.isLoading) {
