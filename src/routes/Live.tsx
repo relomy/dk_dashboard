@@ -45,6 +45,7 @@ function Live() {
   const { sport } = useParams()
   const [apiKey, setApiKey] = useState(() => getStoredKey())
   const [playerSearch, setPlayerSearch] = useState('')
+  const [showAllTrains, setShowAllTrains] = useState(false)
 
   const { snapshot, loading, error, usingCache } = useSportSnapshot(apiKey)
 
@@ -137,6 +138,24 @@ function Live() {
   const vipLeverage = threatMetrics?.vip_vs_field_leverage ?? []
   const fieldRemainingScope =
     threatMetrics?.field_remaining_scope === 'contest_field' ? 'Contest field' : 'Watchlist'
+  const trainMetrics = primaryContest?.metrics?.trains
+  const trainClusterLookup = new Map<string, (typeof sortedClusters)[number]>()
+  for (const cluster of trainClusters?.clusters ?? []) {
+    trainClusterLookup.set(cluster.cluster_key, cluster)
+  }
+  const trainRefs = trainMetrics?.ranked_clusters ?? []
+  const topRefs = trainMetrics?.top_clusters ?? []
+  const recommendedTopN = trainMetrics?.recommended_top_n ?? 5
+  const selectedTrainRefs = showAllTrains
+    ? trainRefs
+    : (topRefs.length ? topRefs : trainRefs.slice(0, recommendedTopN))
+  const metricClusters = selectedTrainRefs
+    .map((ref) => {
+      const cluster = trainClusterLookup.get(ref.cluster_key)
+      return cluster ? { ref, cluster } : null
+    })
+    .filter((item): item is { ref: (typeof trainRefs)[number]; cluster: (typeof sortedClusters)[number] } => Boolean(item))
+  const displayClusters = trainMetrics ? metricClusters : sortedClusters.map((cluster) => ({ cluster }))
 
   if (!sportData.primary_contest) {
     return (
@@ -399,12 +418,20 @@ function Live() {
                 ? `(min shared: ${trainClusters.cluster_rule.min_shared})`
                 : ''}
             </p>
-            {sortedClusters.length === 0 ? (
+            {trainMetrics && trainRefs.length > 0 ? (
+              <div className="action-row">
+                <button type="button" onClick={() => setShowAllTrains((value) => !value)}>
+                  {showAllTrains ? `Show top ${recommendedTopN}` : 'Show all clusters'}
+                </button>
+              </div>
+            ) : null}
+            {displayClusters.length === 0 ? (
               <p className="meta-text">No train clusters available.</p>
             ) : (
               <table className="data-table live-train-table">
                 <thead>
                   <tr>
+                    <th>Rank</th>
                     <th>Cluster</th>
                     <th>Entries</th>
                     <th>Best rank</th>
@@ -416,12 +443,13 @@ function Live() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedClusters.map((cluster, clusterIndex) => {
+                  {displayClusters.map(({ cluster, ref }, clusterIndex) => {
                     const lineupSummary = cluster.composition
                       .map((slot) => `${slot.slot}:${slot.player_name}${slot.multiplier ? ` x${slot.multiplier}` : ''}`)
                       .join(' | ')
                     return (
                       <tr key={cluster.cluster_key || `cluster-${clusterIndex}`}>
+                        <td>{ref?.rank ?? '—'}</td>
                         <td>{cluster.cluster_key}</td>
                         <td>{cluster.entry_count}</td>
                         <td>{formatValue(cluster.best_rank)}</td>

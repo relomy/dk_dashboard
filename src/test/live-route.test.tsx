@@ -233,6 +233,19 @@ it('renders train clusters with cluster rule and sorts by entry_count desc', asy
   expect(screen.queryByText(/Sample B4/i)).not.toBeInTheDocument()
 })
 
+it('uses train metrics top clusters by default and toggles full list', async () => {
+  await renderLive(v2Fixture, 'snapshots/canonical-live-snapshot.v2.json')
+  const trainPanel = screen.getByRole('heading', { name: /train finder/i }).closest('.panel')
+  if (!(trainPanel instanceof HTMLElement)) {
+    throw new Error('Train panel not found')
+  }
+  const trainTable = within(trainPanel).getByRole('table')
+  expect(within(trainTable).queryByText('e74fb79a025e')).not.toBeInTheDocument()
+  const toggleButton = within(trainPanel).getByRole('button', { name: /show all clusters/i })
+  fireEvent.click(toggleButton)
+  expect(within(trainTable).getByText('e74fb79a025e')).toBeInTheDocument()
+})
+
 it('renders standings table when standings data is present', async () => {
   await renderLive(snapshotFixture)
   const standingsPanel = screen.getByRole('heading', { name: /standings/i }).closest('.panel')
