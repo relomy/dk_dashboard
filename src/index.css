@@ -1,7 +1,12 @@
 :root {
+  --bg: #eff3fa;
+  --ink: #11203a;
+  --card: #ffffff;
+  --line: #d5dfef;
+  --brand: #0f5bd5;
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-  color: #10182c;
-  background: linear-gradient(180deg, #f4f8ff 0%, #eef2f7 100%);
+  color: var(--ink);
+  background: radial-gradient(circle at 10% 10%, #ffffff 0%, var(--bg) 45%);
 }
 
 * {
@@ -11,4 +16,50 @@
 body {
   margin: 0;
   min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.topbar {
+  align-items: center;
+  background: linear-gradient(90deg, #0f5bd5 0%, #0a7a9c 100%);
+  color: #fff;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.875rem 1rem;
+}
+
+.brand {
+  color: inherit;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+nav {
+  display: flex;
+  gap: 0.7rem;
+}
+
+nav a {
+  color: #dbe9ff;
+  font-size: 0.9rem;
+  padding: 0.25rem 0.4rem;
+  text-decoration: none;
+}
+
+nav a.active {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+main {
+  padding: 1rem;
 }
