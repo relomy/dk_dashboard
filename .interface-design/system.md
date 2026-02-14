@@ -25,6 +25,21 @@
 - Meta/helper text: `12px/1.4`, medium/regular.
 - Use sentence case labels and concise wording.
 
+## Minimal Color Tokens
+- Keep the palette intentionally small and semantic.
+- Core:
+  - `bg`: app/page background.
+  - `text`: primary readable text.
+  - `stroke`: neutral border and divider color.
+- States:
+  - `ok`: healthy/fresh state background + text pairing.
+  - `stale`: delayed/warning state background + text pairing.
+  - `error`: failure/problem state background + text pairing.
+- Rules:
+  - Use state colors only for state communication, not decoration.
+  - Always pair state color with text labels.
+  - Avoid introducing additional accent colors unless a specific UI need is identified.
+
 ## Borders, Radius, Shadow
 - Border color: one neutral stroke token for all surfaces.
 - Surface radius:
@@ -70,6 +85,33 @@
   - Interactive targets should be comfortably tappable (>= `36px` high).
 - Motion:
   - Keep motion minimal; no required animations for comprehension.
+
+## Loading, Empty, Error States
+- Every data surface should have explicit handling for `loading`, `empty`, and `error`.
+- Loading:
+  - Use short, task-specific copy (e.g., `Loading latest snapshot...`).
+  - Keep layout stable; do not shift major structure between loading and loaded states.
+- Empty:
+  - State what is empty and why when known (e.g., `No matching VIP lineups`).
+  - Offer the nearest useful next action if applicable (change filter, refresh, switch profile).
+- Error:
+  - Use plain-language summary first, technical detail second.
+  - Keep key recovery actions close to the message (retry, change key).
+  - Avoid color-only errors; include explicit text and structure.
+
+## Link And Icon Sizing
+- Links:
+  - Body links at least `14px`.
+  - Navigation/meta links can be `12-14px` but must remain readable and have clear hover/focus affordance.
+- Icon sizing:
+  - Inline with text: `14-16px`.
+  - Navigation/control icons: `16-18px`.
+  - Status/standalone icons: `18-20px`.
+- Spacing:
+  - Icon-to-label gap: `6-8px`.
+  - Keep icons aligned to text baseline in inline contexts.
+- Touch targets:
+  - Any icon-only control must provide a minimum `36px` interactive target area.
 
 ## Reusable UI Patterns In This App
 - `page` wrapper with consistent heading + meta/action row.
