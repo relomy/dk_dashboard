@@ -386,7 +386,7 @@ function Live() {
                       <td>{formatValue(row.points)}</td>
                       <td>{formatValue(row.pmr)}</td>
                       <td>{formatValue(row.ownership_remaining_pct, { suffix: '%' })}</td>
-                      <td>{row.payout_cents === undefined ? '—' : `${row.payout_cents / 100}`}</td>
+                      <td>{row.payout_cents == null ? '—' : `${row.payout_cents / 100}`}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -110,6 +110,51 @@ it('loads latest snapshot when cache is empty', async () => {
   expect(await screen.findByRole('heading', { name: /unknown/i })).toBeInTheDocument()
 })
 
+it('does not use history snapshot cache for sport route data', async () => {
+  const latestSnapshot = structuredClone(snapshotFixture) as any
+  const historySnapshot = structuredClone(snapshotFixture) as any
+  historySnapshot.sports = {}
+
+  const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
+      return new Response(
+        JSON.stringify({
+          latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
+          snapshot_at: '2026-02-13T18:25:00Z',
+          generated_at: '2026-02-13T18:25:07Z',
+          available_sports: ['nba'],
+          manifest_today_path: 'manifest/2026-02-13.json',
+        }),
+        { status: 200 },
+      )
+    }
+    return new Response(JSON.stringify(latestSnapshot), { status: 200 })
+  })
+
+  vi.stubGlobal('fetch', fetchSpy)
+
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  queryClient.setQueryData(['history-snapshot', 'old-snapshot.json'], historySnapshot)
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/sport/nba']}>
+        <Routes>
+          <Route path="/sport/:sport" element={<Sport />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
+  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
+
+  expect(await screen.findByRole('heading', { name: /sport: nba/i })).toBeInTheDocument()
+  expect(screen.queryByText(/sport not found in snapshot/i)).not.toBeInTheDocument()
+  expect(fetchSpy).toHaveBeenCalled()
+})
+
 it('renders sport route even when primary contest config is missing (live-only contract)', async () => {
   const fetchSpy = vi.fn()
   vi.stubGlobal('fetch', fetchSpy)

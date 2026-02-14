@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.json'
@@ -115,4 +115,38 @@ it('renders latest route with missing live-only sections fixture', async () => {
 
   expect(await screen.findByText(/last updated:/i)).toBeInTheDocument()
   expect(screen.getAllByText(/no matching vip lineups/i).length).toBeGreaterThan(0)
+})
+
+it('refresh button refetches latest and snapshot', async () => {
+  const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
+      return new Response(JSON.stringify(latestPayload), { status: 200 })
+    }
+    return new Response(JSON.stringify(snapshotFixture), { status: 200 })
+  })
+  vi.stubGlobal('fetch', fetchSpy)
+
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/latest']}>
+        <Routes>
+          <Route path="/latest" element={<Latest />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
+  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
+  expect(await screen.findByText(/last updated:/i)).toBeInTheDocument()
+
+  const beforeRefreshCalls = fetchSpy.mock.calls.length
+  fireEvent.click(screen.getByRole('button', { name: /refresh/i }))
+
+  await waitFor(() => {
+    expect(fetchSpy.mock.calls.length).toBeGreaterThan(beforeRefreshCalls)
+  })
 })

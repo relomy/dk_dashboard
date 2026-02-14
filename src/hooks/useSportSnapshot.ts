@@ -19,13 +19,6 @@ function getCachedSnapshot(queryClient: ReturnType<typeof useQueryClient>): Snap
     }
   }
 
-  const historyEntries = queryClient.getQueriesData({ queryKey: ['history-snapshot'] })
-  for (const [, value] of historyEntries) {
-    if (isSnapshot(value)) {
-      return value
-    }
-  }
-
   return undefined
 }
 

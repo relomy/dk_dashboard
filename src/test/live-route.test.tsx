@@ -199,7 +199,26 @@ it('shows empty state when standings object exists but has no rows', async () =>
 
 it('uses payout_cents presence for standings cashing semantics', async () => {
   const snapshotWithMixedPayouts = structuredClone(snapshotFixture) as any
-  snapshotWithMixedPayouts.sports.nba.contests[0].standings.rows[0].payout_cents = undefined
+  snapshotWithMixedPayouts.sports.nba.contests[0].standings.rows = [
+    {
+      entry_key: 'row-paid',
+      display_name: 'Paid Row',
+      rank: 1,
+      points: 99.5,
+      pmr: 2,
+      ownership_remaining_pct: 15,
+      payout_cents: 1234,
+    },
+    {
+      entry_key: 'row-null',
+      display_name: 'Null Row',
+      rank: 2,
+      points: 88.5,
+      pmr: 3,
+      ownership_remaining_pct: 25,
+      payout_cents: null,
+    },
+  ]
 
   await renderLive(snapshotWithMixedPayouts)
   const standingsPanel = screen.getByRole('heading', { name: /standings/i }).closest('.panel')
@@ -207,7 +226,11 @@ it('uses payout_cents presence for standings cashing semantics', async () => {
     throw new Error('Standings panel not found')
   }
   const standingsTable = within(standingsPanel).getByRole('table')
-  expect(within(standingsTable).getByText('—')).toBeInTheDocument()
+  const rows = within(standingsTable).getAllByRole('row')
+  expect(within(rows[1]).getByText('Paid Row')).toBeInTheDocument()
+  expect(within(rows[1]).getByText('12.34')).toBeInTheDocument()
+  expect(within(rows[2]).getByText('Null Row')).toBeInTheDocument()
+  expect(within(rows[2]).getByText('—')).toBeInTheDocument()
 })
 
 it('renders player pool with search and default ownership-first sort', async () => {

@@ -30,6 +30,11 @@ function Latest() {
     queryClient.clear()
   }
 
+  const handleRefresh = () => {
+    latestQuery.refetch()
+    snapshotQuery.refetch()
+  }
+
   if (!apiKey) {
     return <KeyGate onSave={handleSaveKey} />
   }
@@ -64,7 +69,7 @@ function Latest() {
   return (
     <section className="page page-stack">
       <div className="action-row">
-        <button type="button" onClick={() => latestQuery.refetch()}>
+        <button type="button" onClick={handleRefresh}>
           Refresh
         </button>
         <button type="button" onClick={handleChangeKey}>
