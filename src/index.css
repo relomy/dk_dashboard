@@ -446,6 +446,42 @@ summary:focus-visible {
   gap: var(--space-1);
 }
 
+.sport-header-top {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.sport-contest-headline {
+  align-items: center;
+  column-gap: var(--space-2);
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  row-gap: var(--space-1);
+}
+
+.sport-contest-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.sport-lineup-grid {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.sport-lineup-slots {
+  margin: var(--space-2) 0 0;
+  padding-left: 1rem;
+}
+
+.sport-player-search input {
+  min-width: min(28rem, 100%);
+}
+
 @media (max-width: 700px) {
   .topbar {
     align-items: flex-start;
@@ -463,6 +499,10 @@ summary:focus-visible {
   }
 
   .latest-contest-head {
+    grid-template-columns: 1fr;
+  }
+
+  .sport-contest-headline {
     grid-template-columns: 1fr;
   }
 

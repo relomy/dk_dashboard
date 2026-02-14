@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import KeyGate from '../components/KeyGate'
+import StatusBadge from '../components/StatusBadge'
 import { useProfiles } from '../context/ProfileContext'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
@@ -9,7 +10,7 @@ import type { ProfileMatchRules } from '../lib/profiles'
 import type { Contest, ContestState, Player, SportSnapshot } from '../lib/types'
 import { filterVipLineups } from '../lib/vipMatcher'
 
-const contestStates: ContestState[] = ['upcoming', 'live', 'completed', 'cancelled', 'unknown']
+const contestStates: ContestState[] = ['live', 'upcoming', 'completed', 'cancelled', 'unknown']
 
 function formatMoney(cents: number, currency: string): string {
   return new Intl.NumberFormat(undefined, {
@@ -38,6 +39,10 @@ function groupContestsByState(contests: Contest[]): Record<ContestState, Contest
   return grouped
 }
 
+function formatContestState(state: ContestState): string {
+  return state.charAt(0).toUpperCase() + state.slice(1)
+}
+
 function PlayerPoolTable({ players }: { players: Player[] }) {
   const [search, setSearch] = useState('')
 
@@ -52,7 +57,7 @@ function PlayerPoolTable({ players }: { players: Player[] }) {
   return (
     <section className="panel page-stack">
       <h2 className="section-title">Player pool</h2>
-      <div className="field-inline">
+      <div className="field-inline sport-player-search">
         <label htmlFor="player-search">Search players</label>
         <input
           id="player-search"
@@ -109,26 +114,34 @@ function ContestSection({
           <h2 className="section-title">
             {state} ({grouped[state].length})
           </h2>
-          {grouped[state].map((contest) => (
-            (() => {
-              const lineups = filterVipLineups(contest.vip_lineups, activeProfileRules, vipFilterMode)
+          {grouped[state].length === 0 ? <p className="meta-text">No contests in this state.</p> : null}
+          {grouped[state].map((contest) => {
+            const lineups = filterVipLineups(contest.vip_lineups, activeProfileRules, vipFilterMode)
 
-              return (
-                <article key={contest.contest_key} className="item-card page-stack-sm">
+            return (
+              <article key={contest.contest_key} className="item-card page-stack-sm">
+                <div className="sport-contest-headline">
                   <h3 className="subsection-title">{contest.name}</h3>
-                  <p className="meta-text">Entry fee: {formatMoney(contest.entry_fee_cents, contest.currency)}</p>
+                  <p className="meta-text">{formatMoney(contest.entry_fee_cents, contest.currency)}</p>
+                  <span className={`contest-state-badge contest-state-${contest.state}`}>
+                    {formatContestState(contest.state)}
+                  </span>
+                </div>
+                <div className="sport-contest-meta">
                   <p className="meta-text">
                     Entries: {contest.entries_count}/{contest.max_entries}
                   </p>
                   <p className="meta-text">Prize pool: {formatMoney(contest.prize_pool_cents, contest.currency)}</p>
-                  <h4 className="subsection-title">VIP lineups</h4>
-                  {lineups.length === 0 ? (
-                    <p className="muted-text">No matching VIP lineups.</p>
-                  ) : (
-                    lineups.map((lineup) => (
+                </div>
+                <h4 className="subsection-title">VIP lineups</h4>
+                {lineups.length === 0 ? (
+                  <p className="muted-text">No matching VIP lineups.</p>
+                ) : (
+                  <div className="sport-lineup-grid">
+                    {lineups.map((lineup) => (
                       <div key={lineup.vip_entry_key} className="panel-subtle">
                         <p className="item-title">{lineup.display_name}</p>
-                        <ol>
+                        <ol className="sport-lineup-slots">
                           {lineup.slots.map((slot, index) => {
                             const player = playersById.get(slot.player_id)
                             const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
@@ -141,12 +154,12 @@ function ContestSection({
                           })}
                         </ol>
                       </div>
-                    ))
-                  )}
-                </article>
-              )
-            })()
-          ))}
+                    ))}
+                  </div>
+                )}
+              </article>
+            )
+          })}
         </section>
       ))}
       <PlayerPoolTable players={sportData.players} />
@@ -190,7 +203,7 @@ function Sport() {
   }
 
   if (loading) {
-    return <p>Loading sport snapshot...</p>
+    return <p className="page">Loading sport snapshot...</p>
   }
 
   if (error instanceof Error) {
@@ -218,24 +231,31 @@ function Sport() {
 
   return (
     <section className="page page-stack">
-      <div className="action-row">
+      <div className="panel sport-header page-stack-sm">
+        <div className="sport-header-top">
+          <h1 className="page-title">Sport: {sport.toUpperCase()}</h1>
+          <StatusBadge status={sportData.status} />
+        </div>
+        <p className="page-meta">Snapshot at: {new Date(snapshot.snapshot_at).toLocaleString()}</p>
+        <p className="meta-text">Sport updated: {new Date(sportData.updated_at).toLocaleString()}</p>
+        {sportData.error ? <p className="error-text">Sport error: {sportData.error}</p> : null}
+      </div>
+      <div className="panel action-row">
         <button type="button" onClick={handleChangeKey}>
           Change key ({getStoredMode()})
         </button>
+        <div className="field-inline">
+          <label htmlFor="sport-vip-filter">VIP filter</label>
+          <select
+            id="sport-vip-filter"
+            value={vipFilterMode}
+            onChange={(event) => setVipFilterMode(event.target.value as 'all' | 'active')}
+          >
+            <option value="all">All VIPs</option>
+            <option value="active">Active profile only</option>
+          </select>
+        </div>
       </div>
-      <div className="panel field-inline">
-        <label htmlFor="sport-vip-filter">VIP filter</label>
-        <select
-          id="sport-vip-filter"
-          value={vipFilterMode}
-          onChange={(event) => setVipFilterMode(event.target.value as 'all' | 'active')}
-        >
-          <option value="all">All VIPs</option>
-          <option value="active">Active profile only</option>
-        </select>
-      </div>
-      <h1 className="page-title">Sport: {sport.toUpperCase()}</h1>
-      <p className="page-meta">Snapshot at: {new Date(snapshot.snapshot_at).toLocaleString()}</p>
       <ContestSection
         sportData={sportData}
         vipFilterMode={vipFilterMode}
