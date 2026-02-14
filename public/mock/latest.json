@@ -1,0 +1,8 @@
+{
+  "latest_snapshot_path": "snapshots/2026-02-13T18-25-00Z.json",
+  "snapshot_at": "2026-02-13T18:25:00Z",
+  "generated_at": "2026-02-13T18:25:07Z",
+  "available_sports": ["nba", "nfl"],
+  "manifest_today_path": "manifest/2026-02-13.json",
+  "manifest_yesterday_path": "manifest/2026-02-12.json"
+}

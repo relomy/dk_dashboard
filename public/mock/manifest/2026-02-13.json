@@ -1,0 +1,32 @@
+{
+  "manifest_version": 1,
+  "date_utc": "2026-02-13",
+  "generated_at": "2026-02-13T23:59:55Z",
+  "snapshots": [
+    {
+      "snapshot_at": "2026-02-13T18:25:00Z",
+      "path": "snapshots/2026-02-13T18-25-00Z.json",
+      "byte_size": 4212,
+      "sports_present": ["nba", "nfl"],
+      "contest_counts_by_sport": {
+        "nba": 2,
+        "nfl": 1
+      },
+      "state_counts": {
+        "upcoming": 1,
+        "live": 1,
+        "completed": 1
+      },
+      "sports_status": {
+        "nba": {
+          "status": "ok",
+          "updated_at": "2026-02-13T18:25:00Z"
+        },
+        "nfl": {
+          "status": "stale",
+          "updated_at": "2026-02-13T18:20:00Z"
+        }
+      }
+    }
+  ]
+}
