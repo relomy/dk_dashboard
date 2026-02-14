@@ -52,6 +52,7 @@ Before release:
 3. Verify key flows manually:
    - key prompt and key change
    - `/latest` load
+   - `/live/:sport` load (primary contest resolution + VIP/ownership/train/standings section states)
    - `/history` list + timestamp route
    - `/health` status visibility
 
@@ -64,3 +65,7 @@ Before release:
   - ensure matching `snapshot_at` exists in the UTC-day manifest.
 - Stale/error sports:
   - use `Health` view for `updated_at` and error diagnostics.
+- Live route shows "Primary contest is not configured":
+  - exporter snapshot is missing `sports[sport].primary_contest` for that sport.
+- Live route shows "Primary contest data is missing":
+  - `primary_contest` exists but no contest in `sports[sport].contests` matches `is_primary`/key/id.
