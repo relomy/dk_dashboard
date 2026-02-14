@@ -98,6 +98,8 @@ function Live() {
   const ownershipWatchlist = primaryContest?.ownership_watchlist
   const topN = ownershipWatchlist?.top_n_default ?? 10
   const topEntries = ownershipWatchlist ? ownershipWatchlist.entries.slice(0, Math.max(0, topN)) : []
+  const trainClusters = primaryContest?.train_clusters
+  const sortedClusters = trainClusters ? [...trainClusters.clusters].sort((a, b) => b.entry_count - a.entry_count) : []
 
   if (!sportData.primary_contest) {
     return (
@@ -226,7 +228,68 @@ function Live() {
 
       <div className="panel page-stack-sm">
         <h2 className="section-title">Train finder</h2>
-        <p className="meta-text">Data unavailable: section implementation starts in the next commit.</p>
+        {!trainClusters ? (
+          <p className="meta-text">Train cluster data unavailable for this contest.</p>
+        ) : (
+          <>
+            <p className="meta-text">
+              Updated: {trainClusters.updated_at ? new Date(trainClusters.updated_at).toLocaleString() : 'unknown'}
+            </p>
+            <p className="meta-text">
+              Cluster rule: {trainClusters.cluster_rule?.type ?? 'unknown'}{' '}
+              {trainClusters.cluster_rule?.min_shared !== undefined
+                ? `(min shared: ${trainClusters.cluster_rule.min_shared})`
+                : ''}
+            </p>
+            {sortedClusters.length === 0 ? (
+              <p className="meta-text">No train clusters available.</p>
+            ) : (
+              <ul className="list-panel">
+                {sortedClusters.map((cluster) => (
+                  <li key={cluster.cluster_key} className="item-card page-stack-sm">
+                    <p className="item-title">{cluster.cluster_key}</p>
+                    <p className="meta-text">Entry count: {cluster.entry_count}</p>
+                    <p className="meta-text">Best rank: {formatValue(cluster.best_rank)}</p>
+                    <p className="meta-text">Best points: {formatValue(cluster.best_points)}</p>
+                    <p className="meta-text">Avg PMR: {formatValue(cluster.avg_pmr)}</p>
+                    <p className="meta-text">
+                      Avg ownership remaining: {formatValue(cluster.avg_ownership_remaining_pct, { suffix: '%' })}
+                    </p>
+
+                    <div>
+                      <p className="meta-text">Composition</p>
+                      <ol>
+                        {cluster.composition.map((slot, index) => {
+                          const playerName = playersById.get(slot.player_id)?.name ?? slot.player_id
+                          const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
+                          return (
+                            <li key={`${cluster.cluster_key}-composition-${index}`}>
+                              {slot.slot}: {playerName}
+                              {multiplier}
+                            </li>
+                          )
+                        })}
+                      </ol>
+                    </div>
+
+                    {cluster.sample_entries?.length ? (
+                      <div>
+                        <p className="meta-text">Sample entries</p>
+                        <ul>
+                          {cluster.sample_entries.slice(0, 3).map((entry) => (
+                            <li key={`${cluster.cluster_key}-sample-${entry.entry_key}`}>
+                              {entry.display_name ?? entry.entry_key}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
       </div>
 
       <div className="panel page-stack-sm">
