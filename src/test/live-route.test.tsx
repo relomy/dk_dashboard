@@ -6,6 +6,8 @@ import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot
 import emptyStandingsFixture from '../../public/mock/snapshots/canonical-live-snapshot-empty-standings.json'
 import missingSectionsFixture from '../../public/mock/snapshots/canonical-live-snapshot-missing-sections.json'
 import noPrimaryFixture from '../../public/mock/snapshots/canonical-live-snapshot-no-primary.json'
+import v2Fixture from '../../public/mock/snapshots/canonical-live-snapshot.v2.json'
+import v2MissingMetricsFixture from '../../public/mock/snapshots/canonical-live-snapshot.v2-missing-metrics.json'
 import Live from '../routes/Live'
 
 afterEach(() => {
@@ -101,6 +103,33 @@ it('uses payout_cents as cashing truth for VIP lineups', async () => {
     throw new Error('Fallback lineup card not found')
   }
   expect(within(fallbackCard).getByText(/^cashing$/i)).toBeInTheDocument()
+})
+
+it('renders distance-to-cash metrics from schema v2 snapshots', async () => {
+  await renderLive(v2Fixture, 'snapshots/canonical-live-snapshot.v2.json')
+  const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
+  if (!(vipPanel instanceof HTMLElement)) {
+    throw new Error('VIP panel not found')
+  }
+  const lineupCard = within(vipPanel).getByText(/cglenn91/i).closest('li')
+  if (!lineupCard) {
+    throw new Error('Lineup card not found')
+  }
+  expect(within(lineupCard).getByText(/distance to cash: \+11 pts/i)).toBeInTheDocument()
+  expect(within(lineupCard).getByText(/rank delta: \+44/i)).toBeInTheDocument()
+})
+
+it('shows unavailable distance-to-cash when metrics are missing', async () => {
+  await renderLive(v2MissingMetricsFixture, 'snapshots/canonical-live-snapshot.v2-missing-metrics.json')
+  const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
+  if (!(vipPanel instanceof HTMLElement)) {
+    throw new Error('VIP panel not found')
+  }
+  const lineupCard = within(vipPanel).getByText(/cglenn91/i).closest('li')
+  if (!lineupCard) {
+    throw new Error('Lineup card not found')
+  }
+  expect(within(lineupCard).getByText(/distance to cash: unavailable/i)).toBeInTheDocument()
 })
 
 it('renders VIP and train slot names directly from name-only fields', async () => {
