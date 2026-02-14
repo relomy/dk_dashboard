@@ -31,6 +31,63 @@ export interface VipLineup {
   }
 }
 
+export interface ContestMetricsDistanceToCash {
+  cutoff_points?: number
+  per_vip: Array<{
+    vip_entry_key?: string
+    entry_key?: string
+    display_name?: string
+    points_delta?: number
+    rank_delta?: number | null
+  }>
+}
+
+export interface ContestMetricsThreat {
+  leverage_semantics: 'positive=unique'
+  field_remaining_scope: 'watchlist' | 'contest_field'
+  field_remaining_source: 'ownership_watchlist_total' | 'watchlist_entries_sum'
+  field_remaining_is_partial?: boolean
+  field_remaining_pct?: number | null
+  top_swing_players?: Array<{
+    player_name: string
+    remaining_ownership_pct?: number | null
+    vip_count?: number
+  }>
+  vip_vs_field_leverage?: Array<{
+    vip_entry_key?: string
+    entry_key?: string
+    display_name?: string
+    vip_remaining_pct?: number | null
+    field_remaining_pct?: number | null
+    uniqueness_delta_pct?: number | null
+  }>
+}
+
+export interface ContestMetricsTrains {
+  recommended_top_n: number
+  ranked_clusters: Array<{
+    cluster_key: string
+    rank: number
+    entry_count: number
+    best_rank?: number
+    avg_pmr?: number
+  }>
+  top_clusters?: Array<{
+    cluster_key: string
+    rank: number
+    entry_count: number
+    best_rank?: number
+    avg_pmr?: number
+  }>
+}
+
+export interface ContestMetrics {
+  updated_at: string
+  distance_to_cash?: ContestMetricsDistanceToCash
+  threat?: ContestMetricsThreat
+  trains?: ContestMetricsTrains
+}
+
 export interface Contest {
   contest_id: string
   contest_key: string
@@ -105,6 +162,7 @@ export interface Contest {
       ownership_remaining_pct?: number
     }>
   }
+  metrics?: ContestMetrics
 }
 
 export interface Player {
