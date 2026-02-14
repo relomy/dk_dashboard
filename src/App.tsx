@@ -4,6 +4,7 @@ import { ProfileProvider } from './context/ProfileContext'
 import Health from './routes/Health'
 import History from './routes/History'
 import Latest from './routes/Latest'
+import Live from './routes/Live'
 import Settings from './routes/Settings'
 import Sport from './routes/Sport'
 
@@ -13,6 +14,7 @@ function App() {
       <Routes>
         <Route element={<AppShell />}>
           <Route path="/latest" element={<Latest />} />
+          <Route path="/live/:sport" element={<Live />} />
           <Route path="/history" element={<History />} />
           <Route path="/history/:timestamp" element={<History />} />
           <Route path="/sport/:sport" element={<Sport />} />
