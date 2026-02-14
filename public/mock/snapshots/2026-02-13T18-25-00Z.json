@@ -138,6 +138,20 @@
               "points": 142.3,
               "rank": 87,
               "payout_cents": 3200
+            },
+            {
+              "vip_entry_key": "vip-fallback-1",
+              "display_name": "Fallback Cash",
+              "slots": [
+                { "slot": "PG", "player_id": "nba-p1" },
+                { "slot": "UTIL", "player_id": "nba-p8" }
+              ],
+              "live": {
+                "updated_at": "2026-02-13T18:25:05Z",
+                "cash_line_delta_points": null,
+                "is_cashing": null
+              },
+              "payout_cents": 1200
             }
           ]
         },

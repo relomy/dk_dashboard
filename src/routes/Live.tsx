@@ -4,6 +4,15 @@ import { useParams } from 'react-router-dom'
 import KeyGate from '../components/KeyGate'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
+import type { VipLineup } from '../lib/types'
+
+function resolveCashing(lineup: VipLineup): boolean {
+  if (lineup.live?.is_cashing === true || lineup.live?.is_cashing === false) {
+    return lineup.live.is_cashing
+  }
+
+  return lineup.payout_cents !== undefined
+}
 
 function Live() {
   const queryClient = useQueryClient()
@@ -77,6 +86,8 @@ function Live() {
         null
       : null)
 
+  const playersById = new Map(sportData.players.map((player) => [player.player_id, player]))
+
   if (!sportData.primary_contest) {
     return (
       <section className="page page-stack">
@@ -119,7 +130,47 @@ function Live() {
 
       <div className="panel page-stack-sm">
         <h2 className="section-title">VIP board</h2>
-        <p className="meta-text">Data unavailable: section implementation starts in the next commit.</p>
+        {primaryContest.vip_lineups.length === 0 ? (
+          <p className="meta-text">No VIP lineups available for this contest or active filter.</p>
+        ) : (
+          <ul className="list-panel">
+            {primaryContest.vip_lineups.map((lineup) => {
+              const isCashing = resolveCashing(lineup)
+              const delta =
+                lineup.live?.cash_line_delta_points === null || lineup.live?.cash_line_delta_points === undefined
+                  ? '—'
+                  : String(lineup.live.cash_line_delta_points)
+              const updatedAt = lineup.live?.updated_at
+                ? new Date(lineup.live.updated_at).toLocaleString()
+                : 'unknown'
+
+              return (
+                <li key={lineup.vip_entry_key} className="item-card page-stack-sm">
+                  <div className="sport-contest-headline">
+                    <p className="item-title">{lineup.display_name}</p>
+                    <span className={`status ${isCashing ? 'status-ok' : 'status-error'}`}>
+                      {isCashing ? 'Cashing' : 'Not cashing'}
+                    </span>
+                  </div>
+                  <p className="meta-text">Cash-line delta: {delta}</p>
+                  <p className="meta-text">Last updated: {updatedAt}</p>
+                  <ol>
+                    {lineup.slots.map((slot, index) => {
+                      const playerName = playersById.get(slot.player_id)?.name ?? slot.player_id
+                      const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
+                      return (
+                        <li key={`${lineup.vip_entry_key}-${index}`}>
+                          {slot.slot}: {playerName}
+                          {multiplier}
+                        </li>
+                      )
+                    })}
+                  </ol>
+                </li>
+              )
+            })}
+          </ul>
+        )}
       </div>
 
       <div className="panel page-stack-sm">
