@@ -69,11 +69,13 @@ function Live() {
     )
   }
 
-  const primaryContest = sportData.primary_contest
-    ? sportData.contests.find((contest) => contest.contest_key === sportData.primary_contest?.contest_key) ??
-      sportData.contests.find((contest) => contest.contest_id === sportData.primary_contest?.contest_id) ??
-      null
-    : null
+  const primaryContest =
+    sportData.contests.find((contest) => contest.is_primary === true) ??
+    (sportData.primary_contest
+      ? sportData.contests.find((contest) => contest.contest_key === sportData.primary_contest?.contest_key) ??
+        sportData.contests.find((contest) => contest.contest_id === sportData.primary_contest?.contest_id) ??
+        null
+      : null)
 
   if (!sportData.primary_contest) {
     return (

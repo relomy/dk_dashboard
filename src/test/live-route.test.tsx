@@ -98,3 +98,54 @@ it('shows explicit state when primary contest is not configured', async () => {
   expect(await screen.findByRole('heading', { name: /live: nba/i })).toBeInTheDocument()
   expect(screen.getByText(/primary contest is not configured for this sport/i)).toBeInTheDocument()
 })
+
+it('prefers contest.is_primary before primary_contest key/id fallbacks', async () => {
+  const snapshotWithConflictingPointers = structuredClone(snapshotFixture) as any
+  snapshotWithConflictingPointers.sports.nba.primary_contest = {
+    contest_id: '1002',
+    contest_key: 'nba:1002',
+    selection_reason: 'conflict-for-test',
+    selected_at: '2026-02-13T18:25:05Z',
+  }
+
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
+        return new Response(
+          JSON.stringify({
+            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            snapshot_at: '2026-02-13T18:25:00Z',
+            generated_at: '2026-02-13T18:25:07Z',
+            available_sports: ['nba', 'nfl'],
+            manifest_today_path: 'manifest/2026-02-13.json',
+          }),
+          { status: 200 },
+        )
+      }
+
+      return new Response(JSON.stringify(snapshotWithConflictingPointers), { status: 200 })
+    }),
+  )
+
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/live/nba']}>
+        <Routes>
+          <Route path="/live/:sport" element={<Live />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
+  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
+
+  expect(await screen.findByRole('heading', { name: /live: nba/i })).toBeInTheDocument()
+  expect(screen.getByText(/contest key: nba:1001/i)).toBeInTheDocument()
+  expect(screen.queryByText(/contest key: nba:1002/i)).not.toBeInTheDocument()
+})
