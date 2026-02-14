@@ -6,10 +6,17 @@
     "nba": {
       "status": "ok",
       "updated_at": "2026-02-13T18:25:00Z",
+      "primary_contest": {
+        "contest_id": "1001",
+        "contest_key": "nba:1001",
+        "selection_reason": "highest_entry_fee_and_entries",
+        "selected_at": "2026-02-13T18:25:05Z"
+      },
       "contests": [
         {
           "contest_id": "1001",
           "contest_key": "nba:1001",
+          "is_primary": true,
           "name": "NBA $15 Single Entry",
           "sport": "nba",
           "contest_type": "classic",
@@ -20,6 +27,94 @@
           "currency": "USD",
           "entries_count": 5000,
           "max_entries": 5000,
+          "live_metrics": {
+            "updated_at": "2026-02-13T18:25:05Z",
+            "cash_line": {
+              "cutoff_type": "points",
+              "rank_cutoff": 900,
+              "points_cutoff": 135.2
+            }
+          },
+          "ownership_watchlist": {
+            "updated_at": "2026-02-13T18:25:05Z",
+            "ownership_remaining_total_pct": 62.5,
+            "top_n_default": 5,
+            "entries": [
+              {
+                "entry_key": "entry-nba-1001-a",
+                "display_name": "Train Head A",
+                "current_rank": 31,
+                "current_points": 148.7,
+                "ownership_remaining_pct": 57.8,
+                "pmr": 2
+              },
+              {
+                "entry_key": "entry-nba-1001-b",
+                "display_name": "Train Head B",
+                "current_rank": 64,
+                "current_points": 143.1,
+                "ownership_remaining_pct": 61.2,
+                "pmr": 3
+              }
+            ]
+          },
+          "train_clusters": {
+            "updated_at": "2026-02-13T18:25:05Z",
+            "cluster_rule": {
+              "type": "shared_slots",
+              "min_shared": 4
+            },
+            "clusters": [
+              {
+                "cluster_key": "nba-1001-cluster-a",
+                "entry_count": 14,
+                "best_rank": 22,
+                "best_points": 150.2,
+                "avg_pmr": 2.4,
+                "avg_ownership_remaining_pct": 58.9,
+                "composition": [
+                  { "slot": "PG", "player_id": "nba-p1" },
+                  { "slot": "SG", "player_id": "nba-p2" },
+                  { "slot": "SF", "player_id": "nba-p3" },
+                  { "slot": "PF", "player_id": "nba-p4" }
+                ],
+                "sample_entries": [
+                  {
+                    "entry_key": "entry-nba-1001-a",
+                    "display_name": "Train Head A",
+                    "current_rank": 31,
+                    "current_points": 148.7,
+                    "pmr": 2
+                  }
+                ]
+              }
+            ]
+          },
+          "standings": {
+            "updated_at": "2026-02-13T18:25:05Z",
+            "total_rows": 5000,
+            "is_truncated": true,
+            "rows": [
+              {
+                "entry_key": "entry-nba-1001-a",
+                "display_name": "Train Head A",
+                "rank": 31,
+                "points": 148.7,
+                "pmr": 2,
+                "payout_cents": 7500,
+                "ownership_remaining_pct": 57.8
+              },
+              {
+                "entry_key": "entry-nba-1001-b",
+                "display_name": "Train Head B",
+                "rank": 64,
+                "points": 143.1,
+                "pmr": 3,
+                "payout_cents": 4200,
+                "ownership_remaining_pct": 61.2
+              }
+            ]
+          },
           "vip_lineups": [
             {
               "vip_entry_key": "vip-alex-1",
@@ -31,6 +126,15 @@
                 { "slot": "PF", "player_id": "nba-p4" },
                 { "slot": "C", "player_id": "nba-p5" }
               ],
+              "live": {
+                "updated_at": "2026-02-13T18:25:05Z",
+                "current_points": 142.3,
+                "current_rank": 87,
+                "cash_line_delta_points": 7.1,
+                "is_cashing": true,
+                "ownership_remaining_pct": 59.1,
+                "pmr": 2
+              },
               "points": 142.3,
               "rank": 87,
               "payout_cents": 3200
@@ -40,6 +144,7 @@
         {
           "contest_id": "1002",
           "contest_key": "nba:1002",
+          "is_primary": false,
           "name": "NBA Showdown",
           "sport": "nba",
           "contest_type": "showdown",
@@ -143,10 +248,17 @@
       "status": "stale",
       "updated_at": "2026-02-13T18:20:00Z",
       "error": "Upstream timeout",
+      "primary_contest": {
+        "contest_id": "2001",
+        "contest_key": "nfl:2001",
+        "selection_reason": "only_eligible_contest",
+        "selected_at": "2026-02-13T18:20:05Z"
+      },
       "contests": [
         {
           "contest_id": "2001",
           "contest_key": "nfl:2001",
+          "is_primary": true,
           "name": "NFL Afternoon",
           "sport": "nfl",
           "contest_type": "classic",

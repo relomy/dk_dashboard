@@ -17,11 +17,22 @@ export interface VipLineup {
   rank?: number
   points?: number
   payout_cents?: number
+  live?: {
+    updated_at: string
+    current_points?: number
+    current_rank?: number
+    // Delta is defined against contest.live_metrics.cash_line.cutoff_type.
+    cash_line_delta_points?: number
+    is_cashing?: boolean
+    ownership_remaining_pct?: number
+    pmr?: number
+  }
 }
 
 export interface Contest {
   contest_id: string
   contest_key: string
+  is_primary?: boolean
   name: string
   sport: string
   contest_type: string
@@ -34,6 +45,64 @@ export interface Contest {
   entries_count: number
   max_entries: number
   vip_lineups: VipLineup[]
+  live_metrics?: {
+    updated_at: string
+    cash_line?: {
+      cutoff_type?: 'points' | 'rank' | 'unknown'
+      rank_cutoff?: number
+      points_cutoff?: number
+    }
+  }
+  ownership_watchlist?: {
+    updated_at: string
+    ownership_remaining_total_pct?: number
+    top_n_default?: number
+    entries: Array<{
+      entry_key: string
+      display_name?: string
+      current_rank?: number
+      current_points?: number
+      ownership_remaining_pct?: number
+      pmr?: number
+    }>
+  }
+  train_clusters?: {
+    updated_at: string
+    cluster_rule?: {
+      type: 'shared_slots'
+      min_shared: number
+    }
+    clusters: Array<{
+      cluster_key: string
+      entry_count: number
+      best_rank?: number
+      best_points?: number
+      avg_pmr?: number
+      avg_ownership_remaining_pct?: number
+      composition: VipLineupSlot[]
+      sample_entries?: Array<{
+        entry_key: string
+        display_name?: string
+        current_rank?: number
+        current_points?: number
+        pmr?: number
+      }>
+    }>
+  }
+  standings?: {
+    updated_at: string
+    total_rows?: number
+    is_truncated?: boolean
+    rows: Array<{
+      entry_key: string
+      display_name?: string
+      rank?: number
+      points?: number
+      pmr?: number
+      payout_cents?: number
+      ownership_remaining_pct?: number
+    }>
+  }
 }
 
 export interface Player {
@@ -52,6 +121,12 @@ export interface SportSnapshot {
   status: SportStatus
   updated_at: string
   error?: string
+  primary_contest?: {
+    contest_id: string
+    contest_key: string
+    selection_reason: string
+    selected_at: string
+  }
   contests: Contest[]
   players: Player[]
 }
