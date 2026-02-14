@@ -9,14 +9,15 @@ export interface VipLineupSlot {
 }
 
 export interface VipLineup {
-  vip_entry_key: string
+  entry_key?: string
+  vip_entry_key?: string
   entry_id?: string
   username?: string
   display_name: string
   slots: VipLineupSlot[]
   rank?: number
   points?: number
-  payout_cents?: number
+  payout_cents?: number | null
   live?: {
     updated_at: string
     current_points?: number
@@ -24,6 +25,7 @@ export interface VipLineup {
     // Delta is defined against contest.live_metrics.cash_line.cutoff_type.
     cash_line_delta_points?: number
     is_cashing?: boolean
+    payout_cents?: number | null
     ownership_remaining_pct?: number
     pmr?: number
   }

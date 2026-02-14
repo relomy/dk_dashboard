@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import KeyGate from '../components/KeyGate'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
@@ -7,7 +7,7 @@ import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } fro
 import type { VipLineup } from '../lib/types'
 
 function resolveCashing(lineup: VipLineup): boolean {
-  return lineup.payout_cents !== undefined
+  return lineup.payout_cents != null || lineup.live?.payout_cents != null
 }
 
 function formatValue(value: number | null | undefined, opts?: { suffix?: string }): string {
@@ -18,14 +18,24 @@ function formatValue(value: number | null | undefined, opts?: { suffix?: string 
   return `${value}${opts?.suffix ?? ''}`
 }
 
+function playerSortScore(player: { ownership_pct?: number | null; actual_points?: number | null; projected_points?: number | null }) {
+  if (player.ownership_pct !== null && player.ownership_pct !== undefined) {
+    return player.ownership_pct
+  }
+  if (player.actual_points !== null && player.actual_points !== undefined) {
+    return player.actual_points
+  }
+  if (player.projected_points !== null && player.projected_points !== undefined) {
+    return player.projected_points
+  }
+  return Number.NEGATIVE_INFINITY
+}
+
 function Live() {
   const queryClient = useQueryClient()
   const { sport } = useParams()
-  const [apiKey, setApiKey] = useState('')
-
-  useEffect(() => {
-    setApiKey(getStoredKey())
-  }, [])
+  const [apiKey, setApiKey] = useState(() => getStoredKey())
+  const [playerSearch, setPlayerSearch] = useState('')
 
   const { snapshot, loading, error, usingCache } = useSportSnapshot(apiKey)
 
@@ -46,6 +56,14 @@ function Live() {
   }
 
   const sportKey = sport.toLowerCase()
+  const sportData = snapshot?.sports[sportKey]
+  const filteredPlayers = useMemo(() => {
+    const search = playerSearch.trim().toLowerCase()
+    const players = sportData?.players ?? []
+    return [...players]
+      .filter((player) => (search ? player.name.toLowerCase().includes(search) : true))
+      .sort((a, b) => playerSortScore(b) - playerSortScore(a))
+  }, [playerSearch, sportData?.players])
 
   if (!usingCache && !apiKey) {
     return <KeyGate onSave={handleSaveKey} />
@@ -70,8 +88,6 @@ function Live() {
   if (!snapshot) {
     return <p className="page">Snapshot not available.</p>
   }
-
-  const sportData = snapshot.sports[sportKey]
 
   if (!sportData) {
     return (
@@ -143,7 +159,8 @@ function Live() {
           <p className="meta-text">No VIP lineups available for this contest or active filter.</p>
         ) : (
           <ul className="list-panel">
-            {primaryContest.vip_lineups.map((lineup) => {
+            {primaryContest.vip_lineups.map((lineup, lineupIndex) => {
+              const lineupKey = lineup.entry_key || lineup.vip_entry_key || lineup.display_name
               const isCashing = resolveCashing(lineup)
               const delta =
                 lineup.live?.cash_line_delta_points === null || lineup.live?.cash_line_delta_points === undefined
@@ -154,7 +171,7 @@ function Live() {
                 : 'unknown'
 
               return (
-                <li key={lineup.vip_entry_key} className="item-card page-stack-sm">
+                <li key={`${lineupKey}-${lineupIndex}`} className="item-card page-stack-sm">
                   <div className="sport-contest-headline">
                     <p className="item-title">{lineup.display_name}</p>
                     <span className={`status ${isCashing ? 'status-ok' : 'status-error'}`}>
@@ -167,7 +184,7 @@ function Live() {
                     {lineup.slots.map((slot, index) => {
                       const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
                       return (
-                        <li key={`${lineup.vip_entry_key}-${index}`}>
+                        <li key={`${lineupKey}-${index}`}>
                           {slot.slot}: {slot.player_name}
                           {multiplier}
                         </li>
@@ -178,6 +195,48 @@ function Live() {
               )
             })}
           </ul>
+        )}
+      </div>
+
+      <div className="panel page-stack-sm">
+        <h2 className="section-title">Player pool</h2>
+        <div className="field-inline sport-player-search">
+          <label htmlFor="live-player-search">Search players</label>
+          <input
+            id="live-player-search"
+            type="text"
+            value={playerSearch}
+            onChange={(event) => setPlayerSearch(event.target.value)}
+            placeholder="Search by player name"
+          />
+        </div>
+        {filteredPlayers.length === 0 ? (
+          <p className="meta-text">No matching players.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>Team</th>
+                <th>Own%</th>
+                <th>Actual</th>
+                <th>Projected</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPlayers.map((player, playerIndex) => (
+                <tr key={player.player_id || `${player.name}-${playerIndex}`}>
+                  <td>{player.name}</td>
+                  <td>{player.team}</td>
+                  <td>{formatValue(player.ownership_pct, { suffix: '%' })}</td>
+                  <td>{formatValue(player.actual_points)}</td>
+                  <td>{formatValue(player.projected_points)}</td>
+                  <td>{player.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
@@ -205,8 +264,8 @@ function Live() {
                   </tr>
                 </thead>
                 <tbody>
-                  {topEntries.map((entry) => (
-                    <tr key={entry.entry_key}>
+                  {topEntries.map((entry, entryIndex) => (
+                    <tr key={entry.entry_key || `watch-${entryIndex}`}>
                       <td>{entry.display_name ?? entry.entry_key}</td>
                       <td>{formatValue(entry.ownership_remaining_pct, { suffix: '%' })}</td>
                       <td>{formatValue(entry.pmr)}</td>
@@ -239,55 +298,64 @@ function Live() {
             {sortedClusters.length === 0 ? (
               <p className="meta-text">No train clusters available.</p>
             ) : (
-              <ul className="list-panel">
-                {sortedClusters.map((cluster) => (
-                  <li key={cluster.cluster_key} className="item-card page-stack-sm">
-                    <p className="item-title">{cluster.cluster_key}</p>
-                    <p className="meta-text">Entry count: {cluster.entry_count}</p>
-                    <p className="meta-text">Best rank: {formatValue(cluster.best_rank)}</p>
-                    <p className="meta-text">Best points: {formatValue(cluster.best_points)}</p>
-                    <p className="meta-text">Avg PMR: {formatValue(cluster.avg_pmr)}</p>
-                    <p className="meta-text">
-                      Avg ownership remaining: {formatValue(cluster.avg_ownership_remaining_pct, { suffix: '%' })}
-                    </p>
-
-                    <div>
-                      <p className="meta-text">Composition</p>
-                      <ol>
-                        {cluster.composition.map((slot, index) => {
-                          const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
-                          return (
-                            <li key={`${cluster.cluster_key}-composition-${index}`}>
-                              {slot.slot}: {slot.player_name}
-                              {multiplier}
-                            </li>
-                          )
-                        })}
-                      </ol>
-                    </div>
-
-                    {cluster.sample_entries?.length ? (
-                      <div>
-                        <p className="meta-text">Sample entries</p>
-                        <ul>
-                          {cluster.sample_entries.slice(0, 3).map((entry) => (
-                            <li key={`${cluster.cluster_key}-sample-${entry.entry_key}`}>
-                              {entry.display_name ?? entry.entry_key}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
+              <table className="data-table live-train-table">
+                <thead>
+                  <tr>
+                    <th>Cluster</th>
+                    <th>Entries</th>
+                    <th>Best rank</th>
+                    <th>Best pts</th>
+                    <th>Avg PMR</th>
+                    <th>Avg own%</th>
+                    <th>Lineup</th>
+                    <th>Samples</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedClusters.map((cluster, clusterIndex) => {
+                    const lineupSummary = cluster.composition
+                      .map((slot) => `${slot.slot}:${slot.player_name}${slot.multiplier ? ` x${slot.multiplier}` : ''}`)
+                      .join(' | ')
+                    return (
+                      <tr key={cluster.cluster_key || `cluster-${clusterIndex}`}>
+                        <td>{cluster.cluster_key}</td>
+                        <td>{cluster.entry_count}</td>
+                        <td>{formatValue(cluster.best_rank)}</td>
+                        <td>{formatValue(cluster.best_points)}</td>
+                        <td>{formatValue(cluster.avg_pmr)}</td>
+                        <td>{formatValue(cluster.avg_ownership_remaining_pct, { suffix: '%' })}</td>
+                        <td>
+                          <span className="live-train-lineup">{lineupSummary}</span>
+                        </td>
+                        <td>
+                          {cluster.sample_entries?.length ? (
+                            <details>
+                              <summary>{cluster.sample_entries.length} sample entries</summary>
+                              <ul>
+                                {cluster.sample_entries.slice(0, 3).map((entry) => (
+                                  <li key={`${cluster.cluster_key}-sample-${entry.entry_key}`}>
+                                    {entry.display_name ?? entry.entry_key}
+                                  </li>
+                                ))}
+                              </ul>
+                            </details>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             )}
           </>
         )}
       </div>
 
-      <div className="panel page-stack-sm">
+      <div className="panel page-stack-sm live-secondary-panel">
         <h2 className="section-title">Standings</h2>
+        <p className="meta-text">Secondary detail view.</p>
         {!standings ? (
           <p className="meta-text">Standings unavailable for this contest.</p>
         ) : (
@@ -311,8 +379,8 @@ function Live() {
                   </tr>
                 </thead>
                 <tbody>
-                  {standings.rows.map((row) => (
-                    <tr key={row.entry_key}>
+                  {standings.rows.map((row, rowIndex) => (
+                    <tr key={row.entry_key || `standings-${row.rank ?? 'row'}-${rowIndex}`}>
                       <td>{row.display_name ?? row.entry_key}</td>
                       <td>{formatValue(row.rank)}</td>
                       <td>{formatValue(row.points)}</td>

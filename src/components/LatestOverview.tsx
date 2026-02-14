@@ -14,11 +14,18 @@ interface LatestOverviewProps {
 const orderedStates: ContestState[] = ['live', 'upcoming', 'completed', 'cancelled', 'unknown']
 
 function formatMoney(cents: number, currency: string): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(cents / 100)
+  const safeCents = Number.isFinite(cents) ? cents : 0
+  const safeCurrency = currency || 'USD'
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: safeCurrency,
+      maximumFractionDigits: 0,
+    }).format(safeCents / 100)
+  } catch {
+    return `$${(safeCents / 100).toFixed(0)}`
+  }
 }
 
 function groupByState(contests: Contest[]): Record<ContestState, Contest[]> {
@@ -31,7 +38,8 @@ function groupByState(contests: Contest[]): Record<ContestState, Contest[]> {
   }
 
   for (const contest of contests) {
-    grouped[contest.state].push(contest)
+    const state = contest.state && contest.state in grouped ? contest.state : 'unknown'
+    grouped[state as ContestState].push(contest)
   }
 
   return grouped
@@ -39,6 +47,10 @@ function groupByState(contests: Contest[]): Record<ContestState, Contest[]> {
 
 function formatContestState(state: ContestState): string {
   return state.charAt(0).toUpperCase() + state.slice(1)
+}
+
+function normalizeContestState(state: Contest['state'] | null | undefined): ContestState {
+  return state && orderedStates.includes(state) ? state : 'unknown'
 }
 
 function renderLineupSlots(lineup: VipLineup): string {
@@ -50,15 +62,19 @@ function renderLineupSlots(lineup: VipLineup): string {
 }
 
 function ContestBlock({ contest, lineups }: { contest: Contest; lineups: VipLineup[] }) {
+  const entryFeeCents = contest.entry_fee_cents ?? (contest as Contest & { entry_fee?: number }).entry_fee ?? 0
+  const prizePoolCents = contest.prize_pool_cents ?? (contest as Contest & { prize_pool?: number }).prize_pool ?? 0
+  const contestState = normalizeContestState(contest.state)
+
   return (
     <article className="latest-contest">
       <div className="latest-contest-head">
         <strong>{contest.name}</strong>
-        <span>{formatMoney(contest.entry_fee_cents, contest.currency)}</span>
-        <span className={`contest-state-badge contest-state-${contest.state}`}>{formatContestState(contest.state)}</span>
+        <span>{formatMoney(entryFeeCents, contest.currency)}</span>
+        <span className={`contest-state-badge contest-state-${contestState}`}>{formatContestState(contestState)}</span>
       </div>
       <p className="latest-meta">
-        Entries {contest.entries_count}/{contest.max_entries} | Prize {formatMoney(contest.prize_pool_cents, contest.currency)}
+        Entries {contest.entries_count}/{contest.max_entries} | Prize {formatMoney(prizePoolCents, contest.currency)}
       </p>
       <div>
         <p className="latest-vip-label">VIP lineups</p>
@@ -66,8 +82,8 @@ function ContestBlock({ contest, lineups }: { contest: Contest; lineups: VipLine
           <p className="latest-muted">No matching VIP lineups</p>
         ) : (
           <ul className="latest-vip-list">
-            {lineups.map((lineup) => (
-              <li key={lineup.vip_entry_key}>
+            {lineups.map((lineup, index) => (
+              <li key={lineup.entry_key || lineup.vip_entry_key || `${lineup.display_name}-${index}`}>
                 <strong>{lineup.display_name}</strong>
                 <div className="latest-slot-line">{renderLineupSlots(lineup)}</div>
               </li>
@@ -145,9 +161,9 @@ function LatestSportCard({
       {grouped.live.length > 0 ? (
         <section ref={liveRef} className="page-stack-sm">
           <h3 className="subsection-title">Live Contests</h3>
-          {grouped.live.map((contest) => {
+          {grouped.live.map((contest, contestIndex) => {
             const lineups = filterVipLineups(contest.vip_lineups, activeProfileRules, vipFilterMode)
-            return <ContestBlock key={contest.contest_key} contest={contest} lineups={lineups} />
+            return <ContestBlock key={contest.contest_key || `live-${contestIndex}`} contest={contest} lineups={lineups} />
           })}
         </section>
       ) : (
@@ -173,9 +189,9 @@ function LatestSportCard({
               <summary>
                 {formatContestState(state)} ({contests.length})
               </summary>
-              {contests.map((contest) => {
+              {contests.map((contest, contestIndex) => {
                 const lineups = filterVipLineups(contest.vip_lineups, activeProfileRules, vipFilterMode)
-                return <ContestBlock key={contest.contest_key} contest={contest} lineups={lineups} />
+                return <ContestBlock key={contest.contest_key || `${state}-${contestIndex}`} contest={contest} lineups={lineups} />
               })}
             </details>
           )
