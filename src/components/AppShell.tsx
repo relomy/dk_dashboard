@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
+import { useProfiles } from '../context/ProfileContext'
 
 const navItems = [
   { to: '/latest', label: 'Latest' },
@@ -8,6 +9,8 @@ const navItems = [
 ]
 
 function AppShell() {
+  const { profiles, activeProfileId, setActiveProfileId } = useProfiles()
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -21,6 +24,20 @@ function AppShell() {
             </NavLink>
           ))}
         </nav>
+        <div>
+          <label htmlFor="active-profile">Active profile</label>{' '}
+          <select
+            id="active-profile"
+            value={activeProfileId}
+            onChange={(event) => setActiveProfileId(event.target.value)}
+          >
+            {profiles.map((profile) => (
+              <option key={profile.id} value={profile.id}>
+                {profile.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </header>
       <main>
         <Outlet />
