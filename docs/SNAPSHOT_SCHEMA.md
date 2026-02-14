@@ -178,3 +178,10 @@ Notes:
 ```
 
 Manifest naming uses UTC dates: `manifest/YYYY-MM-DD.json`.
+
+## Test fixture baseline
+- Canonical contract fixture: `public/mock/snapshots/canonical-live-snapshot.json`.
+- Targeted behavior variants:
+  - `public/mock/snapshots/canonical-live-snapshot-missing-sections.json`
+  - `public/mock/snapshots/canonical-live-snapshot-empty-standings.json`
+  - `public/mock/snapshots/canonical-live-snapshot-no-primary.json`
