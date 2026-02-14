@@ -87,7 +87,7 @@ Current snapshot format uses `schema_version: 1`.
       best_points?: number,
       avg_pmr?: number,
       avg_ownership_remaining_pct?: number,
-      composition: Array<{ slot: string; player_id: string; multiplier?: number }>,
+      composition: Array<{ slot: string; player_name: string; multiplier?: number }>,
       sample_entries?: Array<{
         entry_key: string,
         display_name?: string,
@@ -121,7 +121,7 @@ Current snapshot format uses `schema_version: 1`.
   entry_id?: string,
   username?: string,
   display_name: string,
-  slots: Array<{ slot: string; player_id: string; multiplier?: number }>,
+  slots: Array<{ slot: string; player_name: string; multiplier?: number }>,
   rank?: number,
   points?: number,
   payout_cents?: number,
@@ -141,6 +141,7 @@ Notes:
 - `slot` values are opaque and must be rendered in provided order.
 - `multiplier` is optional; if absent, UI treats as 1.0.
 - `cash_line_delta_points` is interpreted against `contest.live_metrics.cash_line.cutoff_type`.
+- `payout_cents` presence is the source of truth for cashing state; if `live.is_cashing` is emitted, it should match.
 - For standings rows, `payout_cents` presence implies the row is currently cashing.
 
 ## `Player`
@@ -177,3 +178,10 @@ Notes:
 ```
 
 Manifest naming uses UTC dates: `manifest/YYYY-MM-DD.json`.
+
+## Test fixture baseline
+- Canonical contract fixture: `public/mock/snapshots/canonical-live-snapshot.json`.
+- Targeted behavior variants:
+  - `public/mock/snapshots/canonical-live-snapshot-missing-sections.json`
+  - `public/mock/snapshots/canonical-live-snapshot-empty-standings.json`
+  - `public/mock/snapshots/canonical-live-snapshot-no-primary.json`

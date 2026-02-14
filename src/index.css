@@ -434,6 +434,22 @@ summary:focus-visible {
   font-weight: 700;
 }
 
+.live-train-table td {
+  font-size: 0.8rem;
+}
+
+.live-train-lineup {
+  display: inline-block;
+  max-width: 28rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-secondary-panel {
+  opacity: 0.92;
+}
+
 .status-list {
   display: flex;
   flex-wrap: wrap;

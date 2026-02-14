@@ -2,6 +2,14 @@
 
 Static React dashboard for viewing DraftKings snapshot data from `dk_results`.
 
+## Key routes
+- `/latest`: cross-sport overview.
+- `/live/:sport`: single-sport, primary-contest sweat page (VIP board, ownership remaining, train finder, secondary standings).
+- `/sport/:sport`: broader per-sport drilldown across contests.
+- `/history` and `/history/:timestamp`: manifest-driven history list and snapshot deep links.
+- `/health`: freshness and error diagnostics.
+- `/settings`: access key + local profile management.
+
 ## Local dev
 1. `npm i`
 2. `npm run dev`
@@ -16,6 +24,9 @@ VITE_USE_MOCK=true npm run dev
 Notes:
 - Mock mode is dev-only.
 - Optional API base override is available for dev/preview: `VITE_API_BASE_URL`.
+- Optional snapshot-only helper is available for real-data validation without manifests:
+  `VITE_MOCK_SNAPSHOT_ONLY=true` and optional `VITE_MOCK_SNAPSHOT_PATH=snapshots/canonical-live-snapshot.json`.
+  In this mode, `/api/latest` is synthesized locally and History is disabled with `History requires manifest files.`.
 
 ## API contract (`/api/latest`, `/api/snapshot`)
 The app expects same-origin endpoints in production.
@@ -32,7 +43,7 @@ Expected shape (minimum):
 
 ### `GET /api/snapshot?path=...`
 Returns JSON content addressed by `path`, for example:
-- snapshot: `snapshots/2026-02-13T18-25-00Z.json`
+- snapshot: `snapshots/canonical-live-snapshot.json`
 - manifest: `manifest/2026-02-13.json`
 
 Auth:

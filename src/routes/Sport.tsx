@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
 import KeyGate from '../components/KeyGate'
 import StatusBadge from '../components/StatusBadge'
@@ -13,10 +14,17 @@ import { filterVipLineups } from '../lib/vipMatcher'
 const contestStates: ContestState[] = ['live', 'upcoming', 'completed', 'cancelled', 'unknown']
 
 function formatMoney(cents: number, currency: string): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency,
-  }).format(cents / 100)
+  const safeCents = Number.isFinite(cents) ? cents : 0
+  const safeCurrency = currency || 'USD'
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: safeCurrency,
+    }).format(safeCents / 100)
+  } catch {
+    return `$${(safeCents / 100).toFixed(0)}`
+  }
 }
 
 function scoreForSort(player: Player): number {
@@ -33,7 +41,8 @@ function groupContestsByState(contests: Contest[]): Record<ContestState, Contest
   }
 
   for (const contest of contests) {
-    grouped[contest.state].push(contest)
+    const state = contest.state && contest.state in grouped ? contest.state : 'unknown'
+    grouped[state as ContestState].push(contest)
   }
 
   return grouped
@@ -41,6 +50,10 @@ function groupContestsByState(contests: Contest[]): Record<ContestState, Contest
 
 function formatContestState(state: ContestState): string {
   return state.charAt(0).toUpperCase() + state.slice(1)
+}
+
+function normalizeContestState(state: Contest['state'] | null | undefined): ContestState {
+  return state && contestStates.includes(state) ? state : 'unknown'
 }
 
 function PlayerPoolTable({ players }: { players: Player[] }) {
@@ -79,11 +92,11 @@ function PlayerPoolTable({ players }: { players: Player[] }) {
           </tr>
         </thead>
         <tbody>
-          {filtered.map((player) => (
-            <tr key={player.player_id}>
+          {filtered.map((player, index) => (
+            <tr key={player.player_id || `${player.name}-${index}`}>
               <td>{player.name}</td>
               <td>{player.team}</td>
-              <td>{player.positions.join('/')}</td>
+              <td>{player.positions?.join('/') || '-'}</td>
               <td>{player.actual_points ?? '-'}</td>
               <td>{player.projected_points ?? '-'}</td>
               <td>{player.ownership_pct ?? '-'}</td>
@@ -105,7 +118,6 @@ function ContestSection({
   activeProfileRules: ProfileMatchRules
 }) {
   const grouped = groupContestsByState(sportData.contests)
-  const playersById = new Map(sportData.players.map((player) => [player.player_id, player]))
 
   return (
     <>
@@ -115,39 +127,44 @@ function ContestSection({
             {state} ({grouped[state].length})
           </h2>
           {grouped[state].length === 0 ? <p className="meta-text">No contests in this state.</p> : null}
-          {grouped[state].map((contest) => {
+          {grouped[state].map((contest, contestIndex) => {
             const lineups = filterVipLineups(contest.vip_lineups, activeProfileRules, vipFilterMode)
+            const entryFeeCents = contest.entry_fee_cents ?? (contest as Contest & { entry_fee?: number }).entry_fee ?? 0
+            const prizePoolCents = contest.prize_pool_cents ?? (contest as Contest & { prize_pool?: number }).prize_pool ?? 0
+            const contestState = normalizeContestState(contest.state)
 
             return (
-              <article key={contest.contest_key} className="item-card page-stack-sm">
+              <article key={contest.contest_key || `${state}-${contestIndex}`} className="item-card page-stack-sm">
                 <div className="sport-contest-headline">
                   <h3 className="subsection-title">{contest.name}</h3>
-                  <p className="meta-text">{formatMoney(contest.entry_fee_cents, contest.currency)}</p>
-                  <span className={`contest-state-badge contest-state-${contest.state}`}>
-                    {formatContestState(contest.state)}
+                  <p className="meta-text">{formatMoney(entryFeeCents, contest.currency)}</p>
+                  <span className={`contest-state-badge contest-state-${contestState}`}>
+                    {formatContestState(contestState)}
                   </span>
                 </div>
                 <div className="sport-contest-meta">
                   <p className="meta-text">
                     Entries: {contest.entries_count}/{contest.max_entries}
                   </p>
-                  <p className="meta-text">Prize pool: {formatMoney(contest.prize_pool_cents, contest.currency)}</p>
+                  <p className="meta-text">Prize pool: {formatMoney(prizePoolCents, contest.currency)}</p>
                 </div>
                 <h4 className="subsection-title">VIP lineups</h4>
                 {lineups.length === 0 ? (
                   <p className="muted-text">No matching VIP lineups.</p>
                 ) : (
                   <div className="sport-lineup-grid">
-                    {lineups.map((lineup) => (
-                      <div key={lineup.vip_entry_key} className="panel-subtle">
+                    {lineups.map((lineup, lineupIndex) => (
+                      <div
+                        key={lineup.entry_key || lineup.vip_entry_key || `${lineup.display_name}-${lineupIndex}`}
+                        className="panel-subtle"
+                      >
                         <p className="item-title">{lineup.display_name}</p>
                         <ol className="sport-lineup-slots">
                           {lineup.slots.map((slot, index) => {
-                            const player = playersById.get(slot.player_id)
                             const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
                             return (
-                              <li key={`${lineup.vip_entry_key}-${index}`}>
-                                {slot.slot}: {player?.name ?? slot.player_id}
+                              <li key={`${lineup.entry_key || lineup.vip_entry_key || lineup.display_name}-${index}`}>
+                                {slot.slot}: {slot.player_name}
                                 {multiplier}
                               </li>
                             )
@@ -236,6 +253,9 @@ function Sport() {
           <h1 className="page-title">Sport: {sport.toUpperCase()}</h1>
           <StatusBadge status={sportData.status} />
         </div>
+        <p className="meta-text">
+          <Link to={`/live/${sportKey}`}>Open live sweat view</Link>
+        </p>
         <p className="page-meta">Snapshot at: {new Date(snapshot.snapshot_at).toLocaleString()}</p>
         <p className="meta-text">Sport updated: {new Date(sportData.updated_at).toLocaleString()}</p>
         {sportData.error ? <p className="error-text">Sport error: {sportData.error}</p> : null}

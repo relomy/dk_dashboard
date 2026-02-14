@@ -1,4 +1,5 @@
 import { config } from './env'
+import type { LatestResponse } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -14,6 +15,20 @@ interface RequestOptions {
   apiKey?: string
   retries?: number
   timeoutMs?: number
+}
+
+export function createMockLatestSnapshotOnlyResponse(
+  snapshotPath: string,
+  nowIso = new Date().toISOString(),
+): LatestResponse {
+  return {
+    latest_snapshot_path: snapshotPath,
+    snapshot_at: nowIso,
+    generated_at: nowIso,
+    available_sports: [],
+    // Empty path indicates history manifests are intentionally unavailable in this mode.
+    manifest_today_path: '',
+  }
 }
 
 export function buildApiUrl(path: string, opts?: { useMock?: boolean }): string {
@@ -46,6 +61,10 @@ export function buildApiUrl(path: string, opts?: { useMock?: boolean }): string 
 }
 
 export async function fetchJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  if (config.useMock && config.mockSnapshotOnly && path === '/api/latest') {
+    return createMockLatestSnapshotOnlyResponse(config.mockSnapshotPath) as T
+  }
+
   const retries = options.retries ?? 1
   const timeoutMs = options.timeoutMs ?? 10_000
 

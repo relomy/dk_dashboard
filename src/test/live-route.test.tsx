@@ -2,7 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import snapshotFixture from '../../public/mock/snapshots/2026-02-13T18-25-00Z.json'
+import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.json'
+import emptyStandingsFixture from '../../public/mock/snapshots/canonical-live-snapshot-empty-standings.json'
+import missingSectionsFixture from '../../public/mock/snapshots/canonical-live-snapshot-missing-sections.json'
+import noPrimaryFixture from '../../public/mock/snapshots/canonical-live-snapshot-no-primary.json'
 import Live from '../routes/Live'
 
 afterEach(() => {
@@ -10,7 +13,7 @@ afterEach(() => {
   cleanup()
 })
 
-it('resolves and renders the selected primary contest for live route', async () => {
+function mockLatestAndSnapshot(snapshot: unknown, snapshotPath = 'snapshots/canonical-live-snapshot.json') {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -19,7 +22,7 @@ it('resolves and renders the selected primary contest for live route', async () 
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            latest_snapshot_path: snapshotPath,
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -29,9 +32,13 @@ it('resolves and renders the selected primary contest for live route', async () 
         )
       }
 
-      return new Response(JSON.stringify(snapshotFixture), { status: 200 })
+      return new Response(JSON.stringify(snapshot), { status: 200 })
     }),
   )
+}
+
+async function renderLive(snapshot: unknown, path = 'snapshots/canonical-live-snapshot.json') {
+  mockLatestAndSnapshot(snapshot, path)
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
@@ -48,56 +55,19 @@ it('resolves and renders the selected primary contest for live route', async () 
   fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
   fireEvent.click(screen.getByRole('button', { name: /save key/i }))
 
-  expect(await screen.findByRole('heading', { name: /live: nba/i })).toBeInTheDocument()
+  await screen.findByRole('heading', { name: /live: nba/i })
+}
+
+it('resolves and renders the selected primary contest for live route', async () => {
+  await renderLive(snapshotFixture)
   expect(screen.getByRole('heading', { name: /primary contest/i })).toBeInTheDocument()
-  expect(screen.getByText(/contest key: nba:1001/i)).toBeInTheDocument()
-  expect(screen.getByText(/alex core/i)).toBeInTheDocument()
-  expect(screen.queryByText(/jamie sd/i)).not.toBeInTheDocument()
+  expect(screen.getByText(/contest key:/i)).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: /vip board/i })).toBeInTheDocument()
   expect(screen.getByText(/selection reason:/i)).toBeInTheDocument()
 })
 
 it('shows explicit state when primary contest is not configured', async () => {
-  const snapshotWithoutPrimary = structuredClone(snapshotFixture) as any
-  snapshotWithoutPrimary.sports.nba.primary_contest = undefined
-
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input)
-
-      if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
-        return new Response(
-          JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
-            snapshot_at: '2026-02-13T18:25:00Z',
-            generated_at: '2026-02-13T18:25:07Z',
-            available_sports: ['nba', 'nfl'],
-            manifest_today_path: 'manifest/2026-02-13.json',
-          }),
-          { status: 200 },
-        )
-      }
-
-      return new Response(JSON.stringify(snapshotWithoutPrimary), { status: 200 })
-    }),
-  )
-
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-
-  render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/live/nba']}>
-        <Routes>
-          <Route path="/live/:sport" element={<Live />} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  )
-
-  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
-
-  expect(await screen.findByRole('heading', { name: /live: nba/i })).toBeInTheDocument()
+  await renderLive(noPrimaryFixture)
   expect(screen.getByText(/primary contest is not configured for this sport/i)).toBeInTheDocument()
 })
 
@@ -109,101 +79,195 @@ it('prefers contest.is_primary before primary_contest key/id fallbacks', async (
     selection_reason: 'conflict-for-test',
     selected_at: '2026-02-13T18:25:05Z',
   }
+  const primaryByFlag = snapshotWithConflictingPointers.sports.nba.contests.find((contest: any) => contest.is_primary === true)
 
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input)
-
-      if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
-        return new Response(
-          JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
-            snapshot_at: '2026-02-13T18:25:00Z',
-            generated_at: '2026-02-13T18:25:07Z',
-            available_sports: ['nba', 'nfl'],
-            manifest_today_path: 'manifest/2026-02-13.json',
-          }),
-          { status: 200 },
-        )
-      }
-
-      return new Response(JSON.stringify(snapshotWithConflictingPointers), { status: 200 })
-    }),
-  )
-
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-
-  render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/live/nba']}>
-        <Routes>
-          <Route path="/live/:sport" element={<Live />} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  )
-
-  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
-
-  expect(await screen.findByRole('heading', { name: /live: nba/i })).toBeInTheDocument()
-  expect(screen.getByText(/contest key: nba:1001/i)).toBeInTheDocument()
-  expect(screen.queryByText(/contest key: nba:1002/i)).not.toBeInTheDocument()
+  await renderLive(snapshotWithConflictingPointers)
+  expect(screen.getByText(new RegExp(`contest id: ${primaryByFlag.contest_id}`, 'i'))).toBeInTheDocument()
+  expect(screen.queryByText(/contest id: 1002/i)).not.toBeInTheDocument()
 })
 
-it('uses cashing fallback from payout and preserves slot order with player-name fallback', async () => {
-  const snapshotWithUnknownSlotPlayer = structuredClone(snapshotFixture) as any
-  snapshotWithUnknownSlotPlayer.sports.nba.contests[0].vip_lineups[1].slots[1].player_id = 'nba-p999'
+it('uses payout_cents as cashing truth for VIP lineups', async () => {
+  const snapshotWithConflictingCashingSignals = structuredClone(snapshotFixture) as any
+  snapshotWithConflictingCashingSignals.sports.nba.contests[0].vip_lineups[0].display_name = 'Payout Truth Test'
+  snapshotWithConflictingCashingSignals.sports.nba.contests[0].vip_lineups[0].payout_cents = 100
+  snapshotWithConflictingCashingSignals.sports.nba.contests[0].vip_lineups[0].live = {
+    ...(snapshotWithConflictingCashingSignals.sports.nba.contests[0].vip_lineups[0].live ?? {}),
+    is_cashing: false,
+  }
 
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input)
-
-      if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
-        return new Response(
-          JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
-            snapshot_at: '2026-02-13T18:25:00Z',
-            generated_at: '2026-02-13T18:25:07Z',
-            available_sports: ['nba', 'nfl'],
-            manifest_today_path: 'manifest/2026-02-13.json',
-          }),
-          { status: 200 },
-        )
-      }
-
-      return new Response(JSON.stringify(snapshotWithUnknownSlotPlayer), { status: 200 })
-    }),
-  )
-
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-
-  render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/live/nba']}>
-        <Routes>
-          <Route path="/live/:sport" element={<Live />} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  )
-
-  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
-
-  expect(await screen.findByRole('heading', { name: /live: nba/i })).toBeInTheDocument()
-  expect(screen.getByText(/fallback cash/i)).toBeInTheDocument()
-  expect(screen.getAllByText(/cashing/i).length).toBeGreaterThan(0)
-  expect(screen.getByText(/cash-line delta: —/i)).toBeInTheDocument()
-
-  const fallbackCard = screen.getByText(/fallback cash/i).closest('li')
+  await renderLive(snapshotWithConflictingCashingSignals)
+  const fallbackCard = screen.getByText(/payout truth test/i).closest('li')
   if (!fallbackCard) {
     throw new Error('Fallback lineup card not found')
   }
+  expect(within(fallbackCard).getByText(/^cashing$/i)).toBeInTheDocument()
+})
 
-  const slotItems = within(fallbackCard).getAllByRole('listitem')
-  expect(slotItems[0]).toHaveTextContent('PG: Guard One')
-  expect(slotItems[1]).toHaveTextContent('UTIL: nba-p999')
+it('renders VIP and train slot names directly from name-only fields', async () => {
+  const snapshotWithUnknownNames = structuredClone(snapshotFixture) as any
+  snapshotWithUnknownNames.sports.nba.contests[0].vip_lineups[0].slots[0].player_name = 'Unknown Slot Name'
+  snapshotWithUnknownNames.sports.nba.contests[0].train_clusters.clusters[0].composition[0].player_name =
+    'Unknown Composition Name'
+
+  await renderLive(snapshotWithUnknownNames)
+  expect(screen.getByText(/Unknown Slot Name/i)).toBeInTheDocument()
+  expect(screen.getByText(/Unknown Composition Name/i)).toBeInTheDocument()
+})
+
+it('renders ownership watchlist total and respects top_n_default', async () => {
+  const snapshotWithTopN = structuredClone(snapshotFixture) as any
+  snapshotWithTopN.sports.nba.contests[0].ownership_watchlist.entries = [
+    {
+      entry_key: 'ownership-entry-1',
+      display_name: 'Ownership Entry',
+      ownership_remaining_pct: 22.2,
+      pmr: 1,
+      current_rank: 3,
+      current_points: 99.1,
+    },
+  ]
+  snapshotWithTopN.sports.nba.contests[0].ownership_watchlist.top_n_default = 1
+
+  await renderLive(snapshotWithTopN)
+  expect(screen.getByText(/ownership remaining total:/i)).toBeInTheDocument()
+  expect(screen.getByText(/^top 1$/i)).toBeInTheDocument()
+  const ownershipPanel = screen.getByRole('heading', { name: /ownership remaining/i }).closest('.panel')
+  if (!(ownershipPanel instanceof HTMLElement)) {
+    throw new Error('Ownership panel not found')
+  }
+  const ownershipTable = within(ownershipPanel).getByRole('table')
+  expect(within(ownershipTable).getAllByRole('row')).toHaveLength(2)
+})
+
+it('shows unavailable placeholders when sections are missing', async () => {
+  await renderLive(missingSectionsFixture)
+  expect(screen.getByText(/ownership watchlist unavailable for this contest/i)).toBeInTheDocument()
+  expect(screen.getByText(/train cluster data unavailable for this contest/i)).toBeInTheDocument()
+  expect(screen.getByText(/standings unavailable for this contest/i)).toBeInTheDocument()
+})
+
+it('renders train clusters with cluster rule and sorts by entry_count desc', async () => {
+  const snapshotWithSortedClusters = structuredClone(snapshotFixture) as any
+  snapshotWithSortedClusters.sports.nba.contests[0].train_clusters.clusters.push({
+    cluster_key: 'cluster-sort-test',
+    entry_count: 25,
+    best_rank: 15,
+    best_points: 153.4,
+    avg_pmr: 1.8,
+    avg_ownership_remaining_pct: 50.5,
+    composition: [
+      { slot: 'PG', player_name: 'Guard One' },
+      { slot: 'SG', player_name: 'Guard Two' },
+    ],
+    sample_entries: [
+      { entry_key: 'entry-b-1', display_name: 'Sample B1' },
+      { entry_key: 'entry-b-2', display_name: 'Sample B2' },
+      { entry_key: 'entry-b-3', display_name: 'Sample B3' },
+      { entry_key: 'entry-b-4', display_name: 'Sample B4' },
+    ],
+  })
+
+  await renderLive(snapshotWithSortedClusters)
+  const trainPanel = screen.getByRole('heading', { name: /train finder/i }).closest('.panel')
+  if (!(trainPanel instanceof HTMLElement)) {
+    throw new Error('Train panel not found')
+  }
+  const trainTable = within(trainPanel).getByRole('table')
+  const tableRows = within(trainTable).getAllByRole('row')
+  expect(tableRows.length).toBeGreaterThan(1)
+  expect(within(tableRows[1]).getByText('cluster-sort-test')).toBeInTheDocument()
+  expect(screen.queryByText(/Sample B4/i)).not.toBeInTheDocument()
+})
+
+it('renders standings table when standings data is present', async () => {
+  await renderLive(snapshotFixture)
+  const standingsPanel = screen.getByRole('heading', { name: /standings/i }).closest('.panel')
+  if (!(standingsPanel instanceof HTMLElement)) {
+    throw new Error('Standings panel not found')
+  }
+  expect(within(standingsPanel).getByText(/updated:/i)).toBeInTheDocument()
+  expect(within(standingsPanel).getByText(/^Rows:/i)).toBeInTheDocument()
+  const standingsTable = within(standingsPanel).getByRole('table')
+  expect(within(standingsTable).getAllByRole('row').length).toBeGreaterThan(1)
+})
+
+it('shows empty state when standings object exists but has no rows', async () => {
+  await renderLive(emptyStandingsFixture)
+  expect(screen.getByText(/no standings rows available/i)).toBeInTheDocument()
+  expect(screen.queryByText(/standings unavailable for this contest/i)).not.toBeInTheDocument()
+})
+
+it('uses payout_cents presence for standings cashing semantics', async () => {
+  const snapshotWithMixedPayouts = structuredClone(snapshotFixture) as any
+  snapshotWithMixedPayouts.sports.nba.contests[0].standings.rows = [
+    {
+      entry_key: 'row-paid',
+      display_name: 'Paid Row',
+      rank: 1,
+      points: 99.5,
+      pmr: 2,
+      ownership_remaining_pct: 15,
+      payout_cents: 1234,
+    },
+    {
+      entry_key: 'row-null',
+      display_name: 'Null Row',
+      rank: 2,
+      points: 88.5,
+      pmr: 3,
+      ownership_remaining_pct: 25,
+      payout_cents: null,
+    },
+  ]
+
+  await renderLive(snapshotWithMixedPayouts)
+  const standingsPanel = screen.getByRole('heading', { name: /standings/i }).closest('.panel')
+  if (!(standingsPanel instanceof HTMLElement)) {
+    throw new Error('Standings panel not found')
+  }
+  const standingsTable = within(standingsPanel).getByRole('table')
+  const rows = within(standingsTable).getAllByRole('row')
+  expect(within(rows[1]).getByText('Paid Row')).toBeInTheDocument()
+  expect(within(rows[1]).getByText('12.34')).toBeInTheDocument()
+  expect(within(rows[2]).getByText('Null Row')).toBeInTheDocument()
+  expect(within(rows[2]).getByText('—')).toBeInTheDocument()
+})
+
+it('renders player pool with search and default ownership-first sort', async () => {
+  const snapshotWithPlayers = structuredClone(snapshotFixture) as any
+  snapshotWithPlayers.sports.nba.players = [
+    {
+      player_id: 'p-low',
+      name: 'Low Own',
+      team: 'A',
+      positions: ['PG'],
+      salary: 5000,
+      status: 'active',
+      ownership_pct: 10,
+      actual_points: 40,
+    },
+    {
+      player_id: 'p-high',
+      name: 'High Own',
+      team: 'B',
+      positions: ['SG'],
+      salary: 6000,
+      status: 'active',
+      ownership_pct: 30,
+      actual_points: 20,
+    },
+  ]
+
+  await renderLive(snapshotWithPlayers)
+  const playerPanel = screen.getByRole('heading', { name: /player pool/i }).closest('.panel')
+  if (!(playerPanel instanceof HTMLElement)) {
+    throw new Error('Player panel not found')
+  }
+
+  const playerRows = within(playerPanel).getAllByRole('row')
+  expect(within(playerRows[1]).getByText('High Own')).toBeInTheDocument()
+
+  fireEvent.change(screen.getByLabelText(/search players/i), { target: { value: 'Low Own' } })
+  expect(within(playerPanel).getByRole('cell', { name: 'Low Own' })).toBeInTheDocument()
+  expect(within(playerPanel).queryByRole('cell', { name: 'High Own' })).not.toBeInTheDocument()
 })

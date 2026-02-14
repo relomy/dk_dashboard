@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
+import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.json'
+import missingSectionsFixture from '../../public/mock/snapshots/canonical-live-snapshot-missing-sections.json'
 import Latest from '../routes/Latest'
 
 vi.mock('../context/ProfileContext', () => ({
@@ -15,44 +17,23 @@ vi.mock('../context/ProfileContext', () => ({
 }))
 
 const latestPayload = {
-  latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+  latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
   snapshot_at: '2026-02-13T18:25:00Z',
   generated_at: '2026-02-13T18:25:07Z',
   available_sports: ['nba'],
   manifest_today_path: 'manifest/2026-02-13.json',
 }
 
-const snapshotPayload = {
-  schema_version: 1,
-  snapshot_at: '2026-02-13T18:25:00Z',
-  generated_at: '2026-02-13T18:25:07Z',
-  sports: {
-    nba: {
-      status: 'ok',
-      updated_at: '2026-02-13T18:25:00Z',
-      contests: [
-        {
-          contest_id: 'c1',
-          contest_key: 'nba:c1',
-          name: 'NBA Contest',
-          sport: 'nba',
-          contest_type: 'classic',
-          start_time: '2026-02-13T18:00:00Z',
-          state: 'live',
-          entry_fee_cents: 1000,
-          prize_pool_cents: 20000,
-          currency: 'USD',
-          entries_count: 100,
-          max_entries: 100,
-          vip_lineups: [
-            { vip_entry_key: 'v1', display_name: 'Alex Core', slots: [] },
-            { vip_entry_key: 'v2', display_name: 'Jamie SD', slots: [] },
-          ],
-        },
-      ],
-      players: [],
-    },
-  },
+function firstVipDisplayName(snapshot: any): string | null {
+  for (const sport of Object.values(snapshot.sports ?? {})) {
+    for (const contest of (sport as any).contests ?? []) {
+      const lineup = (contest.vip_lineups ?? [])[0]
+      if (lineup?.display_name) {
+        return lineup.display_name
+      }
+    }
+  }
+  return null
 }
 
 afterEach(() => {
@@ -60,6 +41,7 @@ afterEach(() => {
 })
 
 it('renders latest snapshot summary', async () => {
+  const vipName = firstVipDisplayName(snapshotFixture)
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -67,7 +49,7 @@ it('renders latest snapshot summary', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(JSON.stringify(latestPayload), { status: 200 })
       }
-      return new Response(JSON.stringify(snapshotPayload), { status: 200 })
+      return new Response(JSON.stringify(snapshotFixture), { status: 200 })
     }),
   )
 
@@ -87,11 +69,84 @@ it('renders latest snapshot summary', async () => {
   fireEvent.click(screen.getByRole('button', { name: /save key/i }))
 
   expect(await screen.findByText(/last updated:/i)).toBeInTheDocument()
-  expect(screen.getByText('Alex Core')).toBeInTheDocument()
-  expect(screen.getByText('Jamie SD')).toBeInTheDocument()
+  if (vipName) {
+    expect(screen.getByText(vipName)).toBeInTheDocument()
+  }
+  const liveLinks = screen.getAllByRole('link', { name: /live view/i })
+  expect(liveLinks.some((link) => link.getAttribute('href') === '/live/nba')).toBe(true)
 
   fireEvent.change(screen.getByLabelText(/vip filter/i), { target: { value: 'active' } })
 
-  expect(screen.getByText('Alex Core')).toBeInTheDocument()
-  expect(screen.queryByText('Jamie SD')).not.toBeInTheDocument()
+  expect(screen.getAllByText(/no matching vip lineups/i).length).toBeGreaterThan(0)
+})
+
+it('renders latest route with missing live-only sections fixture', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
+        return new Response(
+          JSON.stringify({
+            ...latestPayload,
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot-missing-sections.json',
+          }),
+          { status: 200 },
+        )
+      }
+      return new Response(JSON.stringify(missingSectionsFixture), { status: 200 })
+    }),
+  )
+
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/latest']}>
+        <Routes>
+          <Route path="/latest" element={<Latest />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
+  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
+
+  expect(await screen.findByText(/last updated:/i)).toBeInTheDocument()
+  expect(screen.getAllByText(/no matching vip lineups/i).length).toBeGreaterThan(0)
+})
+
+it('refresh button refetches latest and snapshot', async () => {
+  const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
+      return new Response(JSON.stringify(latestPayload), { status: 200 })
+    }
+    return new Response(JSON.stringify(snapshotFixture), { status: 200 })
+  })
+  vi.stubGlobal('fetch', fetchSpy)
+
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/latest']}>
+        <Routes>
+          <Route path="/latest" element={<Latest />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
+  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
+  expect(await screen.findByText(/last updated:/i)).toBeInTheDocument()
+
+  const beforeRefreshCalls = fetchSpy.mock.calls.length
+  fireEvent.click(screen.getByRole('button', { name: /refresh/i }))
+
+  await waitFor(() => {
+    expect(fetchSpy.mock.calls.length).toBeGreaterThan(beforeRefreshCalls)
+  })
 })

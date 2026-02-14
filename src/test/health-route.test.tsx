@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
+import missingSectionsFixture from '../../public/mock/snapshots/canonical-live-snapshot-missing-sections.json'
 import Health from '../routes/Health'
 
 afterEach(() => {
@@ -17,7 +18,7 @@ it('shows snapshot age and per-sport status from latest+snapshot', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -27,29 +28,7 @@ it('shows snapshot age and per-sport status from latest+snapshot', async () => {
         )
       }
 
-      return new Response(
-        JSON.stringify({
-          schema_version: 1,
-          snapshot_at: '2026-02-13T18:25:00Z',
-          generated_at: '2026-02-13T18:25:07Z',
-          sports: {
-            nba: {
-              status: 'ok',
-              updated_at: '2026-02-13T18:25:00Z',
-              contests: [],
-              players: [],
-            },
-            nfl: {
-              status: 'error',
-              updated_at: '2026-02-13T18:20:00Z',
-              error: 'Upstream timeout',
-              contests: [],
-              players: [],
-            },
-          },
-        }),
-        { status: 200 },
-      )
+      return new Response(JSON.stringify(missingSectionsFixture), { status: 200 })
     }),
   )
 

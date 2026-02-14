@@ -10,10 +10,16 @@
 
 ## Main pages
 - `Latest`: current snapshot across sports. Use refresh, VIP filter, and drill into sport pages.
+- `Live (/live/:sport)`: in-game sweat page for a single sport's primary contest. Prioritizes VIP board + player pool, then ownership/train, with standings kept secondary.
 - `Sport`: one sport view with contests grouped by state and player pool search/sort.
 - `History`: timeline from manifest metadata; open a timestamp to view that snapshot.
 - `Health`: snapshot freshness and per-sport status diagnostics.
 - `Settings`: manage local profiles used for VIP lineup filtering.
+
+## Live page behavior
+- Resolves one contest per sport using `is_primary` first, then `primary_contest` key/id fallback.
+- VIP cashing uses `payout_cents` presence as source of truth.
+- Missing sections show unavailable placeholders; present but empty sections show empty-state messaging.
 
 ## Profiles and VIP filtering
 - Create multiple named profiles in `Settings`.

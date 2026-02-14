@@ -9,6 +9,7 @@ export default defineConfig({
     setupFiles: './src/test/setup.ts',
     env: {
       VITE_USE_MOCK: 'true',
+      VITE_MOCK_SNAPSHOT_ONLY: 'false',
     },
   },
 })
