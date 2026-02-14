@@ -51,6 +51,7 @@ it('uses cached snapshot and renders grouped contests plus player table behavior
   )
 
   expect(await screen.findByRole('heading', { name: /sport: nba/i })).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: /open live sweat view/i })).toHaveAttribute('href', '/live/nba')
   expect(screen.getByRole('heading', { name: /unknown/i })).toBeInTheDocument()
   if (vipName) {
     expect(screen.getByText(vipName)).toBeInTheDocument()

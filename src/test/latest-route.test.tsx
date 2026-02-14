@@ -72,6 +72,8 @@ it('renders latest snapshot summary', async () => {
   if (vipName) {
     expect(screen.getByText(vipName)).toBeInTheDocument()
   }
+  const liveLinks = screen.getAllByRole('link', { name: /live view/i })
+  expect(liveLinks.some((link) => link.getAttribute('href') === '/live/nba')).toBe(true)
 
   fireEvent.change(screen.getByLabelText(/vip filter/i), { target: { value: 'active' } })
 

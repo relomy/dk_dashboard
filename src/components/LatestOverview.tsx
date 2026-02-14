@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react'
 import type { RefObject } from 'react'
+import { Link } from 'react-router-dom'
 import { filterVipLineups } from '../lib/vipMatcher'
 import type { ProfileMatchRules } from '../lib/profiles'
 import type { Contest, ContestState, Snapshot, SportSnapshot, VipLineup } from '../lib/types'
@@ -141,7 +142,10 @@ function LatestSportCard({
     <article className="latest-sport-card">
       <div className="latest-sport-head">
         <h2 className="section-title">{sport.toUpperCase()}</h2>
-        <StatusBadge status={data.status} />
+        <div className="field-inline">
+          <StatusBadge status={data.status} />
+          <Link to={`/live/${sport}`}>Live view</Link>
+        </div>
       </div>
 
       <div className="latest-state-line">

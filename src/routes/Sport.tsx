@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
 import KeyGate from '../components/KeyGate'
 import StatusBadge from '../components/StatusBadge'
@@ -252,6 +253,9 @@ function Sport() {
           <h1 className="page-title">Sport: {sport.toUpperCase()}</h1>
           <StatusBadge status={sportData.status} />
         </div>
+        <p className="meta-text">
+          <Link to={`/live/${sportKey}`}>Open live sweat view</Link>
+        </p>
         <p className="page-meta">Snapshot at: {new Date(snapshot.snapshot_at).toLocaleString()}</p>
         <p className="meta-text">Sport updated: {new Date(sportData.updated_at).toLocaleString()}</p>
         {sportData.error ? <p className="error-text">Sport error: {sportData.error}</p> : null}
