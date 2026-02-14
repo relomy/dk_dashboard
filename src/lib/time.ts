@@ -5,3 +5,7 @@ export function parseHistoryTimestamp(value: string): string {
 
   return decodeURIComponent(value)
 }
+
+export function getUtcManifestDate(timestamp: string): string {
+  return new Date(timestamp).toISOString().slice(0, 10)
+}
