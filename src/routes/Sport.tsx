@@ -2,9 +2,12 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import KeyGate from '../components/KeyGate'
+import { useProfiles } from '../context/ProfileContext'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
+import type { ProfileMatchRules } from '../lib/profiles'
 import type { Contest, ContestState, Player, SportSnapshot } from '../lib/types'
+import { filterVipLineups } from '../lib/vipMatcher'
 
 const contestStates: ContestState[] = ['upcoming', 'live', 'completed', 'cancelled', 'unknown']
 
@@ -85,7 +88,15 @@ function PlayerPoolTable({ players }: { players: Player[] }) {
   )
 }
 
-function ContestSection({ sportData }: { sportData: SportSnapshot }) {
+function ContestSection({
+  sportData,
+  vipFilterMode,
+  activeProfileRules,
+}: {
+  sportData: SportSnapshot
+  vipFilterMode: 'all' | 'active'
+  activeProfileRules: ProfileMatchRules
+}) {
   const grouped = groupContestsByState(sportData.contests)
   const playersById = new Map(sportData.players.map((player) => [player.player_id, player]))
 
@@ -97,36 +108,42 @@ function ContestSection({ sportData }: { sportData: SportSnapshot }) {
             {state} ({grouped[state].length})
           </h2>
           {grouped[state].map((contest) => (
-            <article key={contest.contest_key}>
-              <h3>{contest.name}</h3>
-              <p>Entry fee: {formatMoney(contest.entry_fee_cents, contest.currency)}</p>
-              <p>
-                Entries: {contest.entries_count}/{contest.max_entries}
-              </p>
-              <p>Prize pool: {formatMoney(contest.prize_pool_cents, contest.currency)}</p>
-              <h4>VIP lineups</h4>
-              {contest.vip_lineups.length === 0 ? (
-                <p>No VIP lineups.</p>
-              ) : (
-                contest.vip_lineups.map((lineup) => (
-                  <div key={lineup.vip_entry_key}>
-                    <p>{lineup.display_name}</p>
-                    <ol>
-                      {lineup.slots.map((slot, index) => {
-                        const player = playersById.get(slot.player_id)
-                        const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
-                        return (
-                          <li key={`${lineup.vip_entry_key}-${index}`}>
-                            {slot.slot}: {player?.name ?? slot.player_id}
-                            {multiplier}
-                          </li>
-                        )
-                      })}
-                    </ol>
-                  </div>
-                ))
-              )}
-            </article>
+            (() => {
+              const lineups = filterVipLineups(contest.vip_lineups, activeProfileRules, vipFilterMode)
+
+              return (
+                <article key={contest.contest_key}>
+                  <h3>{contest.name}</h3>
+                  <p>Entry fee: {formatMoney(contest.entry_fee_cents, contest.currency)}</p>
+                  <p>
+                    Entries: {contest.entries_count}/{contest.max_entries}
+                  </p>
+                  <p>Prize pool: {formatMoney(contest.prize_pool_cents, contest.currency)}</p>
+                  <h4>VIP lineups</h4>
+                  {lineups.length === 0 ? (
+                    <p>No matching VIP lineups.</p>
+                  ) : (
+                    lineups.map((lineup) => (
+                      <div key={lineup.vip_entry_key}>
+                        <p>{lineup.display_name}</p>
+                        <ol>
+                          {lineup.slots.map((slot, index) => {
+                            const player = playersById.get(slot.player_id)
+                            const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
+                            return (
+                              <li key={`${lineup.vip_entry_key}-${index}`}>
+                                {slot.slot}: {player?.name ?? slot.player_id}
+                                {multiplier}
+                              </li>
+                            )
+                          })}
+                        </ol>
+                      </div>
+                    ))
+                  )}
+                </article>
+              )
+            })()
           ))}
         </section>
       ))}
@@ -137,8 +154,10 @@ function ContestSection({ sportData }: { sportData: SportSnapshot }) {
 
 function Sport() {
   const queryClient = useQueryClient()
+  const { activeProfile } = useProfiles()
   const { sport } = useParams()
   const [apiKey, setApiKey] = useState('')
+  const [vipFilterMode, setVipFilterMode] = useState<'all' | 'active'>('all')
 
   useEffect(() => {
     setApiKey(getStoredKey())
@@ -202,9 +221,24 @@ function Sport() {
           Change key ({getStoredMode()})
         </button>
       </div>
+      <div>
+        <label htmlFor="sport-vip-filter">VIP filter</label>{' '}
+        <select
+          id="sport-vip-filter"
+          value={vipFilterMode}
+          onChange={(event) => setVipFilterMode(event.target.value as 'all' | 'active')}
+        >
+          <option value="all">All VIPs</option>
+          <option value="active">Active profile only</option>
+        </select>
+      </div>
       <h1>Sport: {sport.toUpperCase()}</h1>
       <p>Snapshot at: {new Date(snapshot.snapshot_at).toLocaleString()}</p>
-      <ContestSection sportData={sportData} />
+      <ContestSection
+        sportData={sportData}
+        vipFilterMode={vipFilterMode}
+        activeProfileRules={activeProfile.rules}
+      />
     </section>
   )
 }

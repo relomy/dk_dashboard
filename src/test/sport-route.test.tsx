@@ -5,6 +5,16 @@ import { afterEach, expect, it, vi } from 'vitest'
 import snapshotFixture from '../../public/mock/snapshots/2026-02-13T18-25-00Z.json'
 import Sport from '../routes/Sport'
 
+vi.mock('../context/ProfileContext', () => ({
+  useProfiles: () => ({
+    activeProfile: {
+      id: 'p1',
+      name: 'Alex',
+      rules: { contains: 'alex' },
+    },
+  }),
+}))
+
 afterEach(() => {
   vi.restoreAllMocks()
   cleanup()
@@ -33,6 +43,12 @@ it('uses cached snapshot and renders grouped contests plus player table behavior
   expect(screen.getByRole('heading', { name: /completed \(0\)/i })).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: /cancelled \(0\)/i })).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: /unknown \(0\)/i })).toBeInTheDocument()
+  expect(screen.getByText('Alex Core')).toBeInTheDocument()
+  expect(screen.getByText('Jamie SD')).toBeInTheDocument()
+
+  fireEvent.change(screen.getByLabelText(/vip filter/i), { target: { value: 'active' } })
+  expect(screen.getByText('Alex Core')).toBeInTheDocument()
+  expect(screen.queryByText('Jamie SD')).not.toBeInTheDocument()
 
   const playerRows = screen.getAllByRole('row')
   expect(within(playerRows[1]).getByText('Guard One')).toBeInTheDocument()

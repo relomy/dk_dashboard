@@ -4,6 +4,16 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import History from '../routes/History'
 
+vi.mock('../context/ProfileContext', () => ({
+  useProfiles: () => ({
+    activeProfile: {
+      id: 'p1',
+      name: 'Me',
+      rules: {},
+    },
+  }),
+}))
+
 const snapshotPayload = {
   schema_version: 1,
   snapshot_at: '2026-02-13T18:25:00Z',

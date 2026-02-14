@@ -11,6 +11,7 @@ export interface VipLineupSlot {
 export interface VipLineup {
   vip_entry_key: string
   entry_id?: string
+  username?: string
   display_name: string
   slots: VipLineupSlot[]
   rank?: number

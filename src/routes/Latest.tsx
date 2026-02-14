@@ -2,12 +2,15 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import KeyGate from '../components/KeyGate'
 import LatestOverview from '../components/LatestOverview'
+import { useProfiles } from '../context/ProfileContext'
 import { useLatest } from '../hooks/useLatest'
 import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
 
 function Latest() {
   const queryClient = useQueryClient()
+  const { activeProfile } = useProfiles()
   const [apiKey, setApiKey] = useState('')
+  const [vipFilterMode, setVipFilterMode] = useState<'all' | 'active'>('all')
 
   useEffect(() => {
     setApiKey(getStoredKey())
@@ -68,7 +71,22 @@ function Latest() {
           Change key ({getStoredMode()})
         </button>
       </div>
-      <LatestOverview snapshot={snapshotQuery.data} />
+      <div>
+        <label htmlFor="latest-vip-filter">VIP filter</label>{' '}
+        <select
+          id="latest-vip-filter"
+          value={vipFilterMode}
+          onChange={(event) => setVipFilterMode(event.target.value as 'all' | 'active')}
+        >
+          <option value="all">All VIPs</option>
+          <option value="active">Active profile only</option>
+        </select>
+      </div>
+      <LatestOverview
+        snapshot={snapshotQuery.data}
+        vipFilterMode={vipFilterMode}
+        activeProfileRules={activeProfile.rules}
+      />
     </section>
   )
 }

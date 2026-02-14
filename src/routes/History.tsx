@@ -3,11 +3,13 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import KeyGate from '../components/KeyGate'
 import LatestOverview from '../components/LatestOverview'
+import { useProfiles } from '../context/ProfileContext'
 import { useHistorySnapshot } from '../hooks/useHistorySnapshot'
 import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
 
 function History() {
   const queryClient = useQueryClient()
+  const { activeProfile } = useProfiles()
   const { timestamp: timestampParam } = useParams()
   const [apiKey, setApiKey] = useState('')
 
@@ -92,7 +94,11 @@ function History() {
           Change key ({getStoredMode()})
         </button>
       </div>
-      <LatestOverview snapshot={snapshotQuery.data} />
+      <LatestOverview
+        snapshot={snapshotQuery.data}
+        vipFilterMode="all"
+        activeProfileRules={activeProfile.rules}
+      />
     </section>
   )
 }

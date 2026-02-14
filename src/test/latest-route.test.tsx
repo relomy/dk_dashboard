@@ -4,6 +4,16 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import Latest from '../routes/Latest'
 
+vi.mock('../context/ProfileContext', () => ({
+  useProfiles: () => ({
+    activeProfile: {
+      id: 'p1',
+      name: 'Alex',
+      rules: { contains: 'alex' },
+    },
+  }),
+}))
+
 const latestPayload = {
   latest_snapshot_path: 'snapshots/2026-02-13T18-25-00Z.json',
   snapshot_at: '2026-02-13T18:25:00Z',
@@ -20,7 +30,26 @@ const snapshotPayload = {
     nba: {
       status: 'ok',
       updated_at: '2026-02-13T18:25:00Z',
-      contests: [],
+      contests: [
+        {
+          contest_id: 'c1',
+          contest_key: 'nba:c1',
+          name: 'NBA Contest',
+          sport: 'nba',
+          contest_type: 'classic',
+          start_time: '2026-02-13T18:00:00Z',
+          state: 'live',
+          entry_fee_cents: 1000,
+          prize_pool_cents: 20000,
+          currency: 'USD',
+          entries_count: 100,
+          max_entries: 100,
+          vip_lineups: [
+            { vip_entry_key: 'v1', display_name: 'Alex Core', slots: [] },
+            { vip_entry_key: 'v2', display_name: 'Jamie SD', slots: [] },
+          ],
+        },
+      ],
       players: [],
     },
   },
@@ -58,4 +87,11 @@ it('renders latest snapshot summary', async () => {
   fireEvent.click(screen.getByRole('button', { name: /save key/i }))
 
   expect(await screen.findByText(/last updated:/i)).toBeInTheDocument()
+  expect(screen.getByText('Alex Core')).toBeInTheDocument()
+  expect(screen.getByText('Jamie SD')).toBeInTheDocument()
+
+  fireEvent.change(screen.getByLabelText(/vip filter/i), { target: { value: 'active' } })
+
+  expect(screen.getByText('Alex Core')).toBeInTheDocument()
+  expect(screen.queryByText('Jamie SD')).not.toBeInTheDocument()
 })

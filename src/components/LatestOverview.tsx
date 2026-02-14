@@ -1,11 +1,15 @@
+import { filterVipLineups } from '../lib/vipMatcher'
+import type { ProfileMatchRules } from '../lib/profiles'
 import StatusBadge from './StatusBadge'
 import type { Snapshot } from '../lib/types'
 
 interface LatestOverviewProps {
   snapshot: Snapshot
+  vipFilterMode: 'all' | 'active'
+  activeProfileRules: ProfileMatchRules
 }
 
-function LatestOverview({ snapshot }: LatestOverviewProps) {
+function LatestOverview({ snapshot, vipFilterMode, activeProfileRules }: LatestOverviewProps) {
   const sports = Object.entries(snapshot.sports)
 
   return (
@@ -25,6 +29,24 @@ function LatestOverview({ snapshot }: LatestOverviewProps) {
             <p>Players: {data.players.length}</p>
             <p>Sport updated: {new Date(data.updated_at).toLocaleString()}</p>
             {data.error ? <p className="error-text">{data.error}</p> : null}
+            {data.contests.map((contest) => {
+              const lineups = filterVipLineups(contest.vip_lineups, activeProfileRules, vipFilterMode)
+
+              return (
+                <div key={contest.contest_key}>
+                  <p>Contest: {contest.name}</p>
+                  {lineups.length === 0 ? (
+                    <p>No matching VIP lineups.</p>
+                  ) : (
+                    <ul>
+                      {lineups.map((lineup) => (
+                        <li key={lineup.vip_entry_key}>{lineup.display_name}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )
+            })}
           </article>
         ))}
       </div>
