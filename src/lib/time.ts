@@ -1,0 +1,7 @@
+export function parseHistoryTimestamp(value: string): string {
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z$/.test(value)) {
+    return value.replace(/T(\d{2})-(\d{2})-(\d{2})Z$/, 'T$1:$2:$3Z')
+  }
+
+  return decodeURIComponent(value)
+}

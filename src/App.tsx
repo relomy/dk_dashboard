@@ -12,6 +12,7 @@ function App() {
       <Route element={<AppShell />}>
         <Route path="/latest" element={<Latest />} />
         <Route path="/history" element={<History />} />
+        <Route path="/history/:timestamp" element={<History />} />
         <Route path="/sport/:sport" element={<Sport />} />
         <Route path="/health" element={<Health />} />
         <Route path="/settings" element={<Settings />} />

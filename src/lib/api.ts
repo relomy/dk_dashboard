@@ -25,6 +25,19 @@ export function buildApiUrl(path: string, opts?: { useMock?: boolean }): string 
     return `${config.apiBaseUrl.replace(/\/$/, '')}${target}`
   }
 
+  if (useMock && path === '/api/latest') {
+    return withBase('/mock/latest.json')
+  }
+
+  if (useMock && path.startsWith('/api/snapshot?path=')) {
+    const url = new URL(path, 'http://local.dev')
+    const snapshotPath = url.searchParams.get('path')
+
+    if (snapshotPath) {
+      return withBase(`/mock/${snapshotPath}`)
+    }
+  }
+
   if (useMock && path.startsWith('/api/')) {
     return withBase(path.replace('/api/', '/mock/'))
   }

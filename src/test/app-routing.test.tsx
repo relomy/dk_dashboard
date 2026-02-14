@@ -1,14 +1,19 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { expect, it } from 'vitest'
 import App from '../App'
 
 it('renders latest route', () => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
   render(
-    <MemoryRouter initialEntries={['/latest']}>
-      <App />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/latest']}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 
-  expect(screen.getByRole('heading', { name: /latest/i })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: /enter access key/i })).toBeInTheDocument()
 })
