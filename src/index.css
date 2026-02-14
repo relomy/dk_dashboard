@@ -524,6 +524,33 @@ summary:focus-visible {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.health-age-panel {
+  align-items: flex-start;
+}
+
+.health-age-value {
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.health-summary-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.health-flagged-item {
+  border-left: 4px solid var(--line-strong);
+}
+
+.health-flagged-head {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
 @media (max-width: 700px) {
   .topbar {
     align-items: flex-start;

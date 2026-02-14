@@ -1,8 +1,31 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import KeyGate from '../components/KeyGate'
+import StatusBadge from '../components/StatusBadge'
 import { useHealth } from '../hooks/useHealth'
 import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
+
+function formatAgeValue(snapshotAgeSeconds: number | null): string {
+  if (snapshotAgeSeconds === null) {
+    return 'Unknown'
+  }
+
+  if (snapshotAgeSeconds < 60) {
+    return `${snapshotAgeSeconds}s`
+  }
+
+  const minutes = Math.floor(snapshotAgeSeconds / 60)
+  const seconds = snapshotAgeSeconds % 60
+  return `${minutes}m ${seconds}s`
+}
+
+function truncateText(value: string, max = 80): string {
+  if (value.length <= max) {
+    return value
+  }
+
+  return `${value.slice(0, max).trimEnd()}...`
+}
 
 function Health() {
   const queryClient = useQueryClient()
@@ -26,12 +49,27 @@ function Health() {
     queryClient.clear()
   }
 
+  const statusCounts = useMemo(() => {
+    const counts = { ok: 0, stale: 0, error: 0 }
+
+    for (const sport of sports) {
+      counts[sport.status] += 1
+    }
+
+    return counts
+  }, [sports])
+
+  const flaggedSports = useMemo(
+    () => sports.filter((sport) => sport.status === 'stale' || sport.status === 'error'),
+    [sports],
+  )
+
   if (!apiKey) {
     return <KeyGate onSave={handleSaveKey} />
   }
 
   if (latestQuery.isLoading || snapshotQuery.isLoading) {
-    return <p>Loading health data...</p>
+    return <p className="page">Loading health data...</p>
   }
 
   if (latestQuery.error || snapshotQuery.error) {
@@ -54,7 +92,7 @@ function Health() {
   }
 
   if (!snapshotQuery.data || !latestQuery.data) {
-    return <p>Health data unavailable.</p>
+    return <p className="page">Health data unavailable.</p>
   }
 
   return (
@@ -67,34 +105,91 @@ function Health() {
           Change key ({getStoredMode()})
         </button>
       </div>
+
       <h1 className="page-title">Health</h1>
-      <div className="panel page-stack-sm">
-        <p className="meta-text">Latest snapshot path: {latestQuery.data.latest_snapshot_path}</p>
-        <p className="meta-text">Snapshot timestamp: {snapshotQuery.data.snapshot_at}</p>
-        <p className="meta-text">Snapshot age: {snapshotAgeSeconds ?? 'unknown'} seconds</p>
+
+      <div className="panel health-age-panel page-stack-sm">
+        <p className="meta-text">Snapshot age</p>
+        <p className="health-age-value">{formatAgeValue(snapshotAgeSeconds)}</p>
+        <p className="meta-text">{snapshotAgeSeconds ?? 'unknown'} seconds since snapshot generation</p>
       </div>
 
-      <h2 className="section-title">Per-sport status</h2>
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Sport</th>
-            <th>Status</th>
-            <th>Updated at</th>
-            <th>Error</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sports.map((item) => (
-            <tr key={item.sport}>
-              <td>{item.sport}</td>
-              <td>{item.status}</td>
-              <td>{item.updatedAt}</td>
-              <td>{item.error ?? '-'}</td>
+      <div className="health-summary-grid">
+        <article className="panel page-stack-sm">
+          <h2 className="section-title">Sport status summary</h2>
+          <p className="meta-text">ok: {statusCounts.ok}</p>
+          <p className="meta-text">stale: {statusCounts.stale}</p>
+          <p className="meta-text">error: {statusCounts.error}</p>
+        </article>
+
+        <article className="panel page-stack-sm">
+          <h2 className="section-title">Snapshot context</h2>
+          <p className="meta-text">Latest snapshot path: {latestQuery.data.latest_snapshot_path}</p>
+          <p className="meta-text">Snapshot timestamp: {snapshotQuery.data.snapshot_at}</p>
+          <p className="meta-text">Sports tracked: {sports.length}</p>
+        </article>
+      </div>
+
+      <section className="panel page-stack-sm">
+        <h2 className="section-title">Needs attention</h2>
+        {flaggedSports.length === 0 ? (
+          <p className="meta-text">No stale or error sports.</p>
+        ) : (
+          <ul className="list-panel">
+            {flaggedSports.map((item) => (
+              <li key={`flagged-${item.sport}`} className="item-card page-stack-sm health-flagged-item">
+                <div className="health-flagged-head">
+                  <p className="item-title">Flagged sport</p>
+                  <StatusBadge status={item.status} />
+                </div>
+                <p className="meta-text">Updated at: {new Date(item.updatedAt).toLocaleString()}</p>
+                <p className="meta-text">
+                  {item.error ? 'Error message available in per-sport details.' : 'No error message.'}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="panel page-stack-sm">
+        <h2 className="section-title">Per-sport details</h2>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Sport</th>
+              <th>Status</th>
+              <th>Updated at</th>
+              <th>Error</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {sports.map((item) => (
+              <tr key={item.sport}>
+                <td>{item.sport}</td>
+                <td>
+                  <StatusBadge status={item.status} />
+                </td>
+                <td>{item.updatedAt}</td>
+                <td>
+                  {item.error ? (
+                    item.error.length > 80 ? (
+                      <details>
+                        <summary className="meta-text">{truncateText(item.error)}</summary>
+                        <p className="meta-text">{item.error}</p>
+                      </details>
+                    ) : (
+                      item.error
+                    )
+                  ) : (
+                    '-'
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
     </section>
   )
 }
