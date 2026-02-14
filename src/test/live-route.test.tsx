@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import snapshotFixture from '../../public/mock/snapshots/dk-two-sport-bundle-v6.json'
+import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.json'
 import Live from '../routes/Live'
 
 afterEach(() => {
@@ -19,7 +19,7 @@ it('resolves and renders the selected primary contest for live route', async () 
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -68,7 +68,7 @@ it('shows explicit state when primary contest is not configured', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -118,7 +118,7 @@ it('prefers contest.is_primary before primary_contest key/id fallbacks', async (
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -165,7 +165,7 @@ it('uses payout presence for cashing and preserves vip slot order', async () => 
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -221,7 +221,7 @@ it('renders ownership watchlist total and respects top_n_default', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -274,7 +274,7 @@ it('shows ownership placeholder when watchlist is missing', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -336,7 +336,7 @@ it('renders train clusters with cluster rule and sorts by entry_count desc', asy
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -387,7 +387,7 @@ it('preserves composition slot order with name-only composition', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -441,7 +441,7 @@ it('shows train finder placeholder when train clusters are missing', async () =>
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -483,7 +483,7 @@ it('renders standings table when standings data is present', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -535,7 +535,7 @@ it('shows standings placeholder when standings data is missing', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],

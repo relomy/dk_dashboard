@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import snapshotFixture from '../../../public/mock/snapshots/dk-two-sport-bundle-v6.json'
+import snapshotFixture from '../../../public/mock/snapshots/canonical-live-snapshot.json'
 import type { Snapshot } from '../types'
 
 function parseSnapshot(raw: unknown): Snapshot {

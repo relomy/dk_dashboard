@@ -23,7 +23,7 @@ Returns metadata for the current snapshot and history manifests.
 ### Example
 ```json
 {
-  "latest_snapshot_path": "snapshots/dk-two-sport-bundle-v6.json",
+  "latest_snapshot_path": "snapshots/canonical-live-snapshot.json",
   "snapshot_at": "2026-02-13T18:25:00Z",
   "generated_at": "2026-02-13T18:25:07Z",
   "available_sports": ["nba", "nfl"],
@@ -36,7 +36,7 @@ Returns metadata for the current snapshot and history manifests.
 Returns JSON at the requested storage path. The path may reference either a full snapshot or a manifest.
 
 ### Common paths
-- Snapshot: `snapshots/dk-two-sport-bundle-v6.json`
+- Snapshot: `snapshots/canonical-live-snapshot.json`
 - Manifest: `manifest/2026-02-13.json`
 
 ### Notes

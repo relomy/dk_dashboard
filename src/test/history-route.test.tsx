@@ -53,7 +53,7 @@ it('resolves timestamp via UTC day manifest and renders snapshot', async () => {
             snapshots: [
               {
                 snapshot_at: '2026-02-13T18:25:00Z',
-                path: 'snapshots/dk-two-sport-bundle-v6.json',
+                path: 'snapshots/canonical-live-snapshot.json',
                 sports_present: ['nba'],
                 contest_counts_by_sport: { nba: 0 },
                 state_counts: {},
@@ -143,7 +143,7 @@ it('renders timeline list from manifest metadata and navigates on item click', a
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/dk-two-sport-bundle-v6.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -163,7 +163,7 @@ it('renders timeline list from manifest metadata and navigates on item click', a
             snapshots: [
               {
                 snapshot_at: '2026-02-13T18:25:00Z',
-                path: 'snapshots/dk-two-sport-bundle-v6.json',
+                path: 'snapshots/canonical-live-snapshot.json',
                 sports_present: ['nba', 'nfl'],
                 contest_counts_by_sport: { nba: 2, nfl: 1 },
                 state_counts: { live: 1, upcoming: 1 },
