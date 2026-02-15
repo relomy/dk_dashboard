@@ -1353,7 +1353,7 @@
                 "pmr":null
               }
             ],
-            "ownership_remaining_total_pct":0.0,
+            "ownership_remaining_total_pct":90.0,
             "top_n_default":10,
             "updated_at":"2026-02-14T16:58:45Z"
           },
@@ -3356,7 +3356,7 @@
                   "slot":"SLOT_2"
                 },
                 {
-                  "player_name":"Naji Marshall",
+                  "player_name":"Daniel Gafford",
                   "slot":"SLOT_3"
                 },
                 {
@@ -3463,7 +3463,7 @@
               "field_remaining_scope":"watchlist",
               "field_remaining_source":"ownership_watchlist_total",
               "field_remaining_is_partial":false,
-              "field_remaining_pct":0.0,
+              "field_remaining_pct":90.0,
               "top_swing_players":[
                 {
                   "player_name":"Kevin Porter Jr.",
@@ -3478,7 +3478,7 @@
                 {
                   "player_name":"Naji Marshall",
                   "remaining_ownership_pct":20.0,
-                  "vip_count":3
+                  "vip_count":2
                 }
               ],
               "vip_vs_field_leverage":[
@@ -3487,24 +3487,24 @@
                   "entry_key":"5067365318",
                   "display_name":"cglenn91",
                   "vip_remaining_pct":0.0,
-                  "field_remaining_pct":0.0,
-                  "uniqueness_delta_pct":0.0
+                  "field_remaining_pct":90.0,
+                  "uniqueness_delta_pct":90.0
                 },
                 {
                   "vip_entry_key":null,
                   "entry_key":"5067482939",
                   "display_name":"Aj_cray",
                   "vip_remaining_pct":0.0,
-                  "field_remaining_pct":0.0,
-                  "uniqueness_delta_pct":0.0
+                  "field_remaining_pct":90.0,
+                  "uniqueness_delta_pct":90.0
                 },
                 {
                   "vip_entry_key":null,
                   "entry_key":"5067354069",
                   "display_name":"tuck8989",
                   "vip_remaining_pct":0.0,
-                  "field_remaining_pct":0.0,
-                  "uniqueness_delta_pct":0.0
+                  "field_remaining_pct":90.0,
+                  "uniqueness_delta_pct":90.0
                 }
               ]
             },
