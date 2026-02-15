@@ -138,11 +138,11 @@ it('renders threat metrics from schema v2 snapshots', async () => {
   if (!(threatPanel instanceof HTMLElement)) {
     throw new Error('Threat panel not found')
   }
-  const swingCard = within(threatPanel).getByText(/Kevin Porter Jr./i).closest('li')
+  const swingCard = within(threatPanel).getByText(/Naji Marshall/i).closest('li')
   if (!swingCard) {
     throw new Error('Swing card not found')
   }
-  expect(within(swingCard).getByText(/VIP x3/i)).toBeInTheDocument()
+  expect(within(swingCard).getByText(/VIP x2/i)).toBeInTheDocument()
   const leveragePanel = within(threatPanel).getByRole('heading', { name: /vip vs field leverage/i }).closest('.panel-subtle')
   if (!(leveragePanel instanceof HTMLElement)) {
     throw new Error('Leverage panel not found')
