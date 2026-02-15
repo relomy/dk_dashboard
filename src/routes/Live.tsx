@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom'
 import KeyGate from '../components/KeyGate'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
-import type { VipLineup } from '../lib/types'
+import type { ContestMetricsDistanceToCash, VipLineup } from '../lib/types'
 
 function resolveCashing(lineup: VipLineup): boolean {
   return lineup.payout_cents != null || lineup.live?.payout_cents != null
@@ -16,6 +16,15 @@ function formatValue(value: number | null | undefined, opts?: { suffix?: string 
   }
 
   return `${value}${opts?.suffix ?? ''}`
+}
+
+function formatSigned(value: number, opts?: { suffix?: string }): string {
+  const sign = value > 0 ? '+' : ''
+  return `${sign}${value}${opts?.suffix ?? ''}`
+}
+
+function resolveVipMetricKey(value: { vip_entry_key?: string; entry_key?: string; display_name?: string }): string | null {
+  return value.vip_entry_key ?? value.entry_key ?? value.display_name ?? null
 }
 
 function playerSortScore(player: { ownership_pct?: number | null; actual_points?: number | null; projected_points?: number | null }) {
@@ -112,6 +121,17 @@ function Live() {
   const trainClusters = primaryContest?.train_clusters
   const sortedClusters = trainClusters ? [...trainClusters.clusters].sort((a, b) => b.entry_count - a.entry_count) : []
   const standings = primaryContest?.standings
+  const distanceMetrics = primaryContest?.metrics?.distance_to_cash
+  const distanceLookup = new Map<string, ContestMetricsDistanceToCash['per_vip'][number]>()
+  for (const entry of distanceMetrics?.per_vip ?? []) {
+    const key = resolveVipMetricKey(entry)
+    if (key) {
+      distanceLookup.set(key, entry)
+    }
+  }
+  const cashLine = primaryContest?.live_metrics?.cash_line
+  const cashLinePoints = cashLine?.points_cutoff
+  const cashLineRank = cashLine?.rank_cutoff
 
   if (!sportData.primary_contest) {
     return (
@@ -151,6 +171,11 @@ function Live() {
         <p className="meta-text">Contest key: {primaryContest.contest_key}</p>
         <p className="meta-text">Contest id: {primaryContest.contest_id}</p>
         <p className="meta-text">Selection reason: {sportData.primary_contest.selection_reason}</p>
+        <p className="meta-text">
+          Cash line:{' '}
+          {cashLinePoints === null || cashLinePoints === undefined ? '—' : `${cashLinePoints} pts`}
+          {cashLineRank === null || cashLineRank === undefined ? '' : ` | Rank cutoff: ${cashLineRank}`}
+        </p>
       </div>
 
       <div className="panel page-stack-sm">
@@ -162,10 +187,14 @@ function Live() {
             {primaryContest.vip_lineups.map((lineup, lineupIndex) => {
               const lineupKey = lineup.entry_key || lineup.vip_entry_key || lineup.display_name
               const isCashing = resolveCashing(lineup)
-              const delta =
-                lineup.live?.cash_line_delta_points === null || lineup.live?.cash_line_delta_points === undefined
-                  ? '—'
-                  : String(lineup.live.cash_line_delta_points)
+              const metricKey = resolveVipMetricKey(lineup)
+              const distanceEntry = metricKey ? distanceLookup.get(metricKey) : undefined
+              const pointsDelta = distanceEntry?.points_delta
+              const rankDelta = distanceEntry?.rank_delta
+              const distanceLabel =
+                pointsDelta === null || pointsDelta === undefined
+                  ? 'Unavailable'
+                  : formatSigned(pointsDelta, { suffix: ' pts' })
               const updatedAt = lineup.live?.updated_at
                 ? new Date(lineup.live.updated_at).toLocaleString()
                 : 'unknown'
@@ -178,7 +207,10 @@ function Live() {
                       {isCashing ? 'Cashing' : 'Not cashing'}
                     </span>
                   </div>
-                  <p className="meta-text">Cash-line delta: {delta}</p>
+                  <p className="meta-text">Distance to cash: {distanceLabel}</p>
+                  {rankDelta === null || rankDelta === undefined ? null : (
+                    <p className="meta-text">Rank delta: {formatSigned(rankDelta)}</p>
+                  )}
                   <p className="meta-text">Last updated: {updatedAt}</p>
                   <ol>
                     {lineup.slots.map((slot, index) => {
