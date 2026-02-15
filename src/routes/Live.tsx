@@ -132,6 +132,11 @@ function Live() {
   const cashLine = primaryContest?.live_metrics?.cash_line
   const cashLinePoints = cashLine?.points_cutoff
   const cashLineRank = cashLine?.rank_cutoff
+  const threatMetrics = primaryContest?.metrics?.threat
+  const topSwingPlayers = threatMetrics?.top_swing_players ?? []
+  const vipLeverage = threatMetrics?.vip_vs_field_leverage ?? []
+  const fieldRemainingScope =
+    threatMetrics?.field_remaining_scope === 'contest_field' ? 'Contest field' : 'Watchlist'
 
   if (!sportData.primary_contest) {
     return (
@@ -269,6 +274,73 @@ function Live() {
               ))}
             </tbody>
           </table>
+        )}
+      </div>
+
+      <div className="panel page-stack-sm">
+        <h2 className="section-title">Threat & leverage</h2>
+        {!threatMetrics ? (
+          <p className="meta-text">Threat metrics unavailable for this contest.</p>
+        ) : (
+          <div className="page-stack-sm">
+            <div className="panel-subtle page-stack-sm">
+              <h3 className="subsection-title">Top swing players</h3>
+              {topSwingPlayers.length === 0 ? (
+                <p className="meta-text">No swing player data available.</p>
+              ) : (
+                <ul className="list-panel">
+                  {topSwingPlayers.map((player, index) => {
+                    const vipCount = player.vip_count ?? 0
+                    return (
+                      <li key={`${player.player_name}-${index}`} className="item-card">
+                        <p className="item-title">{player.player_name}</p>
+                        <p className="meta-text">
+                          Own. remaining: {formatValue(player.remaining_ownership_pct, { suffix: '%' })}
+                          {vipCount > 0 ? ` | VIP x${vipCount}` : ''}
+                        </p>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+            <div className="panel-subtle page-stack-sm">
+              <h3 className="subsection-title">VIP vs field leverage</h3>
+              <p className="meta-text">
+                Field remaining ({fieldRemainingScope}):{' '}
+                {formatValue(threatMetrics.field_remaining_pct, { suffix: '%' })}
+                {threatMetrics.field_remaining_is_partial ? ' (partial)' : ''}
+              </p>
+              {vipLeverage.length === 0 ? (
+                <p className="meta-text">No VIP leverage data available.</p>
+              ) : (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>VIP</th>
+                      <th>VIP remaining</th>
+                      <th>Field remaining</th>
+                      <th>Uniqueness delta</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vipLeverage.map((entry, index) => (
+                      <tr key={entry.vip_entry_key ?? entry.entry_key ?? `${entry.display_name}-${index}`}>
+                        <td>{entry.display_name ?? entry.entry_key ?? '—'}</td>
+                        <td>{formatValue(entry.vip_remaining_pct, { suffix: '%' })}</td>
+                        <td>{formatValue(entry.field_remaining_pct, { suffix: '%' })}</td>
+                        <td>
+                          {entry.uniqueness_delta_pct === null || entry.uniqueness_delta_pct === undefined
+                            ? '—'
+                            : formatSigned(entry.uniqueness_delta_pct, { suffix: '%' })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
