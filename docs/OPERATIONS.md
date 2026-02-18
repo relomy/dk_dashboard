@@ -45,6 +45,34 @@
 - `GET /api/snapshot?path=...` returns snapshot or manifest JSON by path.
 - API requires `X-Api-Key`.
 
+## Snapshot file placement
+For API-backed environments, store dashboard data in a single root directory:
+
+```txt
+<data-root>/
+  latest.json
+  manifest/
+    YYYY-MM-DD.json
+  snapshots/
+    <snapshot-file>.json
+```
+
+Path mapping rules:
+- `latest.json.latest_snapshot_path` must be a root-relative path into `snapshots/`.
+- `latest.json.manifest_today_path` and optional `manifest_yesterday_path` must be root-relative paths into `manifest/`.
+- Manifest entries `snapshots[].path` must be root-relative paths into `snapshots/`.
+- `GET /api/snapshot?path=...` should read `<data-root>/<path>` (with standard path traversal protections).
+
+Example:
+- `latest_snapshot_path = "snapshots/live-2026-02-15T01-30-00Z.json"`
+- `manifest_today_path = "manifest/2026-02-15.json"`
+- manifest entry `path = "snapshots/live-2026-02-15T01-30-00Z.json"`
+
+For dev mock mode, this same shape lives under `public/mock`:
+- `public/mock/latest.json`
+- `public/mock/manifest/YYYY-MM-DD.json`
+- `public/mock/snapshots/*.json`
+
 ## Validation checklist
 Before release:
 1. `npm test -- --run`

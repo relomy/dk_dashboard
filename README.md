@@ -46,6 +46,23 @@ Returns JSON content addressed by `path`, for example:
 - snapshot: `snapshots/canonical-live-snapshot.json`
 - manifest: `manifest/2026-02-13.json`
 
+### Data file placement
+The dashboard expects `path` values from `/api/latest` and manifest entries to resolve under one data root:
+
+```txt
+<data-root>/
+  latest.json
+  manifest/
+    YYYY-MM-DD.json
+  snapshots/
+    <snapshot-file>.json
+```
+
+- `latest.json.latest_snapshot_path` must match a file under `<data-root>/snapshots`.
+- `latest.json.manifest_today_path` and `manifest_yesterday_path` must match files under `<data-root>/manifest`.
+- Each manifest entry `snapshots[].path` must point to a real snapshot file under `<data-root>/snapshots`.
+- `/api/snapshot?path=...` should treat `path` as a root-relative lookup within this data root.
+
 Auth:
 - Send `X-Api-Key` header on API requests.
 - Client stores key locally/session and never embeds it in build output.
