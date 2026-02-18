@@ -1,8 +1,11 @@
 {
-  "latest_snapshot_path": "snapshots/canonical-live-snapshot.json",
-  "snapshot_at": "2026-02-13T18:25:00Z",
-  "generated_at": "2026-02-13T18:25:07Z",
-  "available_sports": ["nba", "nfl"],
-  "manifest_today_path": "manifest/2026-02-13.json",
-  "manifest_yesterday_path": "manifest/2026-02-12.json"
+  "available_sports":[
+    "golf",
+    "nba"
+  ],
+  "generated_at":"2026-02-15T02:04:25Z",
+  "latest_snapshot_path":"snapshots/live-2026-02-15T02-30-00Z.json",
+  "manifest_today_path":"manifest/2026-02-15.json",
+  "manifest_yesterday_path":"manifest/2026-02-14.json",
+  "snapshot_at":"2026-02-15T02:04:25Z"
 }
