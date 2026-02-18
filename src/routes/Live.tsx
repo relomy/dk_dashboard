@@ -6,7 +6,20 @@ import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
 import type { ContestMetricsDistanceToCash, VipLineup } from '../lib/types'
 
-function resolveCashing(lineup: VipLineup): boolean {
+function resolveCashing(
+  lineup: VipLineup,
+  distanceEntry?: ContestMetricsDistanceToCash['per_vip'][number],
+): boolean {
+  const pointsDelta = distanceEntry?.points_delta
+  if (typeof pointsDelta === 'number') {
+    return pointsDelta >= 0
+  }
+
+  const rankDelta = distanceEntry?.rank_delta
+  if (typeof rankDelta === 'number') {
+    return rankDelta >= 0
+  }
+
   return lineup.payout_cents != null || lineup.live?.payout_cents != null
 }
 
@@ -210,9 +223,9 @@ function Live() {
           <ul className="list-panel">
             {primaryContest.vip_lineups.map((lineup, lineupIndex) => {
               const lineupKey = lineup.entry_key || lineup.vip_entry_key || lineup.display_name
-              const isCashing = resolveCashing(lineup)
               const metricKey = resolveVipMetricKey(lineup)
               const distanceEntry = metricKey ? distanceLookup.get(metricKey) : undefined
+              const isCashing = resolveCashing(lineup, distanceEntry)
               const pointsDelta = distanceEntry?.points_delta
               const rankDelta = distanceEntry?.rank_delta
               const distanceLabel =
@@ -236,7 +249,7 @@ function Live() {
                     <p className="meta-text">Rank delta: {formatSigned(rankDelta)}</p>
                   )}
                   <p className="meta-text">Last updated: {updatedAt}</p>
-                  <ol>
+                  <ul className="vip-slot-list">
                     {lineup.slots.map((slot, index) => {
                       const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
                       return (
@@ -246,7 +259,7 @@ function Live() {
                         </li>
                       )
                     })}
-                  </ol>
+                  </ul>
                 </li>
               )
             })}

@@ -117,6 +117,7 @@ it('renders distance-to-cash metrics from schema v2 snapshots', async () => {
   }
   expect(within(lineupCard).getByText(/distance to cash: \+11 pts/i)).toBeInTheDocument()
   expect(within(lineupCard).getByText(/rank delta: \+44/i)).toBeInTheDocument()
+  expect(within(lineupCard).getByText(/^cashing$/i)).toBeInTheDocument()
 })
 
 it('shows unavailable distance-to-cash when metrics are missing', async () => {
