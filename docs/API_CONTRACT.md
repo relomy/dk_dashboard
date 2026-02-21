@@ -43,6 +43,11 @@ Returns JSON at the requested storage path. The path may reference either a full
 - The app treats timestamps as UTC in transport.
 - Historical deep links use timestamp routes and are resolved via UTC-day manifests.
 
+### Dashboard Contract Fixture Lock (Stage 0)
+- Dashboard runtime/fixture contract is the snapshot envelope shape (`schema_version`, `snapshot_at`, `generated_at`, `sports[...]`).
+- Contract fixtures for tests should come from `export_snapshot`/`export_fixture` envelope outputs.
+- Legacy/raw payloads (for example `db_main --snapshot-out` root `contest`/`selection` shape) are out of scope for dashboard contract gating.
+
 ## Snapshot contract additions for `/live/:sport`
 The selected contest is explicitly identified per sport:
 - `sports[sport].primary_contest.contest_id`
