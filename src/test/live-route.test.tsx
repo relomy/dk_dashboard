@@ -188,6 +188,51 @@ it('renders VIP players_live table rows when details are available', async () =>
   expect(within(playerTable).getByRole('cell', { name: 'In Progress' })).toBeInTheDocument()
 })
 
+it('renders value badges for vip players_live rows', async () => {
+  const snapshotWithPlayersLive = structuredClone(v2Fixture) as any
+  const vip = snapshotWithPlayersLive.sports.nba.contests[0].vip_lineups[0]
+  vip.players_live = [
+    {
+      slot: 'PG',
+      player_name: 'VIP Elite',
+      ownership_pct: 84.67,
+      salary: 3500,
+      points: 7.25,
+      value: 8.1,
+      rt_projection: 21.11,
+      time_remaining_display: '38.02',
+      stats_text: '1 REB, 1 STL, 4 PTS',
+      game_status: 'In Progress',
+    },
+    {
+      slot: 'SG',
+      player_name: 'VIP Unknown',
+      ownership_pct: 12.12,
+      salary: 4200,
+      points: 5.0,
+      value: null,
+      rt_projection: 19.5,
+      time_remaining_display: '22.00',
+      stats_text: '1 REB',
+      game_status: 'In Progress',
+    },
+  ]
+
+  await renderLive(snapshotWithPlayersLive, 'snapshots/canonical-live-snapshot.v2.json')
+  const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
+  if (!(vipPanel instanceof HTMLElement)) {
+    throw new Error('VIP panel not found')
+  }
+  const lineupCard = within(vipPanel).getByText(/cglenn91/i).closest('li')
+  if (!lineupCard) {
+    throw new Error('Lineup card not found')
+  }
+  const playerTable = within(lineupCard).getByRole('table')
+  const rows = within(playerTable).getAllByRole('row')
+  expect(within(rows[1]).getByText('Elite')).toBeInTheDocument()
+  expect(within(rows[2]).getByText('N/A')).toBeInTheDocument()
+})
+
 it('renders VIP players_live empty state when details list is present but empty', async () => {
   const snapshotWithEmptyPlayersLive = structuredClone(v2Fixture) as any
   snapshotWithEmptyPlayersLive.sports.nba.contests[0].vip_lineups[0].players_live = []
@@ -625,7 +670,81 @@ it('renders player board parity columns position matchup salary points value own
   expect(within(playerPanel).getByRole('cell', { name: 'PG/SG' })).toBeInTheDocument()
   expect(within(playerPanel).getByRole('cell', { name: '$5,100' })).toBeInTheDocument()
   expect(within(playerPanel).getByRole('cell', { name: '12.75' })).toBeInTheDocument()
-  expect(within(playerPanel).getByRole('cell', { name: '2.5' })).toBeInTheDocument()
+  expect(within(playerPanel).getByRole('cell', { name: 'Low' })).toBeInTheDocument()
+})
+
+it('renders player pool value badges from thresholds with unknown fallback', async () => {
+  const snapshotWithValueTiers = structuredClone(snapshotFixture) as any
+  snapshotWithValueTiers.sports.nba.players = [
+    {
+      name: 'Tier Elite',
+      team: 'DAL',
+      position: 'PG',
+      matchup: 'vs. MIN',
+      salary: 5100,
+      ownership_pct: 2.92,
+      fantasy_points: 12.75,
+      value: 8,
+      game_status: 'In Progress',
+    },
+    {
+      name: 'Tier Strong',
+      team: 'DAL',
+      position: 'SG',
+      matchup: 'vs. MIN',
+      salary: 5200,
+      ownership_pct: 2.92,
+      fantasy_points: 12.75,
+      value: 5,
+      game_status: 'In Progress',
+    },
+    {
+      name: 'Tier Medium',
+      team: 'DAL',
+      position: 'SF',
+      matchup: 'vs. MIN',
+      salary: 5300,
+      ownership_pct: 2.92,
+      fantasy_points: 12.75,
+      value: 3,
+      game_status: 'In Progress',
+    },
+    {
+      name: 'Tier Low',
+      team: 'DAL',
+      position: 'PF',
+      matchup: 'vs. MIN',
+      salary: 5400,
+      ownership_pct: 2.92,
+      fantasy_points: 12.75,
+      value: 2.9,
+      game_status: 'In Progress',
+    },
+    {
+      name: 'Tier Unknown',
+      team: 'DAL',
+      position: 'C',
+      matchup: 'vs. MIN',
+      salary: 5500,
+      ownership_pct: 2.92,
+      fantasy_points: 12.75,
+      value: '',
+      game_status: 'In Progress',
+    },
+  ]
+
+  await renderLive(snapshotWithValueTiers)
+  const playerPanel = screen.getByRole('heading', { name: /player pool/i }).closest('.panel')
+  if (!(playerPanel instanceof HTMLElement)) {
+    throw new Error('Player panel not found')
+  }
+  const table = within(playerPanel).getByRole('table')
+  const rows = within(table).getAllByRole('row')
+  expect(within(rows[1]).getByText('Elite')).toBeInTheDocument()
+  expect(within(rows[2]).getByText('Strong')).toBeInTheDocument()
+  expect(within(rows[3]).getByText('Medium')).toBeInTheDocument()
+  expect(within(rows[4]).getByText('Low')).toBeInTheDocument()
+  expect(within(rows[5]).getByText('N/A')).toBeInTheDocument()
 })
 
 it('falls back to positions when roster_positions is an empty array', async () => {

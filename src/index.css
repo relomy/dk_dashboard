@@ -454,6 +454,41 @@ summary:focus-visible {
   font-weight: 700;
 }
 
+.value-badge {
+  border-radius: var(--radius-pill);
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 0.16rem 0.5rem;
+  white-space: nowrap;
+}
+
+.value-badge--elite {
+  background: #dce8ff;
+  color: #1f4ea7;
+}
+
+.value-badge--strong {
+  background: #d7f3e4;
+  color: #0f643f;
+}
+
+.value-badge--medium {
+  background: #fdeccf;
+  color: #785500;
+}
+
+.value-badge--low {
+  background: #ffe0df;
+  color: #8b1b16;
+}
+
+.value-badge--unknown {
+  background: #e7ebf2;
+  color: #3f4a5f;
+}
+
 .live-train-table td {
   font-size: 0.8rem;
 }

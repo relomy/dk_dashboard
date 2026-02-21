@@ -5,7 +5,7 @@ import KeyGate from '../components/KeyGate'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from '../lib/perVipKeys'
-import { isRelevantPlayerRow } from '../lib/playerPresentation'
+import { classifyValueTier, isRelevantPlayerRow, type ValueTier } from '../lib/playerPresentation'
 import type { ContestMetricsDistanceToCash, VipLineup } from '../lib/types'
 
 function resolveCashing(
@@ -98,6 +98,26 @@ function playerPointsSignal(player: {
     return player.projected_points
   }
   return 0
+}
+
+function valueTierLabel(tier: ValueTier): string {
+  switch (tier) {
+    case 'elite':
+      return 'Elite'
+    case 'strong':
+      return 'Strong'
+    case 'medium':
+      return 'Medium'
+    case 'low':
+      return 'Low'
+    default:
+      return 'N/A'
+  }
+}
+
+function renderValueBadge(value: unknown) {
+  const tier = classifyValueTier(value)
+  return <span className={`value-badge value-badge--${tier}`}>{valueTierLabel(tier)}</span>
 }
 
 function Live() {
@@ -366,7 +386,7 @@ function Live() {
                               <td>{formatValue(player.ownership_pct, { suffix: '%' })}</td>
                               <td>{formatCurrency(player.salary)}</td>
                               <td>{formatValue(player.points)}</td>
-                              <td>{formatValue(player.value)}</td>
+                              <td>{renderValueBadge(player.value)}</td>
                               <td>{formatValue(player.rt_projection)}</td>
                               <td>{player.time_remaining_display ?? '—'}</td>
                               <td>{player.stats_text ?? '—'}</td>
@@ -437,7 +457,7 @@ function Live() {
                   <td>{formatCurrency(player.salary)}</td>
                   <td>{formatValue(player.ownership_pct, { suffix: '%' })}</td>
                   <td>{formatValue(player.fantasy_points ?? player.actual_points)}</td>
-                  <td>{formatValue(player.value)}</td>
+                  <td>{renderValueBadge(player.value)}</td>
                   <td>{player.game_status ?? player.status ?? '—'}</td>
                 </tr>
               ))}
