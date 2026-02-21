@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.json'
+import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v2.json'
 import noPrimaryFixture from '../../public/mock/snapshots/canonical-live-snapshot-no-primary.json'
 import Sport from '../routes/Sport'
 
@@ -78,7 +78,7 @@ it('loads latest snapshot when cache is empty', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v2.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', availableSport],
@@ -120,7 +120,7 @@ it('does not use history snapshot cache for sport route data', async () => {
     if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
       return new Response(
         JSON.stringify({
-          latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
+          latest_snapshot_path: 'snapshots/canonical-live-snapshot.v2.json',
           snapshot_at: '2026-02-13T18:25:00Z',
           generated_at: '2026-02-13T18:25:07Z',
           available_sports: ['nba'],

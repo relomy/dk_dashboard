@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.json'
+import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v2.json'
 import emptyStandingsFixture from '../../public/mock/snapshots/canonical-live-snapshot-empty-standings.json'
 import missingSectionsFixture from '../../public/mock/snapshots/canonical-live-snapshot-missing-sections.json'
 import noPrimaryFixture from '../../public/mock/snapshots/canonical-live-snapshot-no-primary.json'
@@ -15,7 +15,7 @@ afterEach(() => {
   cleanup()
 })
 
-function mockLatestAndSnapshot(snapshot: unknown, snapshotPath = 'snapshots/canonical-live-snapshot.json') {
+function mockLatestAndSnapshot(snapshot: unknown, snapshotPath = 'snapshots/canonical-live-snapshot.v2.json') {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -39,7 +39,7 @@ function mockLatestAndSnapshot(snapshot: unknown, snapshotPath = 'snapshots/cano
   )
 }
 
-async function renderLive(snapshot: unknown, path = 'snapshots/canonical-live-snapshot.json') {
+async function renderLive(snapshot: unknown, path = 'snapshots/canonical-live-snapshot.v2.json') {
   mockLatestAndSnapshot(snapshot, path)
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -395,6 +395,9 @@ it('shows unavailable placeholders when sections are missing', async () => {
 
 it('renders train clusters with cluster rule and sorts by entry_count desc', async () => {
   const snapshotWithSortedClusters = structuredClone(snapshotFixture) as any
+  if (snapshotWithSortedClusters.sports.nba.contests[0].metrics) {
+    delete snapshotWithSortedClusters.sports.nba.contests[0].metrics.trains
+  }
   snapshotWithSortedClusters.sports.nba.contests[0].train_clusters.clusters.push({
     cluster_key: 'cluster-sort-test',
     entry_count: 25,

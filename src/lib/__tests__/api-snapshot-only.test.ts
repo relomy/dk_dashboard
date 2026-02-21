@@ -5,7 +5,7 @@ vi.mock('../env', () => ({
     apiBaseUrl: '',
     useMock: true,
     mockSnapshotOnly: true,
-    mockSnapshotPath: 'snapshots/canonical-live-snapshot.json',
+    mockSnapshotPath: 'snapshots/canonical-live-snapshot.v2.json',
   },
 }))
 
@@ -20,7 +20,7 @@ describe('fetchJson snapshot-only mock mode', () => {
       manifest_today_path: string
     }>('/api/latest')
 
-    expect(latest.latest_snapshot_path).toBe('snapshots/canonical-live-snapshot.json')
+    expect(latest.latest_snapshot_path).toBe('snapshots/canonical-live-snapshot.v2.json')
     expect(latest.manifest_today_path).toBe('')
     expect(fetchSpy).not.toHaveBeenCalled()
   })
