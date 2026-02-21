@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.json'
+import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v2.json'
 import missingSectionsFixture from '../../public/mock/snapshots/canonical-live-snapshot-missing-sections.json'
 import Latest from '../routes/Latest'
 
@@ -17,7 +17,7 @@ vi.mock('../context/ProfileContext', () => ({
 }))
 
 const latestPayload = {
-  latest_snapshot_path: 'snapshots/canonical-live-snapshot.json',
+  latest_snapshot_path: 'snapshots/canonical-live-snapshot.v2.json',
   snapshot_at: '2026-02-13T18:25:00Z',
   generated_at: '2026-02-13T18:25:07Z',
   available_sports: ['nba'],
@@ -72,6 +72,9 @@ it('renders latest snapshot summary', async () => {
   if (vipName) {
     expect(screen.getByText(vipName)).toBeInTheDocument()
   }
+  expect(screen.getByText(/Field size: 114/i)).toBeInTheDocument()
+  expect(screen.getByText(/Max per user: 1/i)).toBeInTheDocument()
+  expect(screen.queryByText(/Entries\s+\d+\s*\/\s*\d+/i)).not.toBeInTheDocument()
   const liveLinks = screen.getAllByRole('link', { name: /live view/i })
   expect(liveLinks.some((link) => link.getAttribute('href') === '/live/nba')).toBe(true)
 

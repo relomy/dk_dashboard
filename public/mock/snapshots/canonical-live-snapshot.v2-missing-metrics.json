@@ -7,10 +7,13 @@
       "contests":[
         {
           "contest_id":"187937165",
+          "contest_key":"golf:187937165",
           "draft_group":141832,
           "entries_count":12,
-          "entry_fee":5300,
+          "max_entries":12,
+          "entry_fee_cents":5300,
           "is_primary":true,
+          "state":"live",
           "live_metrics":{
             "cash_line":{
               "cutoff_type":"rank",
@@ -166,7 +169,7 @@
             "total_rows":12,
             "updated_at":"2026-02-14T16:58:45Z"
           },
-          "start_time_utc":"2026-02-12T16:45:00Z",
+          "start_time":"2026-02-12T16:45:00Z",
           "train_clusters":{
             "cluster_rule":{
               "min_shared":0,
@@ -1302,7 +1305,7 @@
       ],
       "primary_contest":{
         "contest_id":"187937165",
-        "contest_key":null,
+        "contest_key":"golf:187937165",
         "selected_at":"2026-02-14T16:58:45Z",
         "selection_reason":"explicit_id contest_id=187937165"
       },
@@ -1313,10 +1316,14 @@
       "contests":[
         {
           "contest_id":"188080404",
+          "contest_key":"nba:188080404",
           "draft_group":142004,
           "entries_count":114,
-          "entry_fee":10,
+          "max_entries":114,
+          "max_entries_per_user":1,
+          "entry_fee_cents":1000,
           "is_primary":true,
+          "state":"live",
           "live_metrics":{
             "cash_line":{
               "cutoff_type":"rank",
@@ -1890,7 +1897,7 @@
             "total_rows":114,
             "updated_at":"2026-02-14T16:58:45Z"
           },
-          "start_time_utc":"2026-02-13T00:30:00Z",
+          "start_time":"2026-02-13T00:30:00Z",
           "train_clusters":{
             "cluster_rule":{
               "min_shared":8,
@@ -5147,7 +5154,7 @@
       ],
       "primary_contest":{
         "contest_id":"188080404",
-        "contest_key":null,
+        "contest_key":"nba:188080404",
         "selected_at":"2026-02-14T16:58:45Z",
         "selection_reason":"explicit_id contest_id=188080404"
       },

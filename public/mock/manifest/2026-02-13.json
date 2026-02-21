@@ -5,7 +5,7 @@
   "snapshots": [
     {
       "snapshot_at": "2026-02-13T18:25:00Z",
-      "path": "snapshots/canonical-live-snapshot.json",
+      "path": "snapshots/canonical-live-snapshot.v2.json",
       "byte_size": 4212,
       "sports_present": ["nba", "nfl"],
       "contest_counts_by_sport": {
