@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom'
 import KeyGate from '../components/KeyGate'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
-import { resolveVipMetricMatchKey } from '../lib/perVipKeys'
+import { buildPerVipIndex, resolveVipMetricMatchKey } from '../lib/perVipKeys'
 import type { ContestMetricsDistanceToCash, VipLineup } from '../lib/types'
 
 function resolveCashing(
@@ -147,6 +147,37 @@ function Live() {
       distanceLookup.set(key, entry)
     }
   }
+  const ownershipSummary = primaryContest?.metrics?.ownership_summary
+  const ownershipSummaryLookup = buildPerVipIndex(ownershipSummary?.per_vip ?? [])
+  const ownershipSummaryRows = primaryContest?.vip_lineups
+    .map((lineup) => {
+      const key = resolveVipMetricMatchKey(lineup)
+      if (!key) {
+        return null
+      }
+      const summary = ownershipSummaryLookup.get(key)
+      if (!summary) {
+        return null
+      }
+      return {
+        key,
+        display_name: lineup.display_name,
+        total_ownership_pct: summary.total_ownership_pct,
+        ownership_in_play_pct: summary.ownership_in_play_pct,
+        is_partial: summary.is_partial,
+      }
+    })
+    .filter(
+      (
+        row,
+      ): row is {
+        key: string
+        display_name: string
+        total_ownership_pct?: number
+        ownership_in_play_pct?: number
+        is_partial?: boolean
+      } => Boolean(row),
+    ) ?? []
   const cashLine = primaryContest?.live_metrics?.cash_line
   const cashLinePoints = cashLine?.points_cutoff
   const cashLineRank = cashLine?.rank_cutoff
@@ -424,10 +455,40 @@ function Live() {
 
       <div className="panel page-stack-sm">
         <h2 className="section-title">Ownership remaining</h2>
+        {!ownershipSummary ? (
+          <p className="meta-text">Ownership summary metrics unavailable for this contest.</p>
+        ) : ownershipSummaryRows.length === 0 ? (
+          <p className="meta-text">No ownership summary rows available for VIP lineups.</p>
+        ) : (
+          <div className="panel-subtle page-stack-sm">
+            <h3 className="subsection-title">VIP ownership summary</h3>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>VIP</th>
+                  <th>Total Ownership</th>
+                  <th>Ownership in play</th>
+                  <th>Partial</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ownershipSummaryRows.map((row) => (
+                  <tr key={row.key}>
+                    <td>{row.display_name}</td>
+                    <td>{formatValue(row.total_ownership_pct, { suffix: '%' })}</td>
+                    <td>{formatValue(row.ownership_in_play_pct, { suffix: '%' })}</td>
+                    <td>{row.is_partial ? 'Yes' : 'No'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         {!ownershipWatchlist ? (
           <p className="meta-text">Ownership watchlist unavailable for this contest.</p>
         ) : (
-          <>
+          <div className="panel-subtle page-stack-sm">
+            <h3 className="subsection-title">Watchlist ownership remaining</h3>
             <p className="item-title">
               Ownership remaining total: {formatValue(ownershipWatchlist.ownership_remaining_total_pct, { suffix: '%' })}
             </p>
@@ -458,7 +519,7 @@ function Live() {
                 </tbody>
               </table>
             )}
-          </>
+          </div>
         )}
       </div>
 

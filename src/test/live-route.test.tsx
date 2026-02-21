@@ -188,6 +188,22 @@ it('renders VIP players_live table rows when details are available', async () =>
   expect(within(playerTable).getByRole('cell', { name: 'In Progress' })).toBeInTheDocument()
 })
 
+it('renders VIP players_live empty state when details list is present but empty', async () => {
+  const snapshotWithEmptyPlayersLive = structuredClone(v2Fixture) as any
+  snapshotWithEmptyPlayersLive.sports.nba.contests[0].vip_lineups[0].players_live = []
+
+  await renderLive(snapshotWithEmptyPlayersLive, 'snapshots/canonical-live-snapshot.v2.json')
+  const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
+  if (!(vipPanel instanceof HTMLElement)) {
+    throw new Error('VIP panel not found')
+  }
+  const lineupCard = within(vipPanel).getByText(/cglenn91/i).closest('li')
+  if (!lineupCard) {
+    throw new Error('Lineup card not found')
+  }
+  expect(within(lineupCard).getByText(/no player live details available/i)).toBeInTheDocument()
+})
+
 it('renders threat metrics from schema v2 snapshots', async () => {
   await renderLive(v2Fixture, 'snapshots/canonical-live-snapshot.v2.json')
   const threatPanel = screen.getByRole('heading', { name: /threat & leverage/i }).closest('.panel')
@@ -241,12 +257,55 @@ it('renders ownership watchlist total and respects top_n_default', async () => {
   await renderLive(snapshotWithTopN)
   expect(screen.getByText(/ownership remaining total:/i)).toBeInTheDocument()
   expect(screen.getByText(/^top 1$/i)).toBeInTheDocument()
-  const ownershipPanel = screen.getByRole('heading', { name: /ownership remaining/i }).closest('.panel')
+  const ownershipPanel = screen.getByRole('heading', { level: 2, name: /^ownership remaining$/i }).closest('.panel')
   if (!(ownershipPanel instanceof HTMLElement)) {
     throw new Error('Ownership panel not found')
   }
   const ownershipTable = within(ownershipPanel).getByRole('table')
   expect(within(ownershipTable).getAllByRole('row')).toHaveLength(2)
+})
+
+it('renders ownership summary cards from metrics using stable per-vip keys', async () => {
+  const snapshotWithOwnershipSummary = structuredClone(v2Fixture) as any
+  snapshotWithOwnershipSummary.sports.nba.contests[0].metrics.ownership_summary = {
+    source: 'vip_lineup_players',
+    scope: 'vip_lineup',
+    per_vip: [
+      {
+        entry_key: '5067365318',
+        total_ownership_pct: 189.78,
+        ownership_in_play_pct: 116.06,
+        is_partial: false,
+      },
+      {
+        display_name: 'cglenn91',
+        total_ownership_pct: 999.99,
+        ownership_in_play_pct: 999.99,
+        is_partial: true,
+      },
+    ],
+  }
+
+  await renderLive(snapshotWithOwnershipSummary, 'snapshots/canonical-live-snapshot.v2.json')
+  const ownershipPanel = screen.getByRole('heading', { level: 2, name: /^ownership remaining$/i }).closest('.panel')
+  if (!(ownershipPanel instanceof HTMLElement)) {
+    throw new Error('Ownership panel not found')
+  }
+  const summaryPanel = within(ownershipPanel).getByRole('heading', { name: /vip ownership summary/i }).closest('.panel-subtle')
+  if (!(summaryPanel instanceof HTMLElement)) {
+    throw new Error('Ownership summary panel not found')
+  }
+  const summaryTable = within(summaryPanel).getByRole('table')
+  const rows = within(summaryTable).getAllByRole('row')
+  expect(rows).toHaveLength(2)
+  expect(within(rows[1]).getByText('cglenn91')).toBeInTheDocument()
+  expect(within(rows[1]).getByText('189.78%')).toBeInTheDocument()
+  expect(within(summaryTable).queryByText('999.99%')).not.toBeInTheDocument()
+})
+
+it('shows ownership summary unavailable state when summary metrics are missing', async () => {
+  await renderLive(v2MissingMetricsFixture, 'snapshots/canonical-live-snapshot.v2-missing-metrics.json')
+  expect(screen.getByText(/ownership summary metrics unavailable for this contest/i)).toBeInTheDocument()
 })
 
 it('shows unavailable placeholders when sections are missing', async () => {
