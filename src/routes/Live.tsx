@@ -5,6 +5,7 @@ import KeyGate from '../components/KeyGate'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from '../lib/perVipKeys'
+import { isRelevantPlayerRow } from '../lib/playerPresentation'
 import type { ContestMetricsDistanceToCash, VipLineup } from '../lib/types'
 
 function resolveCashing(
@@ -82,6 +83,23 @@ function playerSortScore(player: {
   return Number.NEGATIVE_INFINITY
 }
 
+function playerPointsSignal(player: {
+  fantasy_points?: number | null
+  actual_points?: number | null
+  projected_points?: number | null
+}) {
+  if (player.fantasy_points !== null && player.fantasy_points !== undefined) {
+    return player.fantasy_points
+  }
+  if (player.actual_points !== null && player.actual_points !== undefined) {
+    return player.actual_points
+  }
+  if (player.projected_points !== null && player.projected_points !== undefined) {
+    return player.projected_points
+  }
+  return 0
+}
+
 function Live() {
   const queryClient = useQueryClient()
   const { sport } = useParams()
@@ -114,6 +132,13 @@ function Live() {
     const players = sportData?.players ?? []
     return [...players]
       .filter((player) => (search ? player.name.toLowerCase().includes(search) : true))
+      .filter((player) =>
+        isRelevantPlayerRow({
+          ownershipPct: player.ownership_pct,
+          points: playerPointsSignal(player),
+          value: player.value,
+        }),
+      )
       .sort((a, b) => playerSortScore(b) - playerSortScore(a))
   }, [playerSearch, sportData?.players])
 

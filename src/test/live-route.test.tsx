@@ -535,6 +535,67 @@ it('renders player pool with search and default ownership-first sort', async () 
   expect(within(playerPanel).queryByRole('cell', { name: 'High Own' })).not.toBeInTheDocument()
 })
 
+it('filters irrelevant players using ownership, points, and value signals', async () => {
+  const snapshotWithMixedRelevance = structuredClone(snapshotFixture) as any
+  snapshotWithMixedRelevance.sports.nba.players = [
+    {
+      player_id: 'p-hidden',
+      name: 'Hidden Player',
+      team: 'DAL',
+      positions: ['PG'],
+      salary: 3500,
+      ownership_pct: 0,
+      fantasy_points: 0,
+      value: 0,
+      status: 'Final',
+    },
+    {
+      player_id: 'p-points',
+      name: 'Points Signal',
+      team: 'DAL',
+      positions: ['SG'],
+      salary: 4200,
+      ownership_pct: 0,
+      fantasy_points: 1,
+      value: 0,
+      status: 'Final',
+    },
+    {
+      player_id: 'p-own',
+      name: 'Ownership Signal',
+      team: 'LAL',
+      positions: ['SF'],
+      salary: 4800,
+      ownership_pct: 2,
+      fantasy_points: 0,
+      value: 0,
+      status: 'Final',
+    },
+    {
+      player_id: 'p-value',
+      name: 'Value Signal',
+      team: 'OKC',
+      positions: ['PF'],
+      salary: 3000,
+      ownership_pct: 0,
+      fantasy_points: 0,
+      value: 1,
+      status: 'Final',
+    },
+  ]
+
+  await renderLive(snapshotWithMixedRelevance)
+  const playerPanel = screen.getByRole('heading', { name: /player pool/i }).closest('.panel')
+  if (!(playerPanel instanceof HTMLElement)) {
+    throw new Error('Player panel not found')
+  }
+
+  expect(within(playerPanel).queryByRole('cell', { name: 'Hidden Player' })).not.toBeInTheDocument()
+  expect(within(playerPanel).getByRole('cell', { name: 'Points Signal' })).toBeInTheDocument()
+  expect(within(playerPanel).getByRole('cell', { name: 'Ownership Signal' })).toBeInTheDocument()
+  expect(within(playerPanel).getByRole('cell', { name: 'Value Signal' })).toBeInTheDocument()
+})
+
 it('renders player board parity columns position matchup salary points value ownership', async () => {
   const snapshotWithParityPlayers = structuredClone(snapshotFixture) as any
   snapshotWithParityPlayers.sports.nba.players = [
