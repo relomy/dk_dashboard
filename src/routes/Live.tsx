@@ -37,6 +37,13 @@ function formatSigned(value: number, opts?: { suffix?: string }): string {
   return `${sign}${value}${opts?.suffix ?? ''}`
 }
 
+function formatCurrency(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return '—'
+  }
+  return `$${Math.round(value).toLocaleString()}`
+}
+
 function playerSortScore(player: { ownership_pct?: number | null; actual_points?: number | null; projected_points?: number | null }) {
   if (player.ownership_pct !== null && player.ownership_pct !== undefined) {
     return player.ownership_pct
@@ -229,6 +236,7 @@ function Live() {
                 pointsDelta === null || pointsDelta === undefined
                   ? 'Unavailable'
                   : formatSigned(pointsDelta, { suffix: ' pts' })
+              const playersLive = Array.isArray(lineup.players_live) ? lineup.players_live : null
               const updatedAt = lineup.live?.updated_at
                 ? new Date(lineup.live.updated_at).toLocaleString()
                 : 'unknown'
@@ -246,17 +254,58 @@ function Live() {
                     <p className="meta-text">Rank delta: {formatSigned(rankDelta)}</p>
                   )}
                   <p className="meta-text">Last updated: {updatedAt}</p>
-                  <ul className="vip-slot-list">
-                    {lineup.slots.map((slot, index) => {
-                      const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
-                      return (
-                        <li key={`${lineupKey}-${index}`}>
-                          {slot.slot}: {slot.player_name}
-                          {multiplier}
-                        </li>
-                      )
-                    })}
-                  </ul>
+                  {playersLive ? (
+                    playersLive.length === 0 ? (
+                      <p className="meta-text">No player live details available.</p>
+                    ) : (
+                      <table className="data-table vip-live-table">
+                        <thead>
+                          <tr>
+                            <th>Pos</th>
+                            <th>Name</th>
+                            <th>Own</th>
+                            <th>Salary</th>
+                            <th>Pts</th>
+                            <th>Value</th>
+                            <th>RT Proj</th>
+                            <th>Time</th>
+                            <th>Stats</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {playersLive.map((player, playerIndex) => (
+                            <tr key={`${lineupKey}-${playerIndex}`}>
+                              <td>{player.slot}</td>
+                              <td>{player.player_name}</td>
+                              <td>{formatValue(player.ownership_pct, { suffix: '%' })}</td>
+                              <td>{formatCurrency(player.salary)}</td>
+                              <td>{formatValue(player.points)}</td>
+                              <td>{formatValue(player.value)}</td>
+                              <td>{formatValue(player.rt_projection)}</td>
+                              <td>{player.time_remaining_display ?? '—'}</td>
+                              <td>{player.stats_text ?? '—'}</td>
+                              <td>{player.game_status ?? '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )
+                  ) : lineup.slots.length === 0 ? (
+                    <p className="meta-text">Lineup slots unavailable.</p>
+                  ) : (
+                    <ul className="vip-slot-list">
+                      {lineup.slots.map((slot, index) => {
+                        const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
+                        return (
+                          <li key={`${lineupKey}-${index}`}>
+                            {slot.slot}: {slot.player_name}
+                            {multiplier}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
                 </li>
               )
             })}

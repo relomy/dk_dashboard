@@ -177,6 +177,20 @@ p {
   padding-left: 0;
 }
 
+.vip-live-table td {
+  font-size: 0.8rem;
+}
+
+.vip-live-table th,
+.vip-live-table td {
+  white-space: nowrap;
+}
+
+.vip-live-table th:nth-child(9),
+.vip-live-table td:nth-child(9) {
+  white-space: normal;
+}
+
 .item-title {
   font-weight: 700;
 }

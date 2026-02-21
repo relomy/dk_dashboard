@@ -154,6 +154,40 @@ it('does not join distance metrics by display_name fallback', async () => {
   expect(within(lineupCard).getByText(/^not cashing$/i)).toBeInTheDocument()
 })
 
+it('renders VIP players_live table rows when details are available', async () => {
+  const snapshotWithPlayersLive = structuredClone(v2Fixture) as any
+  const vip = snapshotWithPlayersLive.sports.nba.contests[0].vip_lineups[0]
+  vip.players_live = [
+    {
+      slot: 'PG',
+      player_name: 'Javon Small',
+      ownership_pct: 84.67,
+      salary: 3500,
+      points: 7.25,
+      value: 2.07,
+      rt_projection: 21.11,
+      time_remaining_display: '38.02',
+      stats_text: '1 REB, 1 STL, 4 PTS',
+      game_status: 'In Progress',
+    },
+  ]
+
+  await renderLive(snapshotWithPlayersLive, 'snapshots/canonical-live-snapshot.v2.json')
+  const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
+  if (!(vipPanel instanceof HTMLElement)) {
+    throw new Error('VIP panel not found')
+  }
+  const lineupCard = within(vipPanel).getByText(/cglenn91/i).closest('li')
+  if (!lineupCard) {
+    throw new Error('Lineup card not found')
+  }
+  const playerTable = within(lineupCard).getByRole('table')
+  expect(within(playerTable).getByRole('columnheader', { name: /rt proj/i })).toBeInTheDocument()
+  expect(within(playerTable).getByRole('cell', { name: 'Javon Small' })).toBeInTheDocument()
+  expect(within(playerTable).getByRole('cell', { name: '$3,500' })).toBeInTheDocument()
+  expect(within(playerTable).getByRole('cell', { name: 'In Progress' })).toBeInTheDocument()
+})
+
 it('renders threat metrics from schema v2 snapshots', async () => {
   await renderLive(v2Fixture, 'snapshots/canonical-live-snapshot.v2.json')
   const threatPanel = screen.getByRole('heading', { name: /threat & leverage/i }).closest('.panel')
