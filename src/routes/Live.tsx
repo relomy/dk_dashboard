@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom'
 import KeyGate from '../components/KeyGate'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
+import { resolveVipMetricMatchKey } from '../lib/perVipKeys'
 import type { ContestMetricsDistanceToCash, VipLineup } from '../lib/types'
 
 function resolveCashing(
@@ -34,10 +35,6 @@ function formatValue(value: number | null | undefined, opts?: { suffix?: string 
 function formatSigned(value: number, opts?: { suffix?: string }): string {
   const sign = value > 0 ? '+' : ''
   return `${sign}${value}${opts?.suffix ?? ''}`
-}
-
-function resolveVipMetricKey(value: { vip_entry_key?: string; entry_key?: string; display_name?: string }): string | null {
-  return value.vip_entry_key ?? value.entry_key ?? value.display_name ?? null
 }
 
 function playerSortScore(player: { ownership_pct?: number | null; actual_points?: number | null; projected_points?: number | null }) {
@@ -138,7 +135,7 @@ function Live() {
   const distanceMetrics = primaryContest?.metrics?.distance_to_cash
   const distanceLookup = new Map<string, ContestMetricsDistanceToCash['per_vip'][number]>()
   for (const entry of distanceMetrics?.per_vip ?? []) {
-    const key = resolveVipMetricKey(entry)
+    const key = resolveVipMetricMatchKey(entry)
     if (key) {
       distanceLookup.set(key, entry)
     }
@@ -223,7 +220,7 @@ function Live() {
           <ul className="list-panel">
             {primaryContest.vip_lineups.map((lineup, lineupIndex) => {
               const lineupKey = lineup.entry_key || lineup.vip_entry_key || lineup.display_name
-              const metricKey = resolveVipMetricKey(lineup)
+              const metricKey = resolveVipMetricMatchKey(lineup)
               const distanceEntry = metricKey ? distanceLookup.get(metricKey) : undefined
               const isCashing = resolveCashing(lineup, distanceEntry)
               const pointsDelta = distanceEntry?.points_delta

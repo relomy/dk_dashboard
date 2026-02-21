@@ -133,6 +133,27 @@ it('shows unavailable distance-to-cash when metrics are missing', async () => {
   expect(within(lineupCard).getByText(/distance to cash: unavailable/i)).toBeInTheDocument()
 })
 
+it('does not join distance metrics by display_name fallback', async () => {
+  const snapshotWithoutStableMetricKeys = structuredClone(v2Fixture) as any
+  const firstMetricRow = snapshotWithoutStableMetricKeys.sports.nba.contests[0].metrics.distance_to_cash.per_vip[0]
+  firstMetricRow.vip_entry_key = null
+  firstMetricRow.entry_key = null
+  firstMetricRow.points_delta = 99
+  firstMetricRow.rank_delta = 99
+
+  await renderLive(snapshotWithoutStableMetricKeys, 'snapshots/canonical-live-snapshot.v2.json')
+  const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
+  if (!(vipPanel instanceof HTMLElement)) {
+    throw new Error('VIP panel not found')
+  }
+  const lineupCard = within(vipPanel).getByText(/cglenn91/i).closest('li')
+  if (!lineupCard) {
+    throw new Error('Lineup card not found')
+  }
+  expect(within(lineupCard).getByText(/distance to cash: unavailable/i)).toBeInTheDocument()
+  expect(within(lineupCard).getByText(/^not cashing$/i)).toBeInTheDocument()
+})
+
 it('renders threat metrics from schema v2 snapshots', async () => {
   await renderLive(v2Fixture, 'snapshots/canonical-live-snapshot.v2.json')
   const threatPanel = screen.getByRole('heading', { name: /threat & leverage/i }).closest('.panel')

@@ -8,6 +8,20 @@ export interface VipLineupSlot {
   multiplier?: number
 }
 
+export interface VipLineupPlayerLive {
+  slot: string
+  player_name: string
+  game_status?: string
+  ownership_pct?: number
+  salary?: number
+  points?: number
+  value?: number
+  rt_projection?: number
+  time_remaining_display?: string
+  time_remaining_minutes?: number
+  stats_text?: string
+}
+
 export interface VipLineup {
   entry_key?: string
   vip_entry_key?: string
@@ -15,6 +29,7 @@ export interface VipLineup {
   username?: string
   display_name: string
   slots: VipLineupSlot[]
+  players_live?: VipLineupPlayerLive[]
   rank?: number
   points?: number
   payout_cents?: number | null
@@ -81,9 +96,33 @@ export interface ContestMetricsTrains {
   }>
 }
 
+export interface ContestMetricsOwnershipSummary {
+  source: 'vip_lineup_players'
+  scope: 'vip_lineup'
+  per_vip: Array<{
+    vip_entry_key?: string | null
+    entry_key?: string | null
+    display_name?: string
+    total_ownership_pct?: number
+    ownership_in_play_pct?: number
+    is_partial?: boolean
+  }>
+}
+
+export interface ContestMetricsNonCashing {
+  users_not_cashing?: number
+  avg_pmr_remaining?: number
+  top_remaining_players?: Array<{
+    player_name: string
+    ownership_remaining_pct?: number
+  }>
+}
+
 export interface ContestMetrics {
   updated_at: string
   distance_to_cash?: ContestMetricsDistanceToCash
+  ownership_summary?: ContestMetricsOwnershipSummary
+  non_cashing?: ContestMetricsNonCashing
   threat?: ContestMetricsThreat
   trains?: ContestMetricsTrains
 }
