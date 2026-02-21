@@ -141,8 +141,10 @@ Notes:
 - `slot` values are opaque and must be rendered in provided order.
 - `multiplier` is optional; if absent, UI treats as 1.0.
 - `cash_line_delta_points` is interpreted against `contest.live_metrics.cash_line.cutoff_type`.
-- `payout_cents` presence is the source of truth for cashing state; if `live.is_cashing` is emitted, it should match.
-- For standings rows, `payout_cents` presence implies the row is currently cashing.
+- Cashing precedence is metrics-first for live UX:
+  - if `contest.metrics.distance_to_cash.per_vip` has a row, derive cashing from `points_delta` (fallback `rank_delta`)
+  - otherwise fallback to `payout_cents` presence
+- For standings rows, `payout_cents` presence implies the row is currently cashing when no metrics-derived status is available.
 
 ## `Player`
 ```ts

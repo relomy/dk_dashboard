@@ -60,8 +60,8 @@ Contest-scoped live payload is expected on the selected contest:
 - `contest.train_clusters.cluster_rule` (for example `shared_slots` with `min_shared`)
 - `contest.train_clusters.clusters[].composition[].player_name` (name-only composition in order)
 - `contest.standings.total_rows` and `contest.standings.is_truncated` (optional payload-size escape hatch)
-- standings cashing semantics: `standings.rows[].payout_cents` presence implies the row is currently cashing
-- vip cashing semantics: `vip_lineups[].payout_cents` presence is the source of truth for cashing
+- standings cashing semantics (transitional): `standings.rows[].payout_cents` presence implies cashing when no metrics-derived status is available
+- vip cashing semantics (authoritative): derive from `contest.metrics.distance_to_cash.per_vip` when present; fallback to `payout_cents` presence only when metrics are unavailable
 
 Section presence rules:
 - Missing object (`ownership_watchlist`, `train_clusters`, `standings`) => unavailable placeholder.
