@@ -60,8 +60,20 @@ Status: Covered (enhanced)
 - Uses exporter-ranked train metrics when present.
 - Supports top-N default and full-list toggle.
 
+### 8) Player relevance + value cues
+Status: Covered
+- Player pool hides rows only when `ownership<=0`, `points<=0`, and `value<=0`.
+- Value badges are deterministic and shared across player pool + VIP players_live rows:
+  - `>=8` Elite, `>=5` Strong, `>=3` Medium, `<3` Low, non-numeric/blank => `N/A`.
+
+### 9) Team row styling (phase 1)
+Status: Covered (phase 1)
+- Team accent styling is applied to player-pool rows via local team-token mapping.
+- Alias normalization is deterministic for NBA (e.g. `GS -> GSW`).
+- Unknown/unmapped teams fall back to neutral style.
+- VIP players_live rows intentionally remain neutral in phase 1.
+
 ## Remaining Enhancements (Post-Parity)
-- Team color/gradient styling parity for sport-specific player rows.
 - Trend overlays and decision cues beyond sheet equivalence.
 - History snapshot diff preview (TODO):
   - Show inline per-row delta summary versus previous snapshot.

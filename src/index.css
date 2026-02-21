@@ -466,6 +466,95 @@ summary:focus-visible {
   font-weight: 700;
 }
 
+.value-badge {
+  border-radius: var(--radius-pill);
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 0.16rem 0.5rem;
+  white-space: nowrap;
+}
+
+.value-badge--elite {
+  background: #dce8ff;
+  color: #1f4ea7;
+}
+
+.value-badge--strong {
+  background: #d7f3e4;
+  color: #0f643f;
+}
+
+.value-badge--medium {
+  background: #fdeccf;
+  color: #785500;
+}
+
+.value-badge--low {
+  background: #ffe0df;
+  color: #8b1b16;
+}
+
+.value-badge--unknown {
+  background: #e7ebf2;
+  color: #3f4a5f;
+}
+
+.team-accent {
+  border-left: 3px solid transparent;
+}
+
+.team-accent--neutral {
+  background: transparent;
+  border-left-color: transparent;
+}
+
+.team-accent--nba-dal {
+  background: rgba(0, 83, 188, 0.07);
+  border-left-color: #0053bc;
+}
+
+.team-accent--nba-gsw {
+  background: rgba(29, 66, 138, 0.08);
+  border-left-color: #1d428a;
+}
+
+.team-accent--nba-lal {
+  background: rgba(85, 37, 130, 0.08);
+  border-left-color: #552583;
+}
+
+.team-accent--nba-nop {
+  background: rgba(0, 22, 65, 0.06);
+  border-left-color: #0c2340;
+}
+
+.team-accent--nba-okc {
+  background: rgba(0, 125, 195, 0.08);
+  border-left-color: #007ac1;
+}
+
+.team-accent--nba-phx {
+  background: rgba(29, 17, 96, 0.08);
+  border-left-color: #1d1160;
+}
+
+.team-accent--nba-por {
+  background: rgba(224, 58, 62, 0.08);
+  border-left-color: #e03a3e;
+}
+
+.team-accent--nba-sas {
+  background: rgba(196, 206, 211, 0.25);
+  border-left-color: #98a2aa;
+}
+
+.team-accent--nba-uta {
+  background: rgba(0, 43, 92, 0.08);
+  border-left-color: #002b5c;
+}
+
 .live-train-table td {
   font-size: 0.8rem;
 }

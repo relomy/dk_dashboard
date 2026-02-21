@@ -5,6 +5,7 @@ import KeyGate from '../components/KeyGate'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from '../lib/perVipKeys'
+import { classifyValueTier, isRelevantPlayerRow, resolveTeamStyleToken, type ValueTier } from '../lib/playerPresentation'
 import type { ContestMetricsDistanceToCash, VipLineup } from '../lib/types'
 
 function resolveCashing(
@@ -82,6 +83,43 @@ function playerSortScore(player: {
   return Number.NEGATIVE_INFINITY
 }
 
+function playerPointsSignal(player: {
+  fantasy_points?: number | null
+  actual_points?: number | null
+  projected_points?: number | null
+}) {
+  if (player.fantasy_points !== null && player.fantasy_points !== undefined) {
+    return player.fantasy_points
+  }
+  if (player.actual_points !== null && player.actual_points !== undefined) {
+    return player.actual_points
+  }
+  if (player.projected_points !== null && player.projected_points !== undefined) {
+    return player.projected_points
+  }
+  return 0
+}
+
+function valueTierLabel(tier: ValueTier): string {
+  switch (tier) {
+    case 'elite':
+      return 'Elite'
+    case 'strong':
+      return 'Strong'
+    case 'medium':
+      return 'Medium'
+    case 'low':
+      return 'Low'
+    default:
+      return 'N/A'
+  }
+}
+
+function renderValueBadge(value: unknown) {
+  const tier = classifyValueTier(value)
+  return <span className={`value-badge value-badge--${tier}`}>{valueTierLabel(tier)}</span>
+}
+
 function Live() {
   const queryClient = useQueryClient()
   const { sport } = useParams()
@@ -114,6 +152,13 @@ function Live() {
     const players = sportData?.players ?? []
     return [...players]
       .filter((player) => (search ? player.name.toLowerCase().includes(search) : true))
+      .filter((player) =>
+        isRelevantPlayerRow({
+          ownershipPct: player.ownership_pct,
+          points: playerPointsSignal(player),
+          value: player.value,
+        }),
+      )
       .sort((a, b) => playerSortScore(b) - playerSortScore(a))
   }, [playerSearch, sportData?.players])
 
@@ -341,7 +386,7 @@ function Live() {
                               <td>{formatValue(player.ownership_pct, { suffix: '%' })}</td>
                               <td>{formatCurrency(player.salary)}</td>
                               <td>{formatValue(player.points)}</td>
-                              <td>{formatValue(player.value)}</td>
+                              <td>{renderValueBadge(player.value)}</td>
                               <td>{formatValue(player.rt_projection)}</td>
                               <td>{player.time_remaining_display ?? '—'}</td>
                               <td>{player.stats_text ?? '—'}</td>
@@ -404,7 +449,10 @@ function Live() {
             </thead>
             <tbody>
               {filteredPlayers.map((player, playerIndex) => (
-                <tr key={player.player_id || `${player.name}-${playerIndex}`}>
+                <tr
+                  key={player.player_id || `${player.name}-${playerIndex}`}
+                  className={`team-accent team-accent--${resolveTeamStyleToken(sportKey, player.team)}`}
+                >
                   <td>{firstNonEmptyString(player.position, joinNonEmpty(player.roster_positions), joinNonEmpty(player.positions)) ?? '—'}</td>
                   <td>{player.name}</td>
                   <td>{player.team}</td>
@@ -412,7 +460,7 @@ function Live() {
                   <td>{formatCurrency(player.salary)}</td>
                   <td>{formatValue(player.ownership_pct, { suffix: '%' })}</td>
                   <td>{formatValue(player.fantasy_points ?? player.actual_points)}</td>
-                  <td>{formatValue(player.value)}</td>
+                  <td>{renderValueBadge(player.value)}</td>
                   <td>{player.game_status ?? player.status ?? '—'}</td>
                 </tr>
               ))}
