@@ -53,6 +53,9 @@ it('uses cached snapshot and renders grouped contests plus player table behavior
   expect(await screen.findByRole('heading', { name: /sport: nba/i })).toBeInTheDocument()
   expect(screen.getByRole('link', { name: /open live sweat view/i })).toHaveAttribute('href', '/live/nba')
   expect(screen.getByRole('heading', { name: /unknown/i })).toBeInTheDocument()
+  expect(screen.getByText(/Field size: 114/i)).toBeInTheDocument()
+  expect(screen.getByText(/Max per user: 1/i)).toBeInTheDocument()
+  expect(screen.queryByText(/Entries:\s*\d+\s*\/\s*\d+/i)).not.toBeInTheDocument()
   if (vipName) {
     expect(screen.getByText(vipName)).toBeInTheDocument()
   }

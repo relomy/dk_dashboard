@@ -129,8 +129,8 @@ function ContestSection({
           {grouped[state].length === 0 ? <p className="meta-text">No contests in this state.</p> : null}
           {grouped[state].map((contest, contestIndex) => {
             const lineups = filterVipLineups(contest.vip_lineups, activeProfileRules, vipFilterMode)
-            const entryFeeCents = contest.entry_fee_cents ?? (contest as Contest & { entry_fee?: number }).entry_fee ?? 0
-            const prizePoolCents = contest.prize_pool_cents ?? (contest as Contest & { prize_pool?: number }).prize_pool ?? 0
+            const entryFeeCents = contest.entry_fee_cents
+            const prizePoolCents = contest.prize_pool_cents
             const contestState = normalizeContestState(contest.state)
 
             return (
@@ -143,9 +143,10 @@ function ContestSection({
                   </span>
                 </div>
                 <div className="sport-contest-meta">
-                  <p className="meta-text">
-                    Entries: {contest.entries_count}/{contest.max_entries}
-                  </p>
+                  <p className="meta-text">Field size: {contest.max_entries}</p>
+                  {typeof contest.max_entries_per_user === 'number' ? (
+                    <p className="meta-text">Max per user: {contest.max_entries_per_user}</p>
+                  ) : null}
                   <p className="meta-text">Prize pool: {formatMoney(prizePoolCents, contest.currency)}</p>
                 </div>
                 <h4 className="subsection-title">VIP lineups</h4>

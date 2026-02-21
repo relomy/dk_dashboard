@@ -140,8 +140,9 @@ export interface Contest {
   entry_fee_cents: number
   prize_pool_cents: number
   currency: string
-  entries_count: number
+  entries_count?: number
   max_entries: number
+  max_entries_per_user?: number
   vip_lineups: VipLineup[]
   live_metrics?: {
     updated_at: string

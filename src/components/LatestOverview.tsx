@@ -63,9 +63,11 @@ function renderLineupSlots(lineup: VipLineup): string {
 }
 
 function ContestBlock({ contest, lineups }: { contest: Contest; lineups: VipLineup[] }) {
-  const entryFeeCents = contest.entry_fee_cents ?? (contest as Contest & { entry_fee?: number }).entry_fee ?? 0
-  const prizePoolCents = contest.prize_pool_cents ?? (contest as Contest & { prize_pool?: number }).prize_pool ?? 0
+  const entryFeeCents = contest.entry_fee_cents
+  const prizePoolCents = contest.prize_pool_cents
   const contestState = normalizeContestState(contest.state)
+  const maxPerUser =
+    typeof contest.max_entries_per_user === 'number' ? ` | Max per user: ${contest.max_entries_per_user}` : ''
 
   return (
     <article className="latest-contest">
@@ -75,7 +77,8 @@ function ContestBlock({ contest, lineups }: { contest: Contest; lineups: VipLine
         <span className={`contest-state-badge contest-state-${contestState}`}>{formatContestState(contestState)}</span>
       </div>
       <p className="latest-meta">
-        Entries {contest.entries_count}/{contest.max_entries} | Prize {formatMoney(prizePoolCents, contest.currency)}
+        Field size: {contest.max_entries}
+        {maxPerUser} | Prize {formatMoney(prizePoolCents, contest.currency)}
       </p>
       <div>
         <p className="latest-vip-label">VIP lineups</p>

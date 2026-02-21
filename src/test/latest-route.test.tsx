@@ -72,6 +72,9 @@ it('renders latest snapshot summary', async () => {
   if (vipName) {
     expect(screen.getByText(vipName)).toBeInTheDocument()
   }
+  expect(screen.getByText(/Field size: 114/i)).toBeInTheDocument()
+  expect(screen.getByText(/Max per user: 1/i)).toBeInTheDocument()
+  expect(screen.queryByText(/Entries\s+\d+\s*\/\s*\d+/i)).not.toBeInTheDocument()
   const liveLinks = screen.getAllByRole('link', { name: /live view/i })
   expect(liveLinks.some((link) => link.getAttribute('href') === '/live/nba')).toBe(true)
 
