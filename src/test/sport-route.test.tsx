@@ -55,6 +55,8 @@ it('uses cached snapshot and renders grouped contests plus player table behavior
   expect(screen.getByRole('heading', { name: /unknown/i })).toBeInTheDocument()
   expect(screen.getByText(/Field size: 114/i)).toBeInTheDocument()
   expect(screen.getByText(/Max per user: 1/i)).toBeInTheDocument()
+  expect(screen.getByText(/Prize pool: \$1,000/i)).toBeInTheDocument()
+  expect(screen.getAllByText(/Cashed/i).length).toBeGreaterThan(0)
   expect(screen.queryByText(/Entries:\s*\d+\s*\/\s*\d+/i)).not.toBeInTheDocument()
   if (vipName) {
     expect(screen.getByText(vipName)).toBeInTheDocument()
@@ -177,5 +179,37 @@ it('renders sport route even when primary contest config is missing (live-only c
 
   expect(await screen.findByRole('heading', { name: /sport: nba/i })).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: /live \(1\)/i })).toBeInTheDocument()
+  expect(fetchSpy).not.toHaveBeenCalled()
+})
+
+it('renders completed VIP cashing with payout amount', async () => {
+  const snapshotWithPayout = structuredClone(snapshotFixture) as any
+  const contest = snapshotWithPayout.sports.nba.contests[0]
+  contest.state = 'completed'
+  contest.currency = 'USD'
+  contest.vip_lineups[0].payout_cents = 2000
+  contest.vip_lineups[0].live = {
+    ...(contest.vip_lineups[0].live ?? {}),
+    payout_cents: 2000,
+  }
+
+  const fetchSpy = vi.fn()
+  vi.stubGlobal('fetch', fetchSpy)
+
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  queryClient.setQueryData(['snapshot', 'cached.json'], snapshotWithPayout)
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/sport/nba']}>
+        <Routes>
+          <Route path="/sport/:sport" element={<Sport />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  expect(await screen.findByRole('heading', { name: /sport: nba/i })).toBeInTheDocument()
+  expect(screen.getAllByText(/Cashed \$20/i).length).toBeGreaterThan(0)
   expect(fetchSpy).not.toHaveBeenCalled()
 })

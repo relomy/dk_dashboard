@@ -27,6 +27,21 @@ function formatMoney(cents: number, currency: string): string {
   }
 }
 
+function formatBadgeMoney(cents: number, currency: string): string {
+  const safeCents = Number.isFinite(cents) ? cents : 0
+  const safeCurrency = currency || 'USD'
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: safeCurrency,
+      maximumFractionDigits: 0,
+    }).format(safeCents / 100)
+  } catch {
+    return `$${(safeCents / 100).toFixed(0)}`
+  }
+}
+
 function scoreForSort(player: Player): number {
   return player.actual_points ?? player.projected_points ?? Number.NEGATIVE_INFINITY
 }
@@ -54,6 +69,37 @@ function formatContestState(state: ContestState): string {
 
 function normalizeContestState(state: Contest['state'] | null | undefined): ContestState {
   return state && contestStates.includes(state) ? state : 'unknown'
+}
+
+function getVipCashingStatus(
+  contestState: ContestState,
+  lineup: Contest['vip_lineups'][number],
+  currency: string,
+): { label: string; positive: boolean } | null {
+  if (contestState !== 'completed' && contestState !== 'live') {
+    return null
+  }
+
+  const payoutCents = lineup.payout_cents ?? lineup.live?.payout_cents
+  const isCashing = typeof payoutCents === 'number' && payoutCents > 0
+
+  if (contestState === 'completed') {
+    if (isCashing) {
+      return {
+        label: `Cashed ${formatBadgeMoney(payoutCents, currency)}`,
+        positive: true,
+      }
+    }
+    return {
+      label: 'Not cashing',
+      positive: false,
+    }
+  }
+
+  return {
+    label: isCashing ? 'Cashing' : 'Outside cash',
+    positive: isCashing,
+  }
 }
 
 function PlayerPoolTable({ players }: { players: Player[] }) {
@@ -154,25 +200,35 @@ function ContestSection({
                   <p className="muted-text">No matching VIP lineups.</p>
                 ) : (
                   <div className="sport-lineup-grid">
-                    {lineups.map((lineup, lineupIndex) => (
-                      <div
-                        key={lineup.entry_key || lineup.vip_entry_key || `${lineup.display_name}-${lineupIndex}`}
-                        className="panel-subtle"
-                      >
-                        <p className="item-title">{lineup.display_name}</p>
-                        <ol className="sport-lineup-slots">
-                          {lineup.slots.map((slot, index) => {
-                            const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
-                            return (
-                              <li key={`${lineup.entry_key || lineup.vip_entry_key || lineup.display_name}-${index}`}>
-                                {slot.slot}: {slot.player_name}
-                                {multiplier}
-                              </li>
-                            )
-                          })}
-                        </ol>
-                      </div>
-                    ))}
+                    {lineups.map((lineup, lineupIndex) => {
+                      const cashingStatus = getVipCashingStatus(contestState, lineup, contest.currency)
+                      return (
+                        <div
+                          key={lineup.entry_key || lineup.vip_entry_key || `${lineup.display_name}-${lineupIndex}`}
+                          className="panel-subtle"
+                        >
+                          <div className="sport-vip-head">
+                            <p className="item-title">{lineup.display_name}</p>
+                            {cashingStatus ? (
+                              <span className={`status ${cashingStatus.positive ? 'status-ok' : 'status-error'}`}>
+                                {cashingStatus.label}
+                              </span>
+                            ) : null}
+                          </div>
+                          <ol className="sport-lineup-slots">
+                            {lineup.slots.map((slot, index) => {
+                              const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
+                              return (
+                                <li key={`${lineup.entry_key || lineup.vip_entry_key || lineup.display_name}-${index}`}>
+                                  {slot.slot}: {slot.player_name}
+                                  {multiplier}
+                                </li>
+                              )
+                            })}
+                          </ol>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </article>

@@ -63,3 +63,14 @@ Status: Covered (enhanced)
 ## Remaining Enhancements (Post-Parity)
 - Team color/gradient styling parity for sport-specific player rows.
 - Trend overlays and decision cues beyond sheet equivalence.
+- History snapshot diff preview (TODO):
+  - Show inline per-row delta summary versus previous snapshot.
+  - Example summary: `+/- contests`, `state changes`, `VIP cashing delta`.
+  - Add optional "View details" expander when changes exist.
+  - Expanded view should include per-contest changes:
+    - state transitions, added/removed contests, primary contest change,
+      selected contest VIP cashing/payout deltas, data quality signals.
+  - Acceptance:
+    - timeline remains scannable without expansion
+    - details are deterministic and based on manifest-ordered adjacent snapshots
+    - no raw JSON dumps in UI

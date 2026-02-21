@@ -29,6 +29,21 @@ function formatMoney(cents: number, currency: string): string {
   }
 }
 
+function formatBadgeMoney(cents: number, currency: string): string {
+  const safeCents = Number.isFinite(cents) ? cents : 0
+  const safeCurrency = currency || 'USD'
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: safeCurrency,
+      maximumFractionDigits: 0,
+    }).format(safeCents / 100)
+  } catch {
+    return `$${(safeCents / 100).toFixed(0)}`
+  }
+}
+
 function groupByState(contests: Contest[]): Record<ContestState, Contest[]> {
   const grouped: Record<ContestState, Contest[]> = {
     live: [],
@@ -62,6 +77,37 @@ function renderLineupSlots(lineup: VipLineup): string {
     .join(' | ')
 }
 
+function getVipCashingStatus(
+  contestState: ContestState,
+  lineup: VipLineup,
+  currency: string,
+): { label: string; positive: boolean } | null {
+  if (contestState !== 'completed' && contestState !== 'live') {
+    return null
+  }
+
+  const payoutCents = lineup.payout_cents ?? lineup.live?.payout_cents
+  const isCashing = typeof payoutCents === 'number' && payoutCents > 0
+
+  if (contestState === 'completed') {
+    if (isCashing) {
+      return {
+        label: `Cashed ${formatBadgeMoney(payoutCents, currency)}`,
+        positive: true,
+      }
+    }
+    return {
+      label: 'Not cashing',
+      positive: false,
+    }
+  }
+
+  return {
+    label: isCashing ? 'Cashing' : 'Outside cash',
+    positive: isCashing,
+  }
+}
+
 function ContestBlock({ contest, lineups }: { contest: Contest; lineups: VipLineup[] }) {
   const entryFeeCents = contest.entry_fee_cents
   const prizePoolCents = contest.prize_pool_cents
@@ -78,7 +124,7 @@ function ContestBlock({ contest, lineups }: { contest: Contest; lineups: VipLine
       </div>
       <p className="latest-meta">
         Field size: {contest.max_entries}
-        {maxPerUser} | Prize {formatMoney(prizePoolCents, contest.currency)}
+        {maxPerUser} | Prize pool {formatMoney(prizePoolCents, contest.currency)}
       </p>
       <div>
         <p className="latest-vip-label">VIP lineups</p>
@@ -86,12 +132,22 @@ function ContestBlock({ contest, lineups }: { contest: Contest; lineups: VipLine
           <p className="latest-muted">No matching VIP lineups</p>
         ) : (
           <ul className="latest-vip-list">
-            {lineups.map((lineup, index) => (
-              <li key={lineup.entry_key || lineup.vip_entry_key || `${lineup.display_name}-${index}`}>
-                <strong>{lineup.display_name}</strong>
-                <div className="latest-slot-line">{renderLineupSlots(lineup)}</div>
-              </li>
-            ))}
+            {lineups.map((lineup, index) => {
+              const cashingStatus = getVipCashingStatus(contestState, lineup, contest.currency)
+              return (
+                <li key={lineup.entry_key || lineup.vip_entry_key || `${lineup.display_name}-${index}`}>
+                  <div className="latest-vip-head">
+                    <strong>{lineup.display_name}</strong>
+                    {cashingStatus ? (
+                      <span className={`status ${cashingStatus.positive ? 'status-ok' : 'status-error'}`}>
+                        {cashingStatus.label}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="latest-slot-line">{renderLineupSlots(lineup)}</div>
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>

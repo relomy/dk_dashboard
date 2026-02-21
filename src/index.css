@@ -388,6 +388,12 @@ summary:focus-visible {
   padding-left: 1rem;
 }
 
+.latest-vip-head {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+}
+
 .latest-slot-line {
   font-size: 0.82rem;
   margin-top: var(--space-1);
@@ -433,6 +439,12 @@ summary:focus-visible {
 .contest-state-unknown {
   background: #e8eef9;
   color: #334769;
+}
+
+.sport-vip-head {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
 }
 
 .data-table {
