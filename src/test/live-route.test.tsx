@@ -747,6 +747,118 @@ it('renders player pool value badges from thresholds with unknown fallback', asy
   expect(within(rows[5]).getByText('N/A')).toBeInTheDocument()
 })
 
+it('applies team accent classes to player pool rows with alias normalization and neutral fallback', async () => {
+  const snapshotWithTeams = structuredClone(snapshotFixture) as any
+  snapshotWithTeams.sports.nba.players = [
+    {
+      name: 'Alias Team',
+      team: 'GS',
+      position: 'PG',
+      matchup: 'vs. MIN',
+      salary: 5100,
+      ownership_pct: 1.25,
+      fantasy_points: 5,
+      value: 4.1,
+      game_status: 'In Progress',
+    },
+    {
+      name: 'Canonical Team',
+      team: 'GSW',
+      position: 'SG',
+      matchup: 'vs. MIN',
+      salary: 5200,
+      ownership_pct: 1.25,
+      fantasy_points: 5,
+      value: 4.1,
+      game_status: 'In Progress',
+    },
+    {
+      name: 'Unknown Team',
+      team: 'ZZZ',
+      position: 'SF',
+      matchup: 'vs. MIN',
+      salary: 5300,
+      ownership_pct: 1.25,
+      fantasy_points: 5,
+      value: 4.1,
+      game_status: 'In Progress',
+    },
+  ]
+
+  await renderLive(snapshotWithTeams)
+  const playerPanel = screen.getByRole('heading', { name: /player pool/i }).closest('.panel')
+  if (!(playerPanel instanceof HTMLElement)) {
+    throw new Error('Player panel not found')
+  }
+
+  const aliasRow = within(playerPanel).getByText('Alias Team').closest('tr')
+  const canonicalRow = within(playerPanel).getByText('Canonical Team').closest('tr')
+  const unknownRow = within(playerPanel).getByText('Unknown Team').closest('tr')
+
+  if (!(aliasRow instanceof HTMLTableRowElement)) {
+    throw new Error('Alias player row not found')
+  }
+  if (!(canonicalRow instanceof HTMLTableRowElement)) {
+    throw new Error('Canonical player row not found')
+  }
+  if (!(unknownRow instanceof HTMLTableRowElement)) {
+    throw new Error('Unknown player row not found')
+  }
+
+  expect(aliasRow.className).toContain('team-accent')
+  expect(aliasRow.className).toContain('team-accent--nba-gsw')
+  expect(canonicalRow.className).toContain('team-accent--nba-gsw')
+  expect(unknownRow.className).toContain('team-accent--neutral')
+})
+
+it('does not apply team accent classes to vip players_live rows in phase 1', async () => {
+  const snapshotWithVipPlayers = structuredClone(v2Fixture) as any
+  snapshotWithVipPlayers.sports.nba.players = [
+    {
+      name: 'VIP Team Match',
+      team: 'LAL',
+      position: 'PG',
+      matchup: 'vs. DAL',
+      salary: 5000,
+      ownership_pct: 10,
+      fantasy_points: 25,
+      value: 5,
+      game_status: 'In Progress',
+    },
+  ]
+  const vip = snapshotWithVipPlayers.sports.nba.contests[0].vip_lineups[0]
+  vip.players_live = [
+    {
+      slot: 'PG',
+      player_name: 'VIP Team Match',
+      ownership_pct: 84.67,
+      salary: 3500,
+      points: 7.25,
+      value: 8.1,
+      rt_projection: 21.11,
+      time_remaining_display: '38.02',
+      stats_text: '1 REB, 1 STL, 4 PTS',
+      game_status: 'In Progress',
+    },
+  ]
+
+  await renderLive(snapshotWithVipPlayers, 'snapshots/canonical-live-snapshot.v2.json')
+  const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
+  if (!(vipPanel instanceof HTMLElement)) {
+    throw new Error('VIP panel not found')
+  }
+  const lineupCard = within(vipPanel).getByText(/cglenn91/i).closest('li')
+  if (!(lineupCard instanceof HTMLElement)) {
+    throw new Error('Lineup card not found')
+  }
+  const playerTable = within(lineupCard).getByRole('table')
+  const vipRow = within(playerTable).getByText('VIP Team Match').closest('tr')
+  if (!(vipRow instanceof HTMLTableRowElement)) {
+    throw new Error('VIP player row not found')
+  }
+  expect(vipRow.className).not.toContain('team-accent')
+})
+
 it('falls back to positions when roster_positions is an empty array', async () => {
   const snapshotWithEmptyRosterPositions = structuredClone(snapshotFixture) as any
   snapshotWithEmptyRosterPositions.sports.nba.players = [

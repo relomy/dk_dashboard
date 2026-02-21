@@ -7,6 +7,18 @@ const NBA_TEAM_ALIASES: Record<string, string> = {
   SA: 'SAS',
 }
 
+const NBA_TEAM_TOKENS = new Set([
+  'DAL',
+  'GSW',
+  'LAL',
+  'NOP',
+  'OKC',
+  'PHX',
+  'POR',
+  'SAS',
+  'UTA',
+])
+
 export function toFiniteNumber(value: unknown): number {
   const n = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(n) ? n : 0
@@ -55,4 +67,21 @@ export function classifyValueTier(value: unknown): ValueTier {
     return 'medium'
   }
   return 'low'
+}
+
+export function resolveTeamStyleToken(sport: string, rawTeam: unknown): string {
+  const normalized = normalizeTeamCode(sport, rawTeam)
+  if (!normalized) {
+    return 'neutral'
+  }
+
+  if (sport.toLowerCase() !== 'nba') {
+    return 'neutral'
+  }
+
+  if (!NBA_TEAM_TOKENS.has(normalized)) {
+    return 'neutral'
+  }
+
+  return `nba-${normalized.toLowerCase()}`
 }

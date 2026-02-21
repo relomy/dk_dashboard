@@ -5,7 +5,7 @@ import KeyGate from '../components/KeyGate'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from '../lib/perVipKeys'
-import { classifyValueTier, isRelevantPlayerRow, type ValueTier } from '../lib/playerPresentation'
+import { classifyValueTier, isRelevantPlayerRow, resolveTeamStyleToken, type ValueTier } from '../lib/playerPresentation'
 import type { ContestMetricsDistanceToCash, VipLineup } from '../lib/types'
 
 function resolveCashing(
@@ -449,7 +449,10 @@ function Live() {
             </thead>
             <tbody>
               {filteredPlayers.map((player, playerIndex) => (
-                <tr key={player.player_id || `${player.name}-${playerIndex}`}>
+                <tr
+                  key={player.player_id || `${player.name}-${playerIndex}`}
+                  className={`team-accent team-accent--${resolveTeamStyleToken(sportKey, player.team)}`}
+                >
                   <td>{firstNonEmptyString(player.position, joinNonEmpty(player.roster_positions), joinNonEmpty(player.positions)) ?? '—'}</td>
                   <td>{player.name}</td>
                   <td>{player.team}</td>
