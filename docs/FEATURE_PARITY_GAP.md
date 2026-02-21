@@ -1,116 +1,65 @@
 # Dashboard Feature Parity Gap
 
 Date: 2026-02-21
-Scope: Compare current `dk_dashboard` live route with the `dk_results` baseline feature spec and sheet-driven parity expectations.
+Scope: Google-sheet parity tranche for `Live` route using schema v2 metrics and additive VIP/player fields.
 
 ## Baseline
-Source baseline:
 - `dk_results/docs/dk-results-feature-spec.md`
 - `dk_results/docs/google-sheet-feature-set-and-parity.md`
 
-Primary dashboard scope reviewed:
-- `src/routes/Live.tsx`
-- `src/lib/types.ts`
+## Runtime Contract Lock
+- Dashboard runtime fixtures must use the envelope snapshot shape:
+  - `schema_version`, `snapshot_at`, `generated_at`, `sports[...]`.
+- Contract tests must reject raw/legacy non-envelope payloads.
+- Availability semantics are contract-first:
+  - missing object => unavailable
+  - present object with empty arrays => empty state
 
-## Gap Summary
+## Sheet Parity Coverage (Live Route)
 
 ### 1) Player ownership standings
-Status: Partial
-
-Current dashboard:
-- Columns: `Player`, `Team`, `Own%`, `Actual`, `Projected`, `Status`.
-
-Missing for parity:
-- `Position`, `Matchup`, `Salary`, `Value` columns.
-- Team color cell semantics (NBA).
-- Heat/gradient conditional formatting semantics.
+Status: Covered
+- Columns rendered: `Position`, `Player`, `Team`, `Matchup`, `Salary`, `Own%`, `Points`, `Value`, `Status`.
+- Deterministic position fallback:
+  - `position` -> non-empty `roster_positions[]` -> non-empty `positions[]` -> `—`.
 
 ### 2) VIP lineup detail block
-Status: Missing (major)
-
-Current dashboard:
-- VIP card shows lineup status, distance/rank delta, and slot->name list.
-
-Missing for parity:
-- Per-player VIP row stats:
-  - `Own`, `Salary`, `Pts`, `Value`, `RT Proj`, `Time`, `Stats`.
-- Table-style VIP lineup block structure used in sheet workflow.
+Status: Covered
+- VIP cards render `players_live[]` table when available.
+- Missing/empty handling:
+  - missing `players_live` => compact slots fallback
+  - `players_live: []` => explicit empty-state message
 
 ### 3) Ownership summary cards
-Status: Partial
-
-Current dashboard:
-- Shows watchlist `ownership_remaining_total_pct` and top-N entries.
-
-Missing for parity:
-- Explicit split metrics:
-  - `Total Ownership`
-  - `Ownership in play` (live players only)
-- Explicit source/scope labels for those summary cards.
+Status: Covered
+- Rendered from `contest.metrics.ownership_summary.per_vip`.
+- Join precedence is strict:
+  - `vip_entry_key` -> `entry_key` -> no match
+- No display-name join fallback.
 
 ### 4) Cashing + contest context
-Status: Mostly covered
-
-Current dashboard:
-- Contest identity, cash line points/rank, VIP cashing badge, distance-to-cash.
-
-Minor parity gaps:
-- Sheet-style compact presentation of contest/cashing context.
+Status: Covered
+- Distance-to-cash points delta is primary from metrics.
+- Rank delta is optional context.
+- VIP cashing uses distance-to-cash row when available, payout presence as fallback.
 
 ### 5) Non-cashing panel
-Status: Missing
-
-Current dashboard:
-- No dedicated non-cashing summary block.
-
-Missing for parity:
-- `Users not cashing`.
-- `Avg PMR remaining`.
-- Explicit non-cashing top ownership section.
+Status: Covered
+- Renders `users_not_cashing`, `avg_pmr_remaining`, and `top_remaining_players`.
+- Missing/empty handling:
+  - missing `non_cashing` => unavailable
+  - missing `top_remaining_players` in present section => unavailable top list
+  - empty `top_remaining_players` => explicit empty-state
 
 ### 6) Top ownership remaining list
-Status: Covered (different presentation)
-
-Current dashboard:
-- Top-N ownership watchlist table exists.
-
-Parity notes:
-- Mostly labeling/grouping differences vs sheet.
+Status: Covered
+- Watchlist table remains available and is shown alongside ownership summary cards.
 
 ### 7) Train finder
 Status: Covered (enhanced)
+- Uses exporter-ranked train metrics when present.
+- Supports top-N default and full-list toggle.
 
-Current dashboard:
-- Ranked clusters, top/all toggle, composition summary, sample entries.
-
-Parity notes:
-- Already at or above sheet utility for train view.
-
-## Data Contract Dependencies (for parity completion)
-1. VIP per-player details require exporter field set (`vip_lineups[].players_live[]` or equivalent).
-2. Ownership summary cards require explicit total/in-play metrics with scope/source.
-3. Non-cashing panel requires explicit non-cashing summary metrics.
-4. Player table expansion requires stable player fields for position/matchup/salary/value and optional team-color metadata.
-
-## Recommended Execution Order
-1. Contract-first additions from `dk_results`:
-   - VIP player-level detail
-   - ownership summary split
-   - non-cashing summary metrics
-2. Dashboard rendering tranche:
-   - VIP detailed rows
-   - ownership summary cards
-   - non-cashing panel
-   - expanded player table columns
-3. Visual parity polish:
-   - team color treatments
-   - optional conditional formatting themes
-4. Post-parity enhancements:
-   - trend/time-series indicators
-   - action-oriented decision cards
-
-## Acceptance Criteria for “Parity Achieved”
-1. Every sheet panel has a dashboard counterpart with equivalent core data.
-2. Missing/empty states follow canonical contract rules.
-3. Cashing/ownership semantics match documented precedence rules.
-4. Live route tests cover both fully-populated and metrics-missing scenarios.
+## Remaining Enhancements (Post-Parity)
+- Team color/gradient styling parity for sport-specific player rows.
+- Trend overlays and decision cues beyond sheet equivalence.

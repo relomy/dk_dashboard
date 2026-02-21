@@ -18,8 +18,30 @@
 
 ## Live page behavior
 - Resolves one contest per sport using `is_primary` first, then `primary_contest` key/id fallback.
-- VIP cashing uses `payout_cents` presence as source of truth.
+- VIP cashing precedence:
+  - use `contest.metrics.distance_to_cash.per_vip` row when present
+  - fallback to `payout_cents` presence when no metrics row exists
 - Missing sections show unavailable placeholders; present but empty sections show empty-state messaging.
+- Runtime fixture contract is envelope-only (`schema_version` + `sports[...]` payload); legacy raw shapes are rejected in contract tests.
+
+## Live page parity panels
+- VIP board:
+  - distance to cash (points first, rank optional)
+  - detailed `players_live` table when present
+  - compact slot fallback when player detail rows are missing
+- Player pool:
+  - columns: `Position`, `Player`, `Team`, `Matchup`, `Salary`, `Own%`, `Points`, `Value`, `Status`
+- Threat & leverage:
+  - top swing players and VIP-vs-field leverage from metrics
+- Ownership remaining:
+  - VIP ownership summary cards from `metrics.ownership_summary`
+  - watchlist ownership table from `ownership_watchlist`
+- Non-cashing info:
+  - users not cashing
+  - avg PMR remaining
+  - top remaining players list with unavailable/empty states
+- Train finder:
+  - ranked/top cluster rendering from train metrics with show-all toggle
 
 ## Profiles and VIP filtering
 - Create multiple named profiles in `Settings`.
