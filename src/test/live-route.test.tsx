@@ -371,6 +371,21 @@ it('shows non-cashing empty top-player state when list is present but empty', as
   expect(within(panel).getByText(/no top remaining players available/i)).toBeInTheDocument()
 })
 
+it('shows non-cashing top-player unavailable state when section exists but list is missing', async () => {
+  const snapshotWithMissingTopPlayers = structuredClone(v2Fixture) as any
+  snapshotWithMissingTopPlayers.sports.nba.contests[0].metrics.non_cashing = {
+    users_not_cashing: 7,
+    avg_pmr_remaining: 123.45,
+  }
+
+  await renderLive(snapshotWithMissingTopPlayers, 'snapshots/canonical-live-snapshot.v2.json')
+  const panel = screen.getByRole('heading', { name: /non-cashing info/i }).closest('.panel')
+  if (!(panel instanceof HTMLElement)) {
+    throw new Error('Non-cashing panel not found')
+  }
+  expect(within(panel).getByText(/top remaining players unavailable for this contest/i)).toBeInTheDocument()
+})
+
 it('shows unavailable placeholders when sections are missing', async () => {
   await renderLive(missingSectionsFixture)
   expect(screen.getByText(/ownership watchlist unavailable for this contest/i)).toBeInTheDocument()
@@ -515,4 +530,36 @@ it('renders player pool with search and default ownership-first sort', async () 
   fireEvent.change(screen.getByLabelText(/search players/i), { target: { value: 'Low Own' } })
   expect(within(playerPanel).getByRole('cell', { name: 'Low Own' })).toBeInTheDocument()
   expect(within(playerPanel).queryByRole('cell', { name: 'High Own' })).not.toBeInTheDocument()
+})
+
+it('renders player board parity columns position matchup salary points value ownership', async () => {
+  const snapshotWithParityPlayers = structuredClone(snapshotFixture) as any
+  snapshotWithParityPlayers.sports.nba.players = [
+    {
+      name: 'Parity Player',
+      team: 'DAL',
+      position: 'PG/SG',
+      matchup: 'vs. MIN',
+      salary: 5100,
+      ownership_pct: 2.92,
+      fantasy_points: 12.75,
+      value: 2.5,
+      game_status: 'In Progress',
+    },
+  ]
+
+  await renderLive(snapshotWithParityPlayers)
+  const playerPanel = screen.getByRole('heading', { name: /player pool/i }).closest('.panel')
+  if (!(playerPanel instanceof HTMLElement)) {
+    throw new Error('Player panel not found')
+  }
+  expect(within(playerPanel).getByRole('columnheader', { name: /^position$/i })).toBeInTheDocument()
+  expect(within(playerPanel).getByRole('columnheader', { name: /^matchup$/i })).toBeInTheDocument()
+  expect(within(playerPanel).getByRole('columnheader', { name: /^salary$/i })).toBeInTheDocument()
+  expect(within(playerPanel).getByRole('columnheader', { name: /^points$/i })).toBeInTheDocument()
+  expect(within(playerPanel).getByRole('columnheader', { name: /^value$/i })).toBeInTheDocument()
+  expect(within(playerPanel).getByRole('cell', { name: 'PG/SG' })).toBeInTheDocument()
+  expect(within(playerPanel).getByRole('cell', { name: '$5,100' })).toBeInTheDocument()
+  expect(within(playerPanel).getByRole('cell', { name: '12.75' })).toBeInTheDocument()
+  expect(within(playerPanel).getByRole('cell', { name: '2.5' })).toBeInTheDocument()
 })

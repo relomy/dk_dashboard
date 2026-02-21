@@ -205,12 +205,18 @@ export interface Contest {
 }
 
 export interface Player {
-  player_id: string
+  player_id?: string
   name: string
   team: string
-  positions: string[]
+  position?: string
+  positions?: string[]
+  roster_positions?: string[]
+  matchup?: string
   salary: number
-  status: string
+  status?: string
+  game_status?: string
+  fantasy_points?: number | null
+  value?: number | null
   projected_points?: number | null
   actual_points?: number | null
   ownership_pct?: number | null

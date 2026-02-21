@@ -44,9 +44,17 @@ function formatCurrency(value: number | null | undefined): string {
   return `$${Math.round(value).toLocaleString()}`
 }
 
-function playerSortScore(player: { ownership_pct?: number | null; actual_points?: number | null; projected_points?: number | null }) {
+function playerSortScore(player: {
+  ownership_pct?: number | null
+  fantasy_points?: number | null
+  actual_points?: number | null
+  projected_points?: number | null
+}) {
   if (player.ownership_pct !== null && player.ownership_pct !== undefined) {
     return player.ownership_pct
+  }
+  if (player.fantasy_points !== null && player.fantasy_points !== undefined) {
+    return player.fantasy_points
   }
   if (player.actual_points !== null && player.actual_points !== undefined) {
     return player.actual_points
@@ -366,23 +374,29 @@ function Live() {
           <table className="data-table">
             <thead>
               <tr>
+                <th>Position</th>
                 <th>Player</th>
                 <th>Team</th>
+                <th>Matchup</th>
+                <th>Salary</th>
                 <th>Own%</th>
-                <th>Actual</th>
-                <th>Projected</th>
+                <th>Points</th>
+                <th>Value</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {filteredPlayers.map((player, playerIndex) => (
                 <tr key={player.player_id || `${player.name}-${playerIndex}`}>
+                  <td>{player.position ?? player.roster_positions?.join('/') ?? player.positions?.join('/') ?? '—'}</td>
                   <td>{player.name}</td>
                   <td>{player.team}</td>
+                  <td>{player.matchup || '—'}</td>
+                  <td>{formatCurrency(player.salary)}</td>
                   <td>{formatValue(player.ownership_pct, { suffix: '%' })}</td>
-                  <td>{formatValue(player.actual_points)}</td>
-                  <td>{formatValue(player.projected_points)}</td>
-                  <td>{player.status}</td>
+                  <td>{formatValue(player.fantasy_points ?? player.actual_points)}</td>
+                  <td>{formatValue(player.value)}</td>
+                  <td>{player.game_status ?? player.status ?? '—'}</td>
                 </tr>
               ))}
             </tbody>
