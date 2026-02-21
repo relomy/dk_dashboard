@@ -98,7 +98,11 @@ it('uses payout_cents as cashing truth for VIP lineups', async () => {
   }
 
   await renderLive(snapshotWithConflictingCashingSignals)
-  const fallbackCard = screen.getByText(/payout truth test/i).closest('li')
+  const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
+  if (!(vipPanel instanceof HTMLElement)) {
+    throw new Error('VIP panel not found')
+  }
+  const fallbackCard = within(vipPanel).getByText(/^Payout Truth Test$/i, { selector: 'p.item-title' }).closest('li')
   if (!fallbackCard) {
     throw new Error('Fallback lineup card not found')
   }
@@ -140,13 +144,21 @@ it('does not join distance metrics by display_name fallback', async () => {
   firstMetricRow.entry_key = null
   firstMetricRow.points_delta = 99
   firstMetricRow.rank_delta = 99
+  const lineup = snapshotWithoutStableMetricKeys.sports.nba.contests[0].vip_lineups[0]
+  lineup.payout_cents = null
+  lineup.live = {
+    ...(lineup.live ?? {}),
+    payout_cents: null,
+  }
 
   await renderLive(snapshotWithoutStableMetricKeys, 'snapshots/canonical-live-snapshot.v2.json')
   const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
   if (!(vipPanel instanceof HTMLElement)) {
     throw new Error('VIP panel not found')
   }
-  const lineupCard = within(vipPanel).getByText(/cglenn91/i).closest('li')
+  const lineupCard = within(vipPanel)
+    .getByText(new RegExp(`^${lineup.display_name}$`, 'i'), { selector: 'p.item-title' })
+    .closest('li')
   if (!lineupCard) {
     throw new Error('Lineup card not found')
   }
@@ -157,6 +169,7 @@ it('does not join distance metrics by display_name fallback', async () => {
 it('renders VIP players_live table rows when details are available', async () => {
   const snapshotWithPlayersLive = structuredClone(v2Fixture) as any
   const vip = snapshotWithPlayersLive.sports.nba.contests[0].vip_lineups[0]
+  const lineupName = vip.display_name
   vip.players_live = [
     {
       slot: 'PG',
@@ -177,7 +190,7 @@ it('renders VIP players_live table rows when details are available', async () =>
   if (!(vipPanel instanceof HTMLElement)) {
     throw new Error('VIP panel not found')
   }
-  const lineupCard = within(vipPanel).getByText(/cglenn91/i).closest('li')
+  const lineupCard = within(vipPanel).getByText(new RegExp(`^${lineupName}$`, 'i'), { selector: 'p.item-title' }).closest('li')
   if (!lineupCard) {
     throw new Error('Lineup card not found')
   }
@@ -191,6 +204,7 @@ it('renders VIP players_live table rows when details are available', async () =>
 it('renders value badges for vip players_live rows', async () => {
   const snapshotWithPlayersLive = structuredClone(v2Fixture) as any
   const vip = snapshotWithPlayersLive.sports.nba.contests[0].vip_lineups[0]
+  const lineupName = vip.display_name
   vip.players_live = [
     {
       slot: 'PG',
@@ -223,7 +237,7 @@ it('renders value badges for vip players_live rows', async () => {
   if (!(vipPanel instanceof HTMLElement)) {
     throw new Error('VIP panel not found')
   }
-  const lineupCard = within(vipPanel).getByText(/cglenn91/i).closest('li')
+  const lineupCard = within(vipPanel).getByText(new RegExp(`^${lineupName}$`, 'i'), { selector: 'p.item-title' }).closest('li')
   if (!lineupCard) {
     throw new Error('Lineup card not found')
   }
@@ -235,14 +249,16 @@ it('renders value badges for vip players_live rows', async () => {
 
 it('renders VIP players_live empty state when details list is present but empty', async () => {
   const snapshotWithEmptyPlayersLive = structuredClone(v2Fixture) as any
-  snapshotWithEmptyPlayersLive.sports.nba.contests[0].vip_lineups[0].players_live = []
+  const vip = snapshotWithEmptyPlayersLive.sports.nba.contests[0].vip_lineups[0]
+  const lineupName = vip.display_name
+  vip.players_live = []
 
   await renderLive(snapshotWithEmptyPlayersLive, 'snapshots/canonical-live-snapshot.v2.json')
   const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
   if (!(vipPanel instanceof HTMLElement)) {
     throw new Error('VIP panel not found')
   }
-  const lineupCard = within(vipPanel).getByText(/cglenn91/i).closest('li')
+  const lineupCard = within(vipPanel).getByText(new RegExp(`^${lineupName}$`, 'i'), { selector: 'p.item-title' }).closest('li')
   if (!lineupCard) {
     throw new Error('Lineup card not found')
   }
@@ -250,12 +266,28 @@ it('renders VIP players_live empty state when details list is present but empty'
 })
 
 it('renders threat metrics from schema v2 snapshots', async () => {
-  await renderLive(v2Fixture, 'snapshots/canonical-live-snapshot.v2.json')
+  const snapshotWithThreat = structuredClone(v2Fixture) as any
+  snapshotWithThreat.sports.nba.contests[0].metrics.threat.top_swing_players = [
+    {
+      player_name: 'Threat Fixture Player',
+      remaining_ownership_pct: 18.5,
+      vip_count: 2,
+    },
+  ]
+  snapshotWithThreat.sports.nba.contests[0].metrics.threat.vip_vs_field_leverage = [
+    {
+      display_name: 'Leverage Fixture VIP',
+      vip_remaining_pct: 11.11,
+      field_remaining_pct: 4.56,
+      uniqueness_delta_pct: 6.55,
+    },
+  ]
+  await renderLive(snapshotWithThreat, 'snapshots/canonical-live-snapshot.v2.json')
   const threatPanel = screen.getByRole('heading', { name: /threat & leverage/i }).closest('.panel')
   if (!(threatPanel instanceof HTMLElement)) {
     throw new Error('Threat panel not found')
   }
-  const swingCard = within(threatPanel).getByText(/Naji Marshall/i).closest('li')
+  const swingCard = within(threatPanel).getByText(/Threat Fixture Player/i).closest('li')
   if (!swingCard) {
     throw new Error('Swing card not found')
   }
@@ -266,7 +298,7 @@ it('renders threat metrics from schema v2 snapshots', async () => {
   }
   const leverageTable = within(leveragePanel).getByRole('table')
   const leverageRows = within(leverageTable).getAllByRole('row')
-  expect(within(leverageRows[1]).getByText(/cglenn91/i)).toBeInTheDocument()
+  expect(within(leverageRows[1]).getByText(/Leverage Fixture VIP/i)).toBeInTheDocument()
 })
 
 it('shows unavailable threat state when metrics are missing', async () => {
@@ -277,6 +309,7 @@ it('shows unavailable threat state when metrics are missing', async () => {
 it('renders VIP and train slot names directly from name-only fields', async () => {
   const snapshotWithUnknownNames = structuredClone(snapshotFixture) as any
   snapshotWithUnknownNames.sports.nba.contests[0].vip_lineups[0].slots[0].player_name = 'Unknown Slot Name'
+  snapshotWithUnknownNames.sports.nba.contests[0].vip_lineups[0].players_live = null
   snapshotWithUnknownNames.sports.nba.contests[0].train_clusters.clusters[0].composition[0].player_name =
     'Unknown Composition Name'
 
@@ -306,7 +339,11 @@ it('renders ownership watchlist total and respects top_n_default', async () => {
   if (!(ownershipPanel instanceof HTMLElement)) {
     throw new Error('Ownership panel not found')
   }
-  const ownershipTable = within(ownershipPanel).getByRole('table')
+  const watchlistPanel = within(ownershipPanel).getByRole('heading', { name: /watchlist ownership remaining/i }).closest('.panel-subtle')
+  if (!(watchlistPanel instanceof HTMLElement)) {
+    throw new Error('Watchlist panel not found')
+  }
+  const ownershipTable = within(watchlistPanel).getByRole('table')
   expect(within(ownershipTable).getAllByRole('row')).toHaveLength(2)
 })
 
@@ -827,6 +864,7 @@ it('does not apply team accent classes to vip players_live rows in phase 1', asy
     },
   ]
   const vip = snapshotWithVipPlayers.sports.nba.contests[0].vip_lineups[0]
+  const lineupName = vip.display_name
   vip.players_live = [
     {
       slot: 'PG',
@@ -847,7 +885,7 @@ it('does not apply team accent classes to vip players_live rows in phase 1', asy
   if (!(vipPanel instanceof HTMLElement)) {
     throw new Error('VIP panel not found')
   }
-  const lineupCard = within(vipPanel).getByText(/cglenn91/i).closest('li')
+  const lineupCard = within(vipPanel).getByText(new RegExp(`^${lineupName}$`, 'i'), { selector: 'p.item-title' }).closest('li')
   if (!(lineupCard instanceof HTMLElement)) {
     throw new Error('Lineup card not found')
   }
