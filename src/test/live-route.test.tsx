@@ -563,3 +563,32 @@ it('renders player board parity columns position matchup salary points value own
   expect(within(playerPanel).getByRole('cell', { name: '12.75' })).toBeInTheDocument()
   expect(within(playerPanel).getByRole('cell', { name: '2.5' })).toBeInTheDocument()
 })
+
+it('falls back to positions when roster_positions is an empty array', async () => {
+  const snapshotWithEmptyRosterPositions = structuredClone(snapshotFixture) as any
+  snapshotWithEmptyRosterPositions.sports.nba.players = [
+    {
+      name: 'Fallback Positions',
+      team: 'UTA',
+      roster_positions: [],
+      positions: ['SF'],
+      matchup: 'at MIN',
+      salary: 4900,
+      ownership_pct: 1.5,
+      fantasy_points: 9.25,
+      value: 1.89,
+      game_status: 'In Progress',
+    },
+  ]
+
+  await renderLive(snapshotWithEmptyRosterPositions)
+  const playerPanel = screen.getByRole('heading', { name: /player pool/i }).closest('.panel')
+  if (!(playerPanel instanceof HTMLElement)) {
+    throw new Error('Player panel not found')
+  }
+  const row = within(playerPanel).getByText('Fallback Positions').closest('tr')
+  if (!(row instanceof HTMLTableRowElement)) {
+    throw new Error('Player row not found')
+  }
+  expect(within(row).getByRole('cell', { name: 'SF' })).toBeInTheDocument()
+})

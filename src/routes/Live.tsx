@@ -44,6 +44,23 @@ function formatCurrency(value: number | null | undefined): string {
   return `$${Math.round(value).toLocaleString()}`
 }
 
+function joinNonEmpty(values?: string[]): string | undefined {
+  if (!Array.isArray(values)) {
+    return undefined
+  }
+  const joined = values.filter(Boolean).join('/')
+  return joined.trim() ? joined : undefined
+}
+
+function firstNonEmptyString(...values: Array<string | undefined>): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value
+    }
+  }
+  return undefined
+}
+
 function playerSortScore(player: {
   ownership_pct?: number | null
   fantasy_points?: number | null
@@ -388,7 +405,7 @@ function Live() {
             <tbody>
               {filteredPlayers.map((player, playerIndex) => (
                 <tr key={player.player_id || `${player.name}-${playerIndex}`}>
-                  <td>{player.position ?? player.roster_positions?.join('/') ?? player.positions?.join('/') ?? '—'}</td>
+                  <td>{firstNonEmptyString(player.position, joinNonEmpty(player.roster_positions), joinNonEmpty(player.positions)) ?? '—'}</td>
                   <td>{player.name}</td>
                   <td>{player.team}</td>
                   <td>{player.matchup || '—'}</td>
