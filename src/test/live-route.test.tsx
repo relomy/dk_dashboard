@@ -308,6 +308,69 @@ it('shows ownership summary unavailable state when summary metrics are missing',
   expect(screen.getByText(/ownership summary metrics unavailable for this contest/i)).toBeInTheDocument()
 })
 
+it('shows ownership summary empty state when summary rows do not match VIP keys', async () => {
+  const snapshotWithUnmatchedOwnershipRows = structuredClone(v2Fixture) as any
+  snapshotWithUnmatchedOwnershipRows.sports.nba.contests[0].metrics.ownership_summary = {
+    source: 'vip_lineup_players',
+    scope: 'vip_lineup',
+    per_vip: [
+      {
+        entry_key: 'non-matching-entry-key',
+        total_ownership_pct: 10.5,
+        ownership_in_play_pct: 4.2,
+        is_partial: false,
+      },
+    ],
+  }
+
+  await renderLive(snapshotWithUnmatchedOwnershipRows, 'snapshots/canonical-live-snapshot.v2.json')
+  expect(screen.getByText(/no ownership summary rows available for VIP lineups/i)).toBeInTheDocument()
+})
+
+it('renders non-cashing panel with users, avg PMR, and top remaining players', async () => {
+  const snapshotWithNonCashing = structuredClone(v2Fixture) as any
+  snapshotWithNonCashing.sports.nba.contests[0].metrics.non_cashing = {
+    users_not_cashing: 109,
+    avg_pmr_remaining: 342.83,
+    top_remaining_players: [
+      { player_name: 'Jalen Johnson', ownership_remaining_pct: 92.66 },
+      { player_name: 'Javon Small', ownership_remaining_pct: 88.99 },
+    ],
+  }
+
+  await renderLive(snapshotWithNonCashing, 'snapshots/canonical-live-snapshot.v2.json')
+  const panel = screen.getByRole('heading', { name: /non-cashing info/i }).closest('.panel')
+  if (!(panel instanceof HTMLElement)) {
+    throw new Error('Non-cashing panel not found')
+  }
+  expect(within(panel).getByText(/users not cashing:\s*109/i)).toBeInTheDocument()
+  expect(within(panel).getByText(/avg pmr remaining:\s*342.83/i)).toBeInTheDocument()
+  expect(within(panel).getByText(/top remaining players/i)).toBeInTheDocument()
+  expect(within(panel).getByText('Jalen Johnson')).toBeInTheDocument()
+  expect(within(panel).getByText('92.66%')).toBeInTheDocument()
+})
+
+it('shows non-cashing unavailable state when metrics are missing', async () => {
+  await renderLive(v2MissingMetricsFixture, 'snapshots/canonical-live-snapshot.v2-missing-metrics.json')
+  expect(screen.getByText(/non-cashing metrics unavailable for this contest/i)).toBeInTheDocument()
+})
+
+it('shows non-cashing empty top-player state when list is present but empty', async () => {
+  const snapshotWithEmptyTopRemaining = structuredClone(v2Fixture) as any
+  snapshotWithEmptyTopRemaining.sports.nba.contests[0].metrics.non_cashing = {
+    users_not_cashing: 0,
+    avg_pmr_remaining: 0,
+    top_remaining_players: [],
+  }
+
+  await renderLive(snapshotWithEmptyTopRemaining, 'snapshots/canonical-live-snapshot.v2.json')
+  const panel = screen.getByRole('heading', { name: /non-cashing info/i }).closest('.panel')
+  if (!(panel instanceof HTMLElement)) {
+    throw new Error('Non-cashing panel not found')
+  }
+  expect(within(panel).getByText(/no top remaining players available/i)).toBeInTheDocument()
+})
+
 it('shows unavailable placeholders when sections are missing', async () => {
   await renderLive(missingSectionsFixture)
   expect(screen.getByText(/ownership watchlist unavailable for this contest/i)).toBeInTheDocument()

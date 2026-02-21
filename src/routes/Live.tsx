@@ -186,6 +186,10 @@ function Live() {
   const vipLeverage = threatMetrics?.vip_vs_field_leverage ?? []
   const fieldRemainingScope =
     threatMetrics?.field_remaining_scope === 'contest_field' ? 'Contest field' : 'Watchlist'
+  const nonCashingMetrics = primaryContest?.metrics?.non_cashing
+  const topRemainingPlayers = Array.isArray(nonCashingMetrics?.top_remaining_players)
+    ? nonCashingMetrics.top_remaining_players
+    : null
   const trainMetrics = primaryContest?.metrics?.trains
   const trainClusterLookup = new Map<string, (typeof sortedClusters)[number]>()
   for (const cluster of trainClusters?.clusters ?? []) {
@@ -520,6 +524,43 @@ function Live() {
               </table>
             )}
           </div>
+        )}
+      </div>
+
+      <div className="panel page-stack-sm">
+        <h2 className="section-title">Non-cashing info</h2>
+        {!nonCashingMetrics ? (
+          <p className="meta-text">Non-cashing metrics unavailable for this contest.</p>
+        ) : (
+          <>
+            <p className="item-title">Users not cashing: {formatValue(nonCashingMetrics.users_not_cashing)}</p>
+            <p className="item-title">Avg PMR remaining: {formatValue(nonCashingMetrics.avg_pmr_remaining)}</p>
+            <div className="panel-subtle page-stack-sm">
+              <h3 className="subsection-title">Top remaining players</h3>
+              {topRemainingPlayers === null ? (
+                <p className="meta-text">Top remaining players unavailable for this contest.</p>
+              ) : topRemainingPlayers.length === 0 ? (
+                <p className="meta-text">No top remaining players available.</p>
+              ) : (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Player</th>
+                      <th>Own. Remaining</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topRemainingPlayers.map((entry, index) => (
+                      <tr key={`${entry.player_name}-${index}`}>
+                        <td>{entry.player_name}</td>
+                        <td>{formatValue(entry.ownership_remaining_pct, { suffix: '%' })}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </>
         )}
       </div>
 
