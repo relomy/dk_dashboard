@@ -1,4 +1,5 @@
 import { resetLocalAuth } from './lib/commands'
+import { resolveAuthDatabaseName } from './lib/config'
 import { createWranglerRunner } from './lib/sql-runner'
 
 function readOption(args: string[], name: string): string | undefined {
@@ -13,7 +14,7 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2)
   const username = readOption(args, '--username') ?? process.env.LOCAL_OWNER_USERNAME ?? 'owner'
   const temporaryPassword = readOption(args, '--temporary-password')
-  const databaseName = process.env.AUTH_DB_NAME ?? 'dk-dashboard-auth'
+  const databaseName = resolveAuthDatabaseName(process.env)
 
   const runner = createWranglerRunner({ databaseName, remote: false })
   const result = await resetLocalAuth(runner, {

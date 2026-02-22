@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
+import { resolveAuthDatabaseName } from './lib/config'
 
-const DATABASE_NAME = process.env.AUTH_DB_NAME ?? 'dk-dashboard-auth'
+const DATABASE_NAME = resolveAuthDatabaseName(process.env)
 const WRANGLER_LOG_PATH = process.env.WRANGLER_LOG_PATH ?? '.wrangler/logs'
 
 mkdirSync(WRANGLER_LOG_PATH, { recursive: true })

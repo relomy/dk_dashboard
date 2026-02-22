@@ -1,7 +1,7 @@
 import { constantTimeEqual } from './security'
 
 const PASSWORD_ALGO = 'pbkdf2_sha256'
-const PASSWORD_ITERATIONS = 210_000
+const PASSWORD_ITERATIONS = 100_000
 const DERIVED_KEY_BYTES = 32
 const SALT_BYTES = 16
 const ENCODER = new TextEncoder()
@@ -82,6 +82,11 @@ export async function verifyPassword(password: string, storedHash: string): Prom
     return false
   }
 
-  const actualDigest = await deriveHash(password, salt, iterations)
+  let actualDigest: string
+  try {
+    actualDigest = await deriveHash(password, salt, iterations)
+  } catch {
+    return false
+  }
   return constantTimeEqual(actualDigest, expectedDigest)
 }
