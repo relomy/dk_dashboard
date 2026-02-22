@@ -1,46 +1,22 @@
-import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import KeyGate from '../components/KeyGate'
 import LatestOverview from '../components/LatestOverview'
 import StatusBadge from '../components/StatusBadge'
 import { useProfiles } from '../context/ProfileContext'
 import { useHistorySnapshot } from '../hooks/useHistorySnapshot'
 import { useHistoryTimeline } from '../hooks/useHistoryTimeline'
-import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
 import { config } from '../lib/env'
 import { formatHistoryTimestampForUrl } from '../lib/time'
 
 function History() {
-  const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { activeProfile } = useProfiles()
   const { timestamp: timestampParam } = useParams()
-  const [apiKey, setApiKey] = useState('')
   const [sportFilter, setSportFilter] = useState('all')
   const [stateFilter, setStateFilter] = useState('all')
 
-  useEffect(() => {
-    setApiKey(getStoredKey())
-  }, [])
-
-  const { timestamp, manifestPath, manifestQuery, snapshotQuery, snapshotNotFound } = useHistorySnapshot(
-    apiKey,
-    timestampParam,
-  )
-  const timeline = useHistoryTimeline(apiKey, !timestampParam)
-
-  const handleSaveKey = (key: string, mode: StorageMode) => {
-    storeKey(key, mode)
-    setApiKey(key)
-    queryClient.clear()
-  }
-
-  const handleChangeKey = () => {
-    clearKey()
-    setApiKey('')
-    queryClient.clear()
-  }
+  const { timestamp, manifestPath, manifestQuery, snapshotQuery, snapshotNotFound } = useHistorySnapshot(timestampParam)
+  const timeline = useHistoryTimeline(!timestampParam)
 
   const availableSports = useMemo(() => {
     const values = new Set<string>()
@@ -87,10 +63,6 @@ function History() {
   }, [timeline.snapshots, sportFilter, stateFilter])
 
   if (!timestampParam) {
-    if (!apiKey) {
-      return <KeyGate onSave={handleSaveKey} />
-    }
-
     if (config.useMock && config.mockSnapshotOnly) {
       return (
         <section className="page page-stack">
@@ -116,9 +88,6 @@ function History() {
         <section className="page page-stack">
           <h1 className="page-title">History</h1>
           <p className="error-text">{message}</p>
-          <button type="button" onClick={handleChangeKey}>
-            Change key
-          </button>
         </section>
       )
     }
@@ -210,10 +179,6 @@ function History() {
     )
   }
 
-  if (!apiKey) {
-    return <KeyGate onSave={handleSaveKey} />
-  }
-
   if (config.useMock && config.mockSnapshotOnly) {
     return (
       <section className="page page-stack">
@@ -239,9 +204,6 @@ function History() {
       <section className="page page-stack">
         <h1 className="page-title">History</h1>
         <p className="error-text">{message}</p>
-        <button type="button" onClick={handleChangeKey}>
-          Change key
-        </button>
       </section>
     )
   }
@@ -265,9 +227,6 @@ function History() {
       <div className="action-row">
         <button type="button" onClick={() => snapshotQuery.refetch()}>
           Refresh
-        </button>
-        <button type="button" onClick={handleChangeKey}>
-          Change key ({getStoredMode()})
         </button>
       </div>
       <LatestOverview

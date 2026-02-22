@@ -22,11 +22,11 @@ function dedupeByTimestamp(items: ManifestSnapshotSummary[]): ManifestSnapshotSu
   return result
 }
 
-export function useHistoryTimeline(apiKey: string, enabled: boolean) {
+export function useHistoryTimeline(enabled: boolean) {
   const latestQuery = useQuery({
     queryKey: ['latest'],
-    enabled: Boolean(apiKey) && enabled,
-    queryFn: () => fetchJson<LatestResponse>('/api/latest', { apiKey }),
+    enabled,
+    queryFn: () => fetchJson<LatestResponse>('/api/latest'),
     staleTime: 60_000,
   })
 
@@ -35,17 +35,15 @@ export function useHistoryTimeline(apiKey: string, enabled: boolean) {
 
   const todayManifestQuery = useQuery({
     queryKey: ['history-timeline-manifest', todayManifestPath],
-    enabled: Boolean(apiKey) && Boolean(todayManifestPath) && enabled,
-    queryFn: () =>
-      fetchJson<DayManifest>(`/api/snapshot?path=${encodeURIComponent(todayManifestPath!)}`, { apiKey }),
+    enabled: Boolean(todayManifestPath) && enabled,
+    queryFn: () => fetchJson<DayManifest>(`/api/snapshot?path=${encodeURIComponent(todayManifestPath!)}`),
     staleTime: 300_000,
   })
 
   const yesterdayManifestQuery = useQuery({
     queryKey: ['history-timeline-manifest', yesterdayManifestPath],
     enabled: false,
-    queryFn: () =>
-      fetchJson<DayManifest>(`/api/snapshot?path=${encodeURIComponent(yesterdayManifestPath!)}`, { apiKey }),
+    queryFn: () => fetchJson<DayManifest>(`/api/snapshot?path=${encodeURIComponent(yesterdayManifestPath!)}`),
     staleTime: 300_000,
   })
 

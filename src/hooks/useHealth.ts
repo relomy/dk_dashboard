@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import { useLatest } from './useLatest'
 
-export function useHealth(apiKey: string) {
-  const { latestQuery, snapshotQuery } = useLatest(apiKey)
+export function useHealth() {
+  const { latestQuery, snapshotQuery } = useLatest()
 
   const snapshotAgeSeconds = useMemo(() => {
     if (!snapshotQuery.data) {

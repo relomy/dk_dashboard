@@ -66,9 +66,6 @@ it('renders latest snapshot summary', async () => {
     </QueryClientProvider>,
   )
 
-  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
-
   expect((await screen.findAllByText(/last updated:/i)).length).toBeGreaterThan(0)
   if (vipName) {
     expect(screen.getByText(vipName)).toBeInTheDocument()
@@ -116,9 +113,6 @@ it('renders latest route with missing live-only sections fixture', async () => {
     </QueryClientProvider>,
   )
 
-  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
-
   expect((await screen.findAllByText(/last updated:/i)).length).toBeGreaterThan(0)
   fireEvent.change(screen.getByLabelText(/vip filter/i), { target: { value: 'active' } })
   expect(screen.getAllByText(/no matching vip lineups/i).length).toBeGreaterThan(0)
@@ -145,9 +139,6 @@ it('refresh button refetches latest and snapshot', async () => {
       </MemoryRouter>
     </QueryClientProvider>,
   )
-
-  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
   expect((await screen.findAllByText(/last updated:/i)).length).toBeGreaterThan(0)
 
   const beforeRefreshCalls = fetchSpy.mock.calls.length
@@ -191,9 +182,6 @@ it('renders completed VIP cashing with payout amount', async () => {
       </MemoryRouter>
     </QueryClientProvider>,
   )
-
-  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
 
   expect((await screen.findAllByText(/last updated:/i)).length).toBeGreaterThan(0)
   expect(screen.getAllByText(/Cashed \$20/i).length).toBeGreaterThan(0)

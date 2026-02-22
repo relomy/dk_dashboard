@@ -70,9 +70,6 @@ it('resolves timestamp via UTC day manifest and renders snapshot', async () => {
     </QueryClientProvider>,
   )
 
-  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
-
   expect(await screen.findByText(/last updated:/i)).toBeInTheDocument()
 })
 
@@ -114,9 +111,6 @@ it('shows snapshot not found for missing exact match', async () => {
       </MemoryRouter>
     </QueryClientProvider>,
   )
-
-  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
 
   expect(await screen.findByText(/snapshot not found/i)).toBeInTheDocument()
 })
@@ -215,9 +209,6 @@ it('renders timeline list from manifest metadata and navigates on item click', a
       </MemoryRouter>
     </QueryClientProvider>,
   )
-
-  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
 
   expect(await screen.findByRole('heading', { name: /history/i })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: /load yesterday/i })).toBeInTheDocument()

@@ -22,26 +22,23 @@ function getCachedSnapshot(queryClient: ReturnType<typeof useQueryClient>): Snap
   return undefined
 }
 
-export function useSportSnapshot(apiKey: string) {
+export function useSportSnapshot() {
   const queryClient = useQueryClient()
   const cachedSnapshot = getCachedSnapshot(queryClient)
 
   const latestQuery = useQuery({
     queryKey: ['latest'],
-    enabled: Boolean(apiKey) && !cachedSnapshot,
-    queryFn: () => fetchJson<LatestResponse>('/api/latest', { apiKey }),
+    enabled: !cachedSnapshot,
+    queryFn: () => fetchJson<LatestResponse>('/api/latest'),
     staleTime: 60_000,
   })
 
   const snapshotQuery = useQuery({
     queryKey: ['snapshot', latestQuery.data?.latest_snapshot_path],
-    enabled: Boolean(apiKey) && !cachedSnapshot && Boolean(latestQuery.data?.latest_snapshot_path),
+    enabled: !cachedSnapshot && Boolean(latestQuery.data?.latest_snapshot_path),
     queryFn: () =>
       fetchJson<Snapshot>(
         `/api/snapshot?path=${encodeURIComponent(latestQuery.data!.latest_snapshot_path)}`,
-        {
-          apiKey,
-        },
       ),
     staleTime: 60_000,
   })

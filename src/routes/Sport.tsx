@@ -1,12 +1,9 @@
-import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
-import KeyGate from '../components/KeyGate'
 import StatusBadge from '../components/StatusBadge'
 import { useProfiles } from '../context/ProfileContext'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
-import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
 import type { ProfileMatchRules } from '../lib/profiles'
 import type { Contest, ContestState, Player, SportSnapshot } from '../lib/types'
 import { filterVipLineups } from '../lib/vipMatcher'
@@ -242,39 +239,17 @@ function ContestSection({
 }
 
 function Sport() {
-  const queryClient = useQueryClient()
   const { activeProfile } = useProfiles()
   const { sport } = useParams()
-  const [apiKey, setApiKey] = useState('')
   const [vipFilterMode, setVipFilterMode] = useState<'all' | 'active'>('all')
 
-  useEffect(() => {
-    setApiKey(getStoredKey())
-  }, [])
-
-  const { snapshot, loading, error, usingCache } = useSportSnapshot(apiKey)
-
-  const handleSaveKey = (key: string, mode: StorageMode) => {
-    storeKey(key, mode)
-    setApiKey(key)
-    queryClient.clear()
-  }
-
-  const handleChangeKey = () => {
-    clearKey()
-    setApiKey('')
-    queryClient.clear()
-  }
+  const { snapshot, loading, error } = useSportSnapshot()
 
   if (!sport) {
     return <p className="page">Sport not specified.</p>
   }
 
   const sportKey = sport.toLowerCase()
-
-  if (!usingCache && !apiKey) {
-    return <KeyGate onSave={handleSaveKey} />
-  }
 
   if (loading) {
     return <p className="page">Loading sport snapshot...</p>
@@ -285,9 +260,6 @@ function Sport() {
       <section className="page page-stack">
         <h1 className="page-title">Sport: {sport.toUpperCase()}</h1>
         <p className="error-text">{error.message}</p>
-        <button type="button" onClick={handleChangeKey}>
-          Change key
-        </button>
       </section>
     )
   }
@@ -318,9 +290,6 @@ function Sport() {
         {sportData.error ? <p className="error-text">Sport error: {sportData.error}</p> : null}
       </div>
       <div className="panel action-row">
-        <button type="button" onClick={handleChangeKey}>
-          Change key ({getStoredMode()})
-        </button>
         <div className="field-inline">
           <label htmlFor="sport-vip-filter">VIP filter</label>
           <select

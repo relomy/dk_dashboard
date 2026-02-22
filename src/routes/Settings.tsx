@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useProfiles } from '../context/ProfileContext'
-import { getStoredMode } from '../lib/accessKey'
+import { useAuth } from '../hooks/useAuth'
 import type { ProfileMatchRules } from '../lib/profiles'
 
 function trimOptional(value: string): string | undefined {
@@ -19,6 +19,7 @@ function buildRules(input: { contains: string; exact: string; username: string }
 
 function Settings() {
   const { profiles, activeProfileId, setActiveProfileId, addProfile, updateProfile, deleteProfile } = useProfiles()
+  const { user, logout } = useAuth()
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -30,7 +31,6 @@ function Settings() {
     () => (editingId ? profiles.find((profile) => profile.id === editingId) ?? null : null),
     [editingId, profiles],
   )
-  const storedMode = getStoredMode()
 
   const resetForm = () => {
     setEditingId(null)
@@ -77,11 +77,23 @@ function Settings() {
     <section className="page page-stack">
       <h1 className="page-title">Settings</h1>
       <div className="panel page-stack-sm">
-        <h2 className="section-title">Access key</h2>
+        <h2 className="section-title">Account</h2>
         <p className="meta-text">
-          Key storage mode: <strong>{storedMode}</strong>
+          Signed in as: <strong>{user?.username ?? 'unknown'}</strong>
         </p>
-        <p className="meta-text">Use Change key on data pages to replace or clear your saved key.</p>
+        <p className="meta-text">
+          Role: <strong>{user?.role ?? 'friend'}</strong>
+        </p>
+        <div className="action-row">
+          <button
+            type="button"
+            onClick={() => {
+              void logout()
+            }}
+          >
+            Sign out
+          </button>
+        </div>
       </div>
 
       <div className="panel page-stack">

@@ -9,6 +9,33 @@ afterEach(() => {
 })
 
 it('supports add/edit/delete profiles and header active profile switching', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/auth/me')) {
+        return new Response(
+          JSON.stringify({
+            user: {
+              id: 'u1',
+              username: 'friend',
+              role: 'friend',
+              must_change_password: false,
+            },
+          }),
+          { status: 200 },
+        )
+      }
+      if (url.includes('/api/auth/logout')) {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 })
+      }
+      if (url.includes('/api/auth/csrf')) {
+        return new Response(JSON.stringify({ csrf_token: 'csrf_1' }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ error: { code: 'not_found', message: 'Not found' } }), { status: 404 })
+    }),
+  )
+
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   render(
@@ -19,7 +46,7 @@ it('supports add/edit/delete profiles and header active profile switching', asyn
     </QueryClientProvider>,
   )
 
-  const activeProfileSelect = screen.getByLabelText(/active profile/i)
+  const activeProfileSelect = await screen.findByLabelText(/active profile/i)
   expect(within(activeProfileSelect).getByRole('option', { name: 'Me' })).toBeInTheDocument()
 
   fireEvent.change(screen.getByLabelText(/profile name/i), { target: { value: 'Alex' } })

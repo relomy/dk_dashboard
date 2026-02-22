@@ -1,9 +1,6 @@
-import { useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import KeyGate from '../components/KeyGate'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
-import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from '../lib/perVipKeys'
 import { classifyValueTier, isRelevantPlayerRow, resolveTeamStyleToken, type ValueTier } from '../lib/playerPresentation'
 import type { ContestMetricsDistanceToCash, VipLineup } from '../lib/types'
@@ -151,25 +148,11 @@ function renderValueBadge(value: unknown) {
 }
 
 function Live() {
-  const queryClient = useQueryClient()
   const { sport } = useParams()
-  const [apiKey, setApiKey] = useState(() => getStoredKey())
   const [playerSearch, setPlayerSearch] = useState('')
   const [showAllTrains, setShowAllTrains] = useState(false)
 
-  const { snapshot, loading, error, usingCache } = useSportSnapshot(apiKey)
-
-  const handleSaveKey = (key: string, mode: StorageMode) => {
-    storeKey(key, mode)
-    setApiKey(key)
-    queryClient.clear()
-  }
-
-  const handleChangeKey = () => {
-    clearKey()
-    setApiKey('')
-    queryClient.clear()
-  }
+  const { snapshot, loading, error } = useSportSnapshot()
 
   if (!sport) {
     return <p className="page">Sport not specified.</p>
@@ -192,10 +175,6 @@ function Live() {
       .sort((a, b) => playerSortScore(b) - playerSortScore(a))
   }, [playerSearch, sportData?.players])
 
-  if (!usingCache && !apiKey) {
-    return <KeyGate onSave={handleSaveKey} />
-  }
-
   if (loading) {
     return <p className="page">Loading live snapshot...</p>
   }
@@ -205,9 +184,6 @@ function Live() {
       <section className="page page-stack">
         <h1 className="page-title">Live: {sport.toUpperCase()}</h1>
         <p className="error-text">{error.message}</p>
-        <button type="button" onClick={handleChangeKey}>
-          Change key
-        </button>
       </section>
     )
   }
@@ -326,12 +302,6 @@ function Live() {
 
   return (
     <section className="page page-stack">
-      <div className="action-row">
-        <button type="button" onClick={handleChangeKey}>
-          Change key ({getStoredMode()})
-        </button>
-      </div>
-
       <h1 className="page-title">Live: {sport.toUpperCase()}</h1>
       <p className="page-meta">Snapshot at: {new Date(snapshot.snapshot_at).toLocaleString()}</p>
 

@@ -12,7 +12,6 @@ export class ApiError extends Error {
 }
 
 interface RequestOptions {
-  apiKey?: string
   retries?: number
   timeoutMs?: number
 }
@@ -76,16 +75,14 @@ export async function fetchJson<T>(path: string, options: RequestOptions = {}): 
 
     try {
       const response = await fetch(buildApiUrl(path), {
-        headers: {
-          ...(options.apiKey ? { 'X-Api-Key': options.apiKey } : {}),
-        },
+        credentials: 'include',
         signal: controller.signal,
       })
 
       if (!response.ok) {
         const isAuthError = response.status === 401 || response.status === 403
         const message = isAuthError
-          ? 'Invalid or expired access key. Update your key and try again.'
+          ? 'Authentication required. Please sign in and try again.'
           : `Request failed (${response.status})`
         throw new ApiError(message, response.status)
       }

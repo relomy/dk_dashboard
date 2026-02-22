@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { expect, it, vi } from 'vitest'
 
@@ -38,9 +38,6 @@ it('disables history with clear message in snapshot-only mock mode', async () =>
       </MemoryRouter>
     </QueryClientProvider>,
   )
-
-  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
 
   expect(await screen.findByText(/history requires manifest files/i)).toBeInTheDocument()
   expect(fetchSpy).not.toHaveBeenCalled()

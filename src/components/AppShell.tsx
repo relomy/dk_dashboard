@@ -1,7 +1,8 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useProfiles } from '../context/ProfileContext'
+import { useAuth } from '../hooks/useAuth'
 
-const navItems = [
+const baseNavItems = [
   { to: '/latest', label: 'Latest' },
   { to: '/history', label: 'History' },
   { to: '/health', label: 'Health' },
@@ -10,6 +11,8 @@ const navItems = [
 
 function AppShell() {
   const { profiles, activeProfileId, setActiveProfileId } = useProfiles()
+  const { user, logout } = useAuth()
+  const navItems = user?.role === 'owner' ? [...baseNavItems, { to: '/admin/users', label: 'Admin' }] : baseNavItems
 
   return (
     <div className="app-shell">
@@ -39,6 +42,15 @@ function AppShell() {
               </option>
             ))}
           </select>
+          {user ? <span className="meta-text">Signed in as {user.username} ({user.role})</span> : null}
+          <button
+            type="button"
+            onClick={() => {
+              void logout()
+            }}
+          >
+            Sign out
+          </button>
         </div>
       </header>
       <main>

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import missingSectionsFixture from '../../public/mock/snapshots/canonical-live-snapshot-missing-sections.json'
@@ -43,9 +43,6 @@ it('shows snapshot age and per-sport status from latest+snapshot', async () => {
       </MemoryRouter>
     </QueryClientProvider>,
   )
-
-  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
 
   expect(await screen.findByText(/snapshot age/i)).toBeInTheDocument()
   expect(screen.getByText(/seconds/i)).toBeInTheDocument()

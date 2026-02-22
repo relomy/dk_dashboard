@@ -1,9 +1,6 @@
-import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
-import KeyGate from '../components/KeyGate'
+import { useMemo } from 'react'
 import StatusBadge from '../components/StatusBadge'
 import { useHealth } from '../hooks/useHealth'
-import { clearKey, getStoredKey, getStoredMode, storeKey, type StorageMode } from '../lib/accessKey'
 
 function formatAgeValue(snapshotAgeSeconds: number | null): string {
   if (snapshotAgeSeconds === null) {
@@ -28,26 +25,7 @@ function truncateText(value: string, max = 80): string {
 }
 
 function Health() {
-  const queryClient = useQueryClient()
-  const [apiKey, setApiKey] = useState('')
-
-  useEffect(() => {
-    setApiKey(getStoredKey())
-  }, [])
-
-  const { latestQuery, snapshotQuery, snapshotAgeSeconds, sports } = useHealth(apiKey)
-
-  const handleSaveKey = (key: string, mode: StorageMode) => {
-    storeKey(key, mode)
-    setApiKey(key)
-    queryClient.clear()
-  }
-
-  const handleChangeKey = () => {
-    clearKey()
-    setApiKey('')
-    queryClient.clear()
-  }
+  const { latestQuery, snapshotQuery, snapshotAgeSeconds, sports } = useHealth()
 
   const statusCounts = useMemo(() => {
     const counts = { ok: 0, stale: 0, error: 0 }
@@ -63,10 +41,6 @@ function Health() {
     () => sports.filter((sport) => sport.status === 'stale' || sport.status === 'error'),
     [sports],
   )
-
-  if (!apiKey) {
-    return <KeyGate onSave={handleSaveKey} />
-  }
 
   if (latestQuery.isLoading || snapshotQuery.isLoading) {
     return <p className="page">Loading health data...</p>
@@ -84,9 +58,6 @@ function Health() {
       <section className="page page-stack">
         <h1 className="page-title">Health</h1>
         <p className="error-text">{message}</p>
-        <button type="button" onClick={handleChangeKey}>
-          Change key
-        </button>
       </section>
     )
   }
@@ -100,9 +71,6 @@ function Health() {
       <div className="action-row">
         <button type="button" onClick={() => snapshotQuery.refetch()}>
           Refresh
-        </button>
-        <button type="button" onClick={handleChangeKey}>
-          Change key ({getStoredMode()})
         </button>
       </div>
 

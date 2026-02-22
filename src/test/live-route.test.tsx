@@ -54,9 +54,6 @@ async function renderLive(snapshot: unknown, path = 'snapshots/canonical-live-sn
     </QueryClientProvider>,
   )
 
-  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
-
   await screen.findByRole('heading', { name: /live: nba/i })
 }
 

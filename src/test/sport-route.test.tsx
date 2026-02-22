@@ -108,9 +108,6 @@ it('loads latest snapshot when cache is empty', async () => {
     </QueryClientProvider>,
   )
 
-  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
-
   expect(await screen.findByRole('heading', { name: new RegExp(`sport: ${availableSport}`, 'i') })).toBeInTheDocument()
   expect(await screen.findByRole('heading', { name: /unknown/i })).toBeInTheDocument()
 })
@@ -151,9 +148,6 @@ it('does not use history snapshot cache for sport route data', async () => {
       </MemoryRouter>
     </QueryClientProvider>,
   )
-
-  fireEvent.change(screen.getByLabelText(/access key/i), { target: { value: 'test-key' } })
-  fireEvent.click(screen.getByRole('button', { name: /save key/i }))
 
   expect(await screen.findByRole('heading', { name: /sport: nba/i })).toBeInTheDocument()
   expect(screen.queryByText(/sport not found in snapshot/i)).not.toBeInTheDocument()
