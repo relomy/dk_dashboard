@@ -20,6 +20,14 @@ function LocationProbe() {
   return <p data-testid="location">{location.pathname}</p>
 }
 
+function getRequestedSnapshotPath(url: string): string | null {
+  try {
+    return new URL(url, 'http://local.test').searchParams.get('path')
+  } catch {
+    return null
+  }
+}
+
 afterEach(() => {
   vi.restoreAllMocks()
   cleanup()
@@ -30,8 +38,9 @@ it('resolves timestamp via UTC day manifest and renders snapshot', async () => {
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
+      const requestedPath = getRequestedSnapshotPath(url)
 
-      if (url.includes('manifest/2026-02-13.json')) {
+      if (requestedPath === 'manifest/2026-02-13.json') {
         return new Response(
           JSON.stringify({
             manifest_version: 1,
@@ -120,6 +129,7 @@ it('renders timeline list from manifest metadata and navigates on item click', a
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
+      const requestedPath = getRequestedSnapshotPath(url)
 
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
@@ -135,7 +145,7 @@ it('renders timeline list from manifest metadata and navigates on item click', a
         )
       }
 
-      if (url.includes('manifest/2026-02-13.json')) {
+      if (requestedPath === 'manifest/2026-02-13.json') {
         return new Response(
           JSON.stringify({
             manifest_version: 1,
@@ -169,7 +179,7 @@ it('renders timeline list from manifest metadata and navigates on item click', a
         )
       }
 
-      if (url.includes('manifest/2026-02-12.json')) {
+      if (requestedPath === 'manifest/2026-02-12.json') {
         return new Response(
           JSON.stringify({
             manifest_version: 1,

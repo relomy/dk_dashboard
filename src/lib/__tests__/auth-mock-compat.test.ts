@@ -1,13 +1,25 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../env', () => ({
+const MOCK_ENV = {
   config: {
     apiBaseUrl: '',
     useMock: true,
     mockSnapshotOnly: true,
     mockSnapshotPath: 'snapshots/canonical-live-snapshot.v2.json',
   },
-}))
+}
+
+async function importAuthApiWithMockEnv() {
+  vi.resetModules()
+  vi.doMock('../env', () => MOCK_ENV)
+  return import('../authApi')
+}
+
+afterEach(() => {
+  vi.doUnmock('../env')
+  vi.unstubAllGlobals()
+  vi.resetModules()
+})
 
 describe('auth api mock compatibility', () => {
   it('returns a mock session user without backend auth requests', async () => {
@@ -16,7 +28,7 @@ describe('auth api mock compatibility', () => {
     })
     vi.stubGlobal('fetch', fetchSpy)
 
-    const { fetchCurrentUser } = await import('../authApi')
+    const { fetchCurrentUser } = await importAuthApiWithMockEnv()
     const user = await fetchCurrentUser()
 
     expect(user).toEqual({
@@ -34,7 +46,7 @@ describe('auth api mock compatibility', () => {
     })
     vi.stubGlobal('fetch', fetchSpy)
 
-    const { login, logout, changePassword } = await import('../authApi')
+    const { login, logout, changePassword } = await importAuthApiWithMockEnv()
 
     await expect(login({ username: 'x', password: 'y' })).resolves.toEqual({
       id: 'mock-user',

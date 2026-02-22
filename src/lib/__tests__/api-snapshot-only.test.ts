@@ -1,20 +1,32 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../env', () => ({
+const SNAPSHOT_ONLY_ENV = {
   config: {
     apiBaseUrl: '',
     useMock: true,
     mockSnapshotOnly: true,
     mockSnapshotPath: 'snapshots/canonical-live-snapshot.v2.json',
   },
-}))
+}
+
+async function importApiWithSnapshotOnlyEnv() {
+  vi.resetModules()
+  vi.doMock('../env', () => SNAPSHOT_ONLY_ENV)
+  return import('../api')
+}
+
+afterEach(() => {
+  vi.doUnmock('../env')
+  vi.unstubAllGlobals()
+  vi.resetModules()
+})
 
 describe('fetchJson snapshot-only mock mode', () => {
   it('satisfies /api/latest locally without fetching', async () => {
     const fetchSpy = vi.fn()
     vi.stubGlobal('fetch', fetchSpy)
 
-    const { fetchJson } = await import('../api')
+    const { fetchJson } = await importApiWithSnapshotOnlyEnv()
     const latest = await fetchJson<{
       latest_snapshot_path: string
       manifest_today_path: string
@@ -34,7 +46,7 @@ describe('fetchJson snapshot-only mock mode', () => {
     )
     vi.stubGlobal('fetch', fetchSpy)
 
-    const { fetchJson } = await import('../api')
+    const { fetchJson } = await importApiWithSnapshotOnlyEnv()
     const payload = await fetchJson<{ contests: unknown[] }>(
       '/api/snapshot?path=snapshots/canonical-live-snapshot.v2.json',
     )
