@@ -1,5 +1,3 @@
-import type { PagesFunction } from '@cloudflare/workers-types'
-
 import { authorizeRequest } from '../_shared/auth'
 import { jsonError } from '../_shared/errors'
 import type { EnvBindings } from '../_shared/types'
