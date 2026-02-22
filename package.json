@@ -7,6 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "check:functions": "tsc -p tsconfig.functions.json --noEmit",
+    "auth:migrate:local": "WRANGLER_LOG_PATH=.wrangler/logs npx wrangler d1 migrations apply dk-dashboard-auth --local",
+    "auth:migrate:remote": "WRANGLER_LOG_PATH=.wrangler/logs npx wrangler d1 migrations apply dk-dashboard-auth --remote",
+    "auth:verify-schema:local": "WRANGLER_LOG_PATH=.wrangler/logs node --import tsx scripts/auth/verify-schema-local.ts",
+    "auth:reset-local": "node --import tsx scripts/auth/reset-local.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
@@ -32,9 +36,11 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "jsdom": "^28.0.0",
+    "tsx": "^4.20.6",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.0",
     "vite": "^7.3.1",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "wrangler": "^4.67.0"
   }
 }

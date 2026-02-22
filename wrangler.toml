@@ -1,0 +1,13 @@
+name = "dk-dashboard"
+compatibility_date = "2026-02-22"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "AUTH_DB"
+database_name = "dk-dashboard-auth"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "dk_dashboard_data"
+bucket_name = "dk-dashboard-data"
