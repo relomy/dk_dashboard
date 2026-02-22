@@ -25,7 +25,7 @@ Notes:
 - Mock mode is dev-only.
 - Optional API base override is available for dev/preview: `VITE_API_BASE_URL`.
 - Optional snapshot-only helper is available for real-data validation without manifests:
-  `VITE_MOCK_SNAPSHOT_ONLY=true` and optional `VITE_MOCK_SNAPSHOT_PATH=snapshots/canonical-live-snapshot.json`.
+  `VITE_MOCK_SNAPSHOT_ONLY=true` and optional `VITE_MOCK_SNAPSHOT_PATH=snapshots/canonical-live-snapshot.v2.json`.
   In this mode, `/api/latest` is synthesized locally and History is disabled with `History requires manifest files.`.
 
 ## API contract (`/api/latest`, `/api/snapshot`)
@@ -43,8 +43,19 @@ Expected shape (minimum):
 
 ### `GET /api/snapshot?path=...`
 Returns JSON content addressed by `path`, for example:
-- snapshot: `snapshots/canonical-live-snapshot.json`
+- snapshot: `snapshots/canonical-live-snapshot.v2.json`
 - manifest: `manifest/2026-02-13.json`
+
+Error responses for `/api/latest` and `/api/snapshot` use:
+
+```json
+{
+  "error": {
+    "code": "string",
+    "message": "string"
+  }
+}
+```
 
 ### Data file placement
 The dashboard expects `path` values from `/api/latest` and manifest entries to resolve under one data root:
@@ -68,7 +79,7 @@ Auth:
 - Client stores key locally/session and never embeds it in build output.
 
 ## Cloudflare Pages deploy notes
-- Framework: static SPA (no SSR/backend required).
+- Framework: static SPA + Pages Functions (for `/api/*`).
 - Build command: `npm run build`
 - Output directory: `dist`
 - SPA fallback is provided by `public/_redirects`:
@@ -77,4 +88,11 @@ Auth:
 /* /index.html 200
 ```
 
-Ensure your API routes are available at same-origin `/api/*` in production.
+Pages Functions runtime requirements:
+- R2 binding variable name: `dk_dashboard_data`
+- Secret: `DASHBOARD_API_KEY`
+
+Auth posture is fail-closed in deployed environments:
+- if `DASHBOARD_API_KEY` is unset, API routes return `500` with `server_misconfigured`.
+
+Ensure same-origin `/api/*` routes are active in production.

@@ -2,7 +2,7 @@
 
 ## Runtime model
 - Static SPA hosted on Cloudflare Pages.
-- No server runtime, no database, no SSR.
+- Pages Functions serve same-origin `/api/latest` and `/api/snapshot`.
 - Production API target is same-origin `/api/*`.
 
 ## Deploy (Cloudflare Pages)
@@ -14,6 +14,12 @@
 /* /index.html 200
 ```
 
+Pages Functions runtime configuration:
+- Add R2 binding `dk_dashboard_data` (bucket: `dk-dashboard-data`).
+- Add secret `DASHBOARD_API_KEY`.
+- API fail-closed behavior: if `DASHBOARD_API_KEY` is missing, endpoints return:
+  - `500` JSON error envelope with `error.code = "server_misconfigured"`.
+
 ## Environment
 - `VITE_API_BASE_URL` (optional): override API base for dev/preview.
 - `VITE_USE_MOCK=true` (dev-only): route `/api/*` calls to `public/mock/*` fixtures.
@@ -21,11 +27,9 @@
 - `VITE_MOCK_SNAPSHOT_PATH` (dev-only, optional): snapshot path used by snapshot-only mode.
 
 ## Canonical fixtures
-- Baseline snapshot fixture: `public/mock/snapshots/canonical-live-snapshot.json`.
+- Baseline snapshot fixture: `public/mock/snapshots/canonical-live-snapshot.v2.json`.
 - Baseline variant fixtures (edge cases only):
-  - `public/mock/snapshots/canonical-live-snapshot-missing-sections.json`
-  - `public/mock/snapshots/canonical-live-snapshot-empty-standings.json`
-  - `public/mock/snapshots/canonical-live-snapshot-no-primary.json`
+  - `public/mock/snapshots/canonical-live-snapshot.v2-missing-metrics.json`
 - In mock mode, `public/mock/latest.json` and `public/mock/manifest/2026-02-13.json` should point to the canonical baseline fixture by default.
 - Route tests should use the baseline fixture unless they are explicitly testing one of the edge-case variants above.
 
@@ -44,6 +48,16 @@
 - `GET /api/latest` returns latest metadata plus manifest paths.
 - `GET /api/snapshot?path=...` returns snapshot or manifest JSON by path.
 - API requires `X-Api-Key`.
+- Error format for `400/401/404/500`:
+
+```json
+{
+  "error": {
+    "code": "string",
+    "message": "string"
+  }
+}
+```
 
 ## Snapshot file placement
 For API-backed environments, store dashboard data in a single root directory:
@@ -73,6 +87,26 @@ For dev mock mode, this same shape lives under `public/mock`:
 - `public/mock/manifest/YYYY-MM-DD.json`
 - `public/mock/snapshots/*.json`
 
+## R2 data publish (remote)
+Upload the dashboard data root to the remote bucket with `--remote`:
+
+```bash
+ROOT=/tmp/dashboard-data
+BUCKET=dk-dashboard-data
+
+find "$ROOT" -type f -name '*.json' | while read -r f; do
+  key="${f#$ROOT/}"
+  npx wrangler r2 object put "$BUCKET/$key" \
+    --file "$f" \
+    --content-type application/json \
+    --remote
+done
+```
+
+Notes:
+- `--remote` is required to publish to the actual Cloudflare bucket.
+- Wrangler must have `CLOUDFLARE_API_TOKEN` set in non-interactive environments.
+
 ## Validation checklist
 Before release:
 1. `npm test -- --run`
@@ -97,3 +131,12 @@ Before release:
   - exporter snapshot is missing `sports[sport].primary_contest` for that sport.
 - Live route shows "Primary contest data is missing":
   - `primary_contest` exists but no contest in `sports[sport].contests` matches `is_primary`/key/id.
+
+## API smoke checks
+Verify deployed endpoints after data publish:
+
+```bash
+curl -H "X-Api-Key: <your key>" https://<your-pages-domain>/api/latest
+curl -H "X-Api-Key: <your key>" "https://<your-pages-domain>/api/snapshot?path=manifest/YYYY-MM-DD.json"
+curl -H "X-Api-Key: <your key>" "https://<your-pages-domain>/api/snapshot?path=snapshots/<latest>.json"
+```
