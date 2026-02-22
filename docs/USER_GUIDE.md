@@ -2,11 +2,8 @@
 
 ## First-time setup
 1. Open the app.
-2. Enter your access key.
-3. Choose storage mode:
-   - local (persistent)
-   - session only
-4. Save key.
+2. Sign in with your dashboard username/password.
+3. If prompted, change your temporary password before continuing.
 
 ## Main pages
 - `Latest`: current snapshot across sports. Use refresh, VIP filter, and drill into sport pages.
@@ -60,6 +57,7 @@
 - The app resolves this via the UTC-day manifest and exact `snapshot_at` match.
 
 ## Common troubleshooting
-- Invalid key errors: use `Change key` and re-enter a valid key.
+- Login errors: verify username/password with your dashboard owner.
+- Session expired (401/403): sign in again.
 - Snapshot not found in history: timestamp not present in that manifest day.
 - Stale/error sport: check `Health` for status and updated time.

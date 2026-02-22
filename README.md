@@ -8,7 +8,7 @@ Static React dashboard for viewing DraftKings snapshot data from `dk_results`.
 - `/sport/:sport`: broader per-sport drilldown across contests.
 - `/history` and `/history/:timestamp`: manifest-driven history list and snapshot deep links.
 - `/health`: freshness and error diagnostics.
-- `/settings`: access key + local profile management.
+- `/settings`: account info + local profile management.
 
 ## Local dev
 1. `npm i`
@@ -27,6 +27,18 @@ Notes:
 - Optional snapshot-only helper is available for real-data validation without manifests:
   `VITE_MOCK_SNAPSHOT_ONLY=true` and optional `VITE_MOCK_SNAPSHOT_PATH=snapshots/canonical-live-snapshot.v2.json`.
   In this mode, `/api/latest` is synthesized locally and History is disabled with `History requires manifest files.`.
+- In mock mode, auth backend calls are bypassed and the app uses a synthetic local `friend` session.
+
+## Authentication model
+- Browser access keys are removed.
+- App users authenticate with username/password via same-origin auth endpoints and HttpOnly session cookies.
+- Required auth endpoints:
+  - `GET /api/auth/csrf`
+  - `POST /api/auth/login`
+  - `POST /api/auth/logout`
+  - `GET /api/auth/me`
+  - `POST /api/auth/change-password`
+- Session and CSRF checks are enforced on auth/admin POST routes.
 
 ## API contract (`/api/latest`, `/api/snapshot`)
 The app expects same-origin endpoints in production.
@@ -75,8 +87,8 @@ The dashboard expects `path` values from `/api/latest` and manifest entries to r
 - `/api/snapshot?path=...` should treat `path` as a root-relative lookup within this data root.
 
 Auth:
-- Send `X-Api-Key` header on API requests.
-- Client stores key locally/session and never embeds it in build output.
+- `/api/latest` and `/api/snapshot` require an authenticated session cookie.
+- `401`/`403` should be treated as unauthenticated/expired session.
 
 ## Cloudflare Pages deploy notes
 - Framework: static SPA + Pages Functions (for `/api/*`).
@@ -90,9 +102,12 @@ Auth:
 
 Pages Functions runtime requirements:
 - R2 binding variable name: `dk_dashboard_data`
-- Secret: `DASHBOARD_API_KEY`
+- D1 binding variable name: `AUTH_DB`
+- Secret: `SESSION_PEPPER` (required)
+- Optional: `ALLOWED_ORIGINS` (comma-separated allowlist for state-changing requests)
+- Optional legacy key: `DASHBOARD_API_KEY` (not used by app user flows)
 
 Auth posture is fail-closed in deployed environments:
-- if `DASHBOARD_API_KEY` is unset, API routes return `500` with `server_misconfigured`.
+- if `SESSION_PEPPER` is unset/empty, auth/session routes return `500` with `server_misconfigured`.
 
 Ensure same-origin `/api/*` routes are active in production.

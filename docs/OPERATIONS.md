@@ -16,8 +16,11 @@
 
 Pages Functions runtime configuration:
 - Add R2 binding `dk_dashboard_data` (bucket: `dk-dashboard-data`).
-- Add secret `DASHBOARD_API_KEY`.
-- API fail-closed behavior: if `DASHBOARD_API_KEY` is missing, endpoints return:
+- Add D1 binding `AUTH_DB`.
+- Add secret `SESSION_PEPPER` (required).
+- Optional: `ALLOWED_ORIGINS` (comma-separated allowlist for state-changing routes).
+- Optional legacy secret `DASHBOARD_API_KEY` (no longer required for app user flows).
+- API/auth fail-closed behavior: if `SESSION_PEPPER` is missing, auth/session endpoints return:
   - `500` JSON error envelope with `error.code = "server_misconfigured"`.
 
 ## Environment
@@ -47,7 +50,7 @@ Pages Functions runtime configuration:
 ## API assumptions
 - `GET /api/latest` returns latest metadata plus manifest paths.
 - `GET /api/snapshot?path=...` returns snapshot or manifest JSON by path.
-- API requires `X-Api-Key`.
+- Both endpoints require an authenticated session cookie.
 - Error format for `400/401/404/500`:
 
 ```json
@@ -112,7 +115,9 @@ Before release:
 1. `npm test -- --run`
 2. `npm run build`
 3. Verify key flows manually:
-   - key prompt and key change
+   - login and logout
+   - forced password change flow
+   - owner admin user operations and owner-safety constraints
    - `/latest` load
    - `/live/:sport` load (primary contest resolution + VIP/ownership/train/standings section states)
    - `/history` list + timestamp route
@@ -120,7 +125,9 @@ Before release:
 
 ## Operational troubleshooting
 - 401/403 errors across routes:
-  - likely invalid/expired key.
+  - likely missing/expired session; log in again.
+- `500 server_misconfigured` on auth/session routes:
+  - verify `SESSION_PEPPER` is configured in Pages environment.
 - History list empty:
   - check `manifest_today_path` from `/api/latest`.
 - Snapshot not found for history timestamp:
@@ -136,7 +143,21 @@ Before release:
 Verify deployed endpoints after data publish:
 
 ```bash
-curl -H "X-Api-Key: <your key>" https://<your-pages-domain>/api/latest
-curl -H "X-Api-Key: <your key>" "https://<your-pages-domain>/api/snapshot?path=manifest/YYYY-MM-DD.json"
-curl -H "X-Api-Key: <your key>" "https://<your-pages-domain>/api/snapshot?path=snapshots/<latest>.json"
+PAGES_DOMAIN="https://<your-pages-domain>"
+COOKIE_JAR="/tmp/dk-dashboard-cookies.txt"
+
+# 1) Bootstrap CSRF + cookie jar
+CSRF_TOKEN=$(curl -sS -c "$COOKIE_JAR" "$PAGES_DOMAIN/api/auth/csrf" | jq -r '.csrf_token')
+
+# 2) Login (sets session cookie)
+curl -sS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+  -H "content-type: application/json" \
+  -H "x-csrf-token: $CSRF_TOKEN" \
+  -X POST "$PAGES_DOMAIN/api/auth/login" \
+  --data "{\"username\":\"<username>\",\"password\":\"<password>\",\"csrf_token\":\"$CSRF_TOKEN\"}"
+
+# 3) Authenticated data endpoints
+curl -sS -b "$COOKIE_JAR" "$PAGES_DOMAIN/api/latest"
+curl -sS -b "$COOKIE_JAR" "$PAGES_DOMAIN/api/snapshot?path=manifest/YYYY-MM-DD.json"
+curl -sS -b "$COOKIE_JAR" "$PAGES_DOMAIN/api/snapshot?path=snapshots/<latest>.json"
 ```
