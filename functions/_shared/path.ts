@@ -28,6 +28,11 @@ export function validateSnapshotPath(path: string | null): string | null {
     return null
   }
 
+  // Reject encoded slash/backslash path-shape changes before decode normalization.
+  if (/%(2f|5c)/i.test(trimmed)) {
+    return null
+  }
+
   const decoded = decodePath(trimmed)
   if (!decoded) {
     return null

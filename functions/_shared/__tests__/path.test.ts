@@ -19,5 +19,6 @@ describe('validateSnapshotPath', () => {
     expect(validateSnapshotPath('snapshots/%2e%2e/secret.json')).toBeNull()
     expect(validateSnapshotPath('snapshots/%252e%252e/secret.json')).toBeNull()
     expect(validateSnapshotPath('snap%2Fshots/live.json')).toBeNull()
+    expect(validateSnapshotPath('snapshots%2Ffoo.json')).toBeNull()
   })
 })
