@@ -54,9 +54,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     setError(null)
-    await logoutRequest()
-    setUser(null)
-    setStatus('unauthenticated')
+    try {
+      await logoutRequest()
+    } catch {
+      // Signing out should clear local state even when the backend session is already gone.
+    } finally {
+      setUser(null)
+      setStatus('unauthenticated')
+    }
   }, [])
 
   const updatePassword = useCallback(async (currentPassword: string | undefined, nextPassword: string) => {
