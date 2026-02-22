@@ -8,6 +8,14 @@ import { buildPerVipIndex, resolveVipMetricMatchKey } from '../lib/perVipKeys'
 import { classifyValueTier, isRelevantPlayerRow, resolveTeamStyleToken, type ValueTier } from '../lib/playerPresentation'
 import type { ContestMetricsDistanceToCash, VipLineup } from '../lib/types'
 
+type OwnershipSummaryRow = {
+  key: string
+  display_name: string
+  total_ownership_pct?: number
+  ownership_in_play_pct?: number
+  is_partial?: boolean
+}
+
 function resolveCashing(
   lineup: VipLineup,
   distanceEntry?: ContestMetricsDistanceToCash['per_vip'][number],
@@ -30,12 +38,37 @@ function formatValue(value: number | null | undefined, opts?: { suffix?: string 
     return '—'
   }
 
+  if (opts?.suffix === '%') {
+    return formatPercent(value)
+  }
+
   return `${value}${opts?.suffix ?? ''}`
 }
 
 function formatSigned(value: number, opts?: { suffix?: string }): string {
+  if (opts?.suffix === '%') {
+    const sign = value > 0 ? '+' : ''
+    return `${sign}${formatTrimmedNumber(value, 2)}%`
+  }
+
   const sign = value > 0 ? '+' : ''
   return `${sign}${value}${opts?.suffix ?? ''}`
+}
+
+function formatTrimmedNumber(value: number, maxDecimals: number): string {
+  const factor = 10 ** maxDecimals
+  let rounded = Math.round(value * factor) / factor
+  if (Object.is(rounded, -0)) {
+    rounded = 0
+  }
+  if (Number.isInteger(rounded)) {
+    return String(rounded)
+  }
+  return rounded.toFixed(maxDecimals).replace(/\.?0+$/, '')
+}
+
+function formatPercent(value: number): string {
+  return `${formatTrimmedNumber(value, 2)}%`
 }
 
 function formatCurrency(value: number | null | undefined): string {
@@ -100,24 +133,21 @@ function playerPointsSignal(player: {
   return 0
 }
 
-function valueTierLabel(tier: ValueTier): string {
-  switch (tier) {
-    case 'elite':
-      return 'Elite'
-    case 'strong':
-      return 'Strong'
-    case 'medium':
-      return 'Medium'
-    case 'low':
-      return 'Low'
-    default:
-      return 'N/A'
+function formatBadgeValue(value: unknown, tier: ValueTier): string {
+  if (tier === 'unknown') {
+    return 'N/A'
   }
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) {
+    return 'N/A'
+  }
+  const rounded = Math.round(numeric * 10) / 10
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
 }
 
 function renderValueBadge(value: unknown) {
   const tier = classifyValueTier(value)
-  return <span className={`value-badge value-badge--${tier}`}>{valueTierLabel(tier)}</span>
+  return <span className={`value-badge value-badge--${tier}`}>{formatBadgeValue(value, tier)}</span>
 }
 
 function Live() {
@@ -219,35 +249,26 @@ function Live() {
   }
   const ownershipSummary = primaryContest?.metrics?.ownership_summary
   const ownershipSummaryLookup = buildPerVipIndex(ownershipSummary?.per_vip ?? [])
-  const ownershipSummaryRows = primaryContest?.vip_lineups
-    .map((lineup) => {
-      const key = resolveVipMetricMatchKey(lineup)
-      if (!key) {
-        return null
-      }
+  const ownershipSummaryRows: OwnershipSummaryRow[] =
+    primaryContest?.vip_lineups
+      .map((lineup): OwnershipSummaryRow | null => {
+        const key = resolveVipMetricMatchKey(lineup)
+        if (!key) {
+          return null
+        }
       const summary = ownershipSummaryLookup.get(key)
       if (!summary) {
         return null
       }
-      return {
-        key,
-        display_name: lineup.display_name,
-        total_ownership_pct: summary.total_ownership_pct,
-        ownership_in_play_pct: summary.ownership_in_play_pct,
-        is_partial: summary.is_partial,
-      }
-    })
-    .filter(
-      (
-        row,
-      ): row is {
-        key: string
-        display_name: string
-        total_ownership_pct?: number
-        ownership_in_play_pct?: number
-        is_partial?: boolean
-      } => Boolean(row),
-    ) ?? []
+        return {
+          key,
+          display_name: lineup.display_name,
+          total_ownership_pct: summary.total_ownership_pct,
+          ownership_in_play_pct: summary.ownership_in_play_pct,
+          is_partial: summary.is_partial,
+        }
+      })
+      .filter((row): row is OwnershipSummaryRow => row !== null) ?? []
   const cashLine = primaryContest?.live_metrics?.cash_line
   const cashLinePoints = cashLine?.points_cutoff
   const cashLineRank = cashLine?.rank_cutoff
@@ -277,7 +298,10 @@ function Live() {
       return cluster ? { ref, cluster } : null
     })
     .filter((item): item is { ref: (typeof trainRefs)[number]; cluster: (typeof sortedClusters)[number] } => Boolean(item))
-  const displayClusters = trainMetrics ? metricClusters : sortedClusters.map((cluster) => ({ cluster }))
+  const displayClusters: Array<{
+    cluster: (typeof sortedClusters)[number]
+    ref?: (typeof trainRefs)[number]
+  }> = trainMetrics ? metricClusters : sortedClusters.map((cluster) => ({ cluster, ref: undefined }))
 
   if (!sportData.primary_contest) {
     return (

@@ -243,7 +243,7 @@ it('renders value badges for vip players_live rows', async () => {
   }
   const playerTable = within(lineupCard).getByRole('table')
   const rows = within(playerTable).getAllByRole('row')
-  expect(within(rows[1]).getByText('Elite')).toBeInTheDocument()
+  expect(within(rows[1]).getByText('8.1')).toBeInTheDocument()
   expect(within(rows[2]).getByText('N/A')).toBeInTheDocument()
 })
 
@@ -678,6 +678,63 @@ it('filters irrelevant players using ownership, points, and value signals', asyn
   expect(within(playerPanel).getByRole('cell', { name: 'Value Signal' })).toBeInTheDocument()
 })
 
+it('trims ownership precision to two decimals for VIP and player pool rows', async () => {
+  const snapshotWithPreciseOwnership = structuredClone(v2Fixture) as any
+  const contest = snapshotWithPreciseOwnership.sports.nba.contests[0]
+  const vip = contest.vip_lineups[0]
+  const lineupName = vip.display_name
+
+  vip.players_live = [
+    {
+      slot: 'PG',
+      player_name: 'Precision VIP',
+      ownership_pct: 26.97999999999997,
+      salary: 5000,
+      points: 10,
+      value: 4,
+      rt_projection: 18,
+      time_remaining_display: '12.0',
+      stats_text: '2 REB',
+      game_status: 'In Progress',
+    },
+  ]
+
+  snapshotWithPreciseOwnership.sports.nba.players = [
+    {
+      player_id: 'precise-own',
+      name: 'Precision Pool',
+      team: 'DAL',
+      position: 'PG',
+      matchup: 'vs. MIN',
+      salary: 5000,
+      ownership_pct: 26.97999999999997,
+      fantasy_points: 10,
+      value: 4,
+      game_status: 'In Progress',
+    },
+  ]
+
+  await renderLive(snapshotWithPreciseOwnership, 'snapshots/canonical-live-snapshot.v2.json')
+
+  const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
+  if (!(vipPanel instanceof HTMLElement)) {
+    throw new Error('VIP panel not found')
+  }
+  const lineupCard = within(vipPanel).getByText(new RegExp(`^${lineupName}$`, 'i'), { selector: 'p.item-title' }).closest('li')
+  if (!lineupCard) {
+    throw new Error('Lineup card not found')
+  }
+  const vipTable = within(lineupCard).getByRole('table')
+  expect(within(vipTable).getByRole('cell', { name: '26.98%' })).toBeInTheDocument()
+
+  const playerPanel = screen.getByRole('heading', { name: /player pool/i }).closest('.panel')
+  if (!(playerPanel instanceof HTMLElement)) {
+    throw new Error('Player panel not found')
+  }
+  const playerTable = within(playerPanel).getByRole('table')
+  expect(within(playerTable).getByRole('cell', { name: '26.98%' })).toBeInTheDocument()
+})
+
 it('renders player board parity columns position matchup salary points value ownership', async () => {
   const snapshotWithParityPlayers = structuredClone(snapshotFixture) as any
   snapshotWithParityPlayers.sports.nba.players = [
@@ -707,7 +764,7 @@ it('renders player board parity columns position matchup salary points value own
   expect(within(playerPanel).getByRole('cell', { name: 'PG/SG' })).toBeInTheDocument()
   expect(within(playerPanel).getByRole('cell', { name: '$5,100' })).toBeInTheDocument()
   expect(within(playerPanel).getByRole('cell', { name: '12.75' })).toBeInTheDocument()
-  expect(within(playerPanel).getByRole('cell', { name: 'Low' })).toBeInTheDocument()
+  expect(within(playerPanel).getByRole('cell', { name: '2.5' })).toBeInTheDocument()
 })
 
 it('renders player pool value badges from thresholds with unknown fallback', async () => {
@@ -777,10 +834,10 @@ it('renders player pool value badges from thresholds with unknown fallback', asy
   }
   const table = within(playerPanel).getByRole('table')
   const rows = within(table).getAllByRole('row')
-  expect(within(rows[1]).getByText('Elite')).toBeInTheDocument()
-  expect(within(rows[2]).getByText('Strong')).toBeInTheDocument()
-  expect(within(rows[3]).getByText('Medium')).toBeInTheDocument()
-  expect(within(rows[4]).getByText('Low')).toBeInTheDocument()
+  expect(within(rows[1]).getByText('8')).toBeInTheDocument()
+  expect(within(rows[2]).getByText('5')).toBeInTheDocument()
+  expect(within(rows[3]).getByText('3')).toBeInTheDocument()
+  expect(within(rows[4]).getByText('2.9')).toBeInTheDocument()
   expect(within(rows[5]).getByText('N/A')).toBeInTheDocument()
 })
 
