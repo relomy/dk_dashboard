@@ -1,4 +1,5 @@
 import type { AdminUser, AuthRole, AuthUser } from './types'
+import { config } from './env'
 
 interface ApiErrorEnvelope {
   error?: {
@@ -23,6 +24,13 @@ interface RequestOptions {
   method?: 'GET' | 'POST'
   body?: Record<string, unknown>
   includeCsrf?: boolean
+}
+
+const MOCK_AUTH_USER: AuthUser = {
+  id: 'mock-user',
+  username: 'mock',
+  role: 'friend',
+  must_change_password: false,
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -148,6 +156,10 @@ function parseAdminUser(value: unknown): AdminUser {
 }
 
 export async function fetchCurrentUser(): Promise<AuthUser | null> {
+  if (config.useMock) {
+    return MOCK_AUTH_USER
+  }
+
   const response = await fetch('/api/auth/me', {
     method: 'GET',
     credentials: 'include',
@@ -165,6 +177,10 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
 }
 
 export async function login(input: { username: string; password: string }): Promise<AuthUser> {
+  if (config.useMock) {
+    return MOCK_AUTH_USER
+  }
+
   const payload = await requestJson<{ user: unknown }>('/api/auth/login', {
     method: 'POST',
     body: {
@@ -176,6 +192,10 @@ export async function login(input: { username: string; password: string }): Prom
 }
 
 export async function logout(): Promise<void> {
+  if (config.useMock) {
+    return
+  }
+
   await requestJson<{ ok: boolean }>('/api/auth/logout', {
     method: 'POST',
   })
@@ -185,6 +205,10 @@ export async function changePassword(input: {
   currentPassword?: string
   newPassword: string
 }): Promise<void> {
+  if (config.useMock) {
+    return
+  }
+
   await requestJson<{ ok: boolean }>('/api/auth/change-password', {
     method: 'POST',
     body: {
