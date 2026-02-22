@@ -1,10 +1,28 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import App from '../App'
 
-it('renders latest route', () => {
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+it('renders latest route', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/auth/me')) {
+        return new Response(
+          JSON.stringify({ error: { code: 'unauthenticated', message: 'Authentication required.' } }),
+          { status: 401 },
+        )
+      }
+      return new Response(JSON.stringify({ error: { code: 'not_found', message: 'Not found' } }), { status: 404 })
+    }),
+  )
+
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   render(
@@ -15,5 +33,5 @@ it('renders latest route', () => {
     </QueryClientProvider>,
   )
 
-  expect(screen.getByRole('heading', { name: /enter access key/i })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
 })

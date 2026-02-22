@@ -269,3 +269,21 @@ export interface DayManifest {
   generated_at: string
   snapshots: ManifestSnapshotSummary[]
 }
+
+export type AuthRole = 'owner' | 'friend'
+
+export interface AuthUser {
+  id: string
+  username: string
+  role: AuthRole
+  must_change_password: boolean
+}
+
+export interface AdminUser {
+  id: string
+  username: string
+  role: AuthRole
+  is_active: boolean
+  must_change_password: boolean
+  last_login_at: string | null
+}
