@@ -107,6 +107,20 @@ describe('/api/snapshot', () => {
     })
   })
 
+  it('returns 500 JSON error when SESSION_PEPPER is missing', async () => {
+    const response = await invoke('?path=snapshots/live.json', buildEnv({ SESSION_PEPPER: undefined }), {
+      Cookie: 'session_token=tok_1',
+    })
+
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: 'server_misconfigured',
+        message: 'SESSION_PEPPER is not configured.',
+      },
+    })
+  })
+
   it('returns 404 JSON error when snapshot key is not found in R2', async () => {
     const response = await invoke('?path=snapshots/live.json', buildEnv(), { Cookie: 'session_token=tok_1' })
 
