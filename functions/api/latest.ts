@@ -1,11 +1,11 @@
-import { authorizeRequest } from '../_shared/auth'
 import { jsonError } from '../_shared/errors'
+import { requireAuthenticatedSession } from '../_shared/sessionAuth'
 import type { EnvBindings } from '../_shared/types'
 
 export const onRequestGet: PagesFunction<EnvBindings> = async ({ request, env }) => {
-  const auth = authorizeRequest(request.headers, env)
+  const auth = await requireAuthenticatedSession(request, env)
   if (!auth.ok) {
-    return jsonError(auth.status, auth.code, auth.message)
+    return auth.response
   }
 
   const latestObject = await env.dk_dashboard_data.get('latest.json')
