@@ -29,6 +29,31 @@ Pages Functions runtime configuration:
 - `VITE_MOCK_SNAPSHOT_ONLY=true` (dev-only, optional): synthesize `/api/latest` locally and point directly to one snapshot.
 - `VITE_MOCK_SNAPSHOT_PATH` (dev-only, optional): snapshot path used by snapshot-only mode.
 
+## Account bootstrap and recovery
+Use these commands from the `dk_dashboard` repo root.
+
+### First owner account (production/remote D1)
+```bash
+npm run auth:migrate:remote
+npm run auth:bootstrap-owner -- --username <owner_username> --remote
+```
+
+Expected output includes a temporary password. Use it once to sign in, then complete forced password change.
+
+### Owner password recovery (production/remote D1)
+```bash
+npm run auth:reset-owner-password -- --username <owner_username> --confirm --remote
+```
+
+This rotates the owner password to a new temporary value and revokes existing sessions for that owner.
+
+### Local reset for clean-room testing
+```bash
+npm run auth:reset-local -- --username <owner_username>
+```
+
+This wipes local auth tables and reseeds one owner with a temporary password.
+
 ## Canonical fixtures
 - Baseline snapshot fixture: `public/mock/snapshots/canonical-live-snapshot.v2.json`.
 - Baseline variant fixtures (edge cases only):
@@ -115,6 +140,7 @@ Before release:
 1. `npm test -- --run`
 2. `npm run build`
 3. Verify key flows manually:
+   - first owner bootstrap and login
    - login and logout
    - forced password change flow
    - owner admin user operations and owner-safety constraints

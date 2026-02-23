@@ -5,6 +5,11 @@
 2. Sign in with your dashboard username/password.
 3. If prompted, change your temporary password before continuing.
 
+## Getting an account
+- Accounts are created by an owner user.
+- If you do not have credentials, ask the dashboard owner to create your user in `/admin/users`.
+- Owners are bootstrapped from operations commands; this is not self-service in the UI.
+
 ## Main pages
 - `Latest`: current snapshot across sports. Use refresh, VIP filter, and drill into sport pages.
 - `Live (/live/:sport)`: in-game sweat page for a single sport's primary contest. Prioritizes VIP board + player pool, then ownership/train, with standings kept secondary.

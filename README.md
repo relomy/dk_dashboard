@@ -40,6 +40,28 @@ Notes:
   - `POST /api/auth/change-password`
 - Session and CSRF checks are enforced on auth/admin POST routes.
 
+## Create First Owner Account
+Run this once per environment to create the initial owner login.
+
+```bash
+# 1) Apply auth migrations
+npm run auth:migrate:remote
+
+# 2) Create owner (prints temporary password)
+npm run auth:bootstrap-owner -- --username <owner_username> --remote
+```
+
+Then:
+1. Sign in at your dashboard URL with the printed temporary password.
+2. Complete forced password change.
+3. Create friend accounts in `/admin/users`.
+
+If an owner already exists and you need recovery:
+
+```bash
+npm run auth:reset-owner-password -- --username <owner_username> --confirm --remote
+```
+
 ## API contract (`/api/latest`, `/api/snapshot`)
 The app expects same-origin endpoints in production.
 
