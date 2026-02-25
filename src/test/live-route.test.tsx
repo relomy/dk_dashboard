@@ -434,6 +434,23 @@ it('shows non-cashing unavailable state when metrics are missing', async () => {
   expect(screen.getByText(/non-cashing metrics unavailable for this contest/i)).toBeInTheDocument()
 })
 
+it('renders avg salary per player remaining from live metrics', async () => {
+  const snapshotWithAvgSalary = structuredClone(v2Fixture) as any
+  delete snapshotWithAvgSalary.sports.nba.contests[0].metrics.non_cashing
+  snapshotWithAvgSalary.sports.nba.contests[0].live_metrics = {
+    ...(snapshotWithAvgSalary.sports.nba.contests[0].live_metrics ?? {}),
+    avg_salary_per_player_remaining: 6158,
+  }
+
+  await renderLive(snapshotWithAvgSalary, 'snapshots/canonical-live-snapshot.v2.json')
+  const panel = screen.getByRole('heading', { name: /non-cashing info/i }).closest('.panel')
+  if (!(panel instanceof HTMLElement)) {
+    throw new Error('Non-cashing panel not found')
+  }
+  expect(within(panel).getByText(/avg salary per player remaining:\s*\$6,158/i)).toBeInTheDocument()
+  expect(within(panel).getByText(/non-cashing metrics unavailable for this contest/i)).toBeInTheDocument()
+})
+
 it('shows non-cashing empty top-player state when list is present but empty', async () => {
   const snapshotWithEmptyTopRemaining = structuredClone(v2Fixture) as any
   snapshotWithEmptyTopRemaining.sports.nba.contests[0].metrics.non_cashing = {

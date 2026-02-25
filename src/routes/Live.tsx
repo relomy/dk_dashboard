@@ -254,6 +254,7 @@ function Live() {
   const fieldRemainingScope =
     threatMetrics?.field_remaining_scope === 'contest_field' ? 'Contest field' : 'Watchlist'
   const nonCashingMetrics = primaryContest?.metrics?.non_cashing
+  const avgSalaryPerPlayerRemaining = primaryContest?.live_metrics?.avg_salary_per_player_remaining
   const topRemainingPlayers = Array.isArray(nonCashingMetrics?.top_remaining_players)
     ? nonCashingMetrics.top_remaining_players
     : null
@@ -602,6 +603,7 @@ function Live() {
 
       <div className="panel page-stack-sm">
         <h2 className="section-title">Non-cashing info</h2>
+        <p className="item-title">Avg salary per player remaining: {formatCurrency(avgSalaryPerPlayerRemaining)}</p>
         {!nonCashingMetrics ? (
           <p className="meta-text">Non-cashing metrics unavailable for this contest.</p>
         ) : (

@@ -146,6 +146,7 @@ export interface Contest {
   vip_lineups: VipLineup[]
   live_metrics?: {
     updated_at: string
+    avg_salary_per_player_remaining?: number
     cash_line?: {
       cutoff_type?: 'points' | 'rank' | 'unknown'
       rank_cutoff?: number
