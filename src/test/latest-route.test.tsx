@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v2.json'
+import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
 import missingSectionsFixture from '../../public/mock/snapshots/canonical-live-snapshot-missing-sections.json'
 import Latest from '../routes/Latest'
 
@@ -17,7 +17,7 @@ vi.mock('../context/ProfileContext', () => ({
 }))
 
 const latestPayload = {
-  latest_snapshot_path: 'snapshots/canonical-live-snapshot.v2.json',
+  latest_snapshot_path: 'snapshots/canonical-live-snapshot.v3.json',
   snapshot_at: '2026-02-13T18:25:00Z',
   generated_at: '2026-02-13T18:25:07Z',
   available_sports: ['nba'],

@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v2.json'
+import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
 import noPrimaryFixture from '../../public/mock/snapshots/canonical-live-snapshot-no-primary.json'
 import Sport from '../routes/Sport'
 
@@ -83,7 +83,7 @@ it('loads latest snapshot when cache is empty', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v2.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v3.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', availableSport],
@@ -122,7 +122,7 @@ it('does not use history snapshot cache for sport route data', async () => {
     if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
       return new Response(
         JSON.stringify({
-          latest_snapshot_path: 'snapshots/canonical-live-snapshot.v2.json',
+          latest_snapshot_path: 'snapshots/canonical-live-snapshot.v3.json',
           snapshot_at: '2026-02-13T18:25:00Z',
           generated_at: '2026-02-13T18:25:07Z',
           available_sports: ['nba'],
@@ -205,5 +205,32 @@ it('renders completed VIP cashing with payout amount', async () => {
 
   expect(await screen.findByRole('heading', { name: /sport: nba/i })).toBeInTheDocument()
   expect(screen.getAllByText(/Cashed \$20/i).length).toBeGreaterThan(0)
+  expect(fetchSpy).not.toHaveBeenCalled()
+})
+
+it('does not fallback to legacy entry_fee dollars when entry_fee_cents is missing', async () => {
+  const snapshotWithLegacyMoneyOnly = structuredClone(snapshotFixture) as any
+  const contest = snapshotWithLegacyMoneyOnly.sports.nba.contests[0]
+  contest.entry_fee = 25
+  delete contest.entry_fee_cents
+
+  const fetchSpy = vi.fn()
+  vi.stubGlobal('fetch', fetchSpy)
+
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  queryClient.setQueryData(['snapshot', 'cached.json'], snapshotWithLegacyMoneyOnly)
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/sport/nba']}>
+        <Routes>
+          <Route path="/sport/:sport" element={<Sport />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  expect(await screen.findByRole('heading', { name: /sport: nba/i })).toBeInTheDocument()
+  expect(screen.queryByText('$25')).not.toBeInTheDocument()
   expect(fetchSpy).not.toHaveBeenCalled()
 })

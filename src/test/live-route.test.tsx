@@ -2,11 +2,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v2.json'
+import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
 import emptyStandingsFixture from '../../public/mock/snapshots/canonical-live-snapshot-empty-standings.json'
 import missingSectionsFixture from '../../public/mock/snapshots/canonical-live-snapshot-missing-sections.json'
 import noPrimaryFixture from '../../public/mock/snapshots/canonical-live-snapshot-no-primary.json'
-import v2Fixture from '../../public/mock/snapshots/canonical-live-snapshot.v2.json'
+import v2Fixture from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
 import v2MissingMetricsFixture from '../../public/mock/snapshots/canonical-live-snapshot.v2-missing-metrics.json'
 import Live from '../routes/Live'
 
@@ -15,7 +15,7 @@ afterEach(() => {
   cleanup()
 })
 
-function mockLatestAndSnapshot(snapshot: unknown, snapshotPath = 'snapshots/canonical-live-snapshot.v2.json') {
+function mockLatestAndSnapshot(snapshot: unknown, snapshotPath = 'snapshots/canonical-live-snapshot.v3.json') {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -39,7 +39,7 @@ function mockLatestAndSnapshot(snapshot: unknown, snapshotPath = 'snapshots/cano
   )
 }
 
-async function renderLive(snapshot: unknown, path = 'snapshots/canonical-live-snapshot.v2.json') {
+async function renderLive(snapshot: unknown, path = 'snapshots/canonical-live-snapshot.v3.json') {
   mockLatestAndSnapshot(snapshot, path)
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -63,6 +63,29 @@ it('resolves and renders the selected primary contest for live route', async () 
   expect(screen.getByText(/contest key:/i)).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: /vip board/i })).toBeInTheDocument()
   expect(screen.getByText(/selection reason:/i)).toBeInTheDocument()
+})
+
+it('renders against v3 single-contest shape (object selection_reason + standings array)', async () => {
+  const snapshotV3Shape = structuredClone(snapshotFixture) as any
+  snapshotV3Shape.sports.nba.primary_contest.selection_reason = { mode: 'explicit_id', detail: 'test' }
+  snapshotV3Shape.sports.nba.contests[0].standings = [
+    {
+      entry_key: 'entry-v3-1',
+      username: 'v3-user',
+      rank: 6,
+      points: 336.25,
+      pmr: 0,
+      payout_cents: null,
+      ownership_remaining_total_pct: 0,
+      is_vip: false,
+    },
+  ]
+
+  await renderLive(snapshotV3Shape, 'snapshots/canonical-live-snapshot.v3.json')
+  expect(screen.getByText(/selection reason: explicit_id/i)).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: /^standings$/i })).toBeInTheDocument()
+  expect(screen.getByText(/Rows: 1/i)).toBeInTheDocument()
+  expect(screen.getByText(/v3-user/i)).toBeInTheDocument()
 })
 
 it('shows explicit state when primary contest is not configured', async () => {
@@ -106,8 +129,8 @@ it('uses payout_cents as cashing truth for VIP lineups', async () => {
   expect(within(fallbackCard).getByText(/^cashing$/i)).toBeInTheDocument()
 })
 
-it('renders distance-to-cash metrics from schema v2 snapshots', async () => {
-  await renderLive(v2Fixture, 'snapshots/canonical-live-snapshot.v2.json')
+it('renders distance-to-cash metrics from schema v3 snapshots', async () => {
+  await renderLive(v2Fixture, 'snapshots/canonical-live-snapshot.v3.json')
   const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
   if (!(vipPanel instanceof HTMLElement)) {
     throw new Error('VIP panel not found')
@@ -148,7 +171,7 @@ it('does not join distance metrics by display_name fallback', async () => {
     payout_cents: null,
   }
 
-  await renderLive(snapshotWithoutStableMetricKeys, 'snapshots/canonical-live-snapshot.v2.json')
+  await renderLive(snapshotWithoutStableMetricKeys, 'snapshots/canonical-live-snapshot.v3.json')
   const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
   if (!(vipPanel instanceof HTMLElement)) {
     throw new Error('VIP panel not found')
@@ -558,7 +581,7 @@ it('shows empty state when standings object exists but has no rows', async () =>
 
 it('uses payout_cents presence for standings cashing semantics', async () => {
   const snapshotWithMixedPayouts = structuredClone(snapshotFixture) as any
-  snapshotWithMixedPayouts.sports.nba.contests[0].standings.rows = [
+  snapshotWithMixedPayouts.sports.nba.contests[0].standings = [
     {
       entry_key: 'row-paid',
       display_name: 'Paid Row',
