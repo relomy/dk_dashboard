@@ -13,6 +13,23 @@ type OwnershipSummaryRow = {
   is_partial?: boolean
 }
 
+type NormalizedTrainCluster = {
+  cluster_key?: string
+  cluster_id?: string
+  entry_count?: number
+  user_count?: number
+  best_rank?: number
+  rank?: number
+  best_points?: number
+  points?: number
+  avg_pmr?: number
+  pmr?: number
+  avg_ownership_remaining_pct?: number
+  lineup_signature?: string
+  composition?: Array<{ slot: string; player_name: string; multiplier?: number }>
+  sample_entries?: Array<{ entry_key: string; display_name?: string }>
+}
+
 function resolveCashing(
   lineup: VipLineup,
   distanceEntry?: ContestMetricsDistanceToCash['per_vip'][number],
@@ -190,6 +207,57 @@ function normalizeStandingsRows(standings: unknown): Array<Record<string, unknow
   return []
 }
 
+function normalizeTrainClusterRows(trainClusters: unknown): NormalizedTrainCluster[] {
+  const rawRows = Array.isArray(trainClusters)
+    ? trainClusters
+    : trainClusters && typeof trainClusters === 'object' && Array.isArray((trainClusters as { clusters?: unknown }).clusters)
+      ? (trainClusters as { clusters: unknown[] }).clusters
+      : []
+
+  const normalized: NormalizedTrainCluster[] = []
+  for (const raw of rawRows) {
+    if (!raw || typeof raw !== 'object') {
+      continue
+    }
+    const row = raw as Record<string, unknown>
+    normalized.push({
+      cluster_key: typeof row.cluster_key === 'string' ? row.cluster_key : undefined,
+      cluster_id: typeof row.cluster_id === 'string' ? row.cluster_id : undefined,
+      entry_count: typeof row.entry_count === 'number' ? row.entry_count : undefined,
+      user_count: typeof row.user_count === 'number' ? row.user_count : undefined,
+      best_rank: typeof row.best_rank === 'number' ? row.best_rank : undefined,
+      rank: typeof row.rank === 'number' ? row.rank : undefined,
+      best_points: typeof row.best_points === 'number' ? row.best_points : undefined,
+      points: typeof row.points === 'number' ? row.points : undefined,
+      avg_pmr: typeof row.avg_pmr === 'number' ? row.avg_pmr : undefined,
+      pmr: typeof row.pmr === 'number' ? row.pmr : undefined,
+      avg_ownership_remaining_pct:
+        typeof row.avg_ownership_remaining_pct === 'number' ? row.avg_ownership_remaining_pct : undefined,
+      lineup_signature: typeof row.lineup_signature === 'string' ? row.lineup_signature : undefined,
+      composition: Array.isArray(row.composition)
+        ? (row.composition.filter((slot): slot is { slot: string; player_name: string; multiplier?: number } => {
+            return (
+              typeof slot === 'object' &&
+              slot !== null &&
+              typeof (slot as { slot?: unknown }).slot === 'string' &&
+              typeof (slot as { player_name?: unknown }).player_name === 'string'
+            )
+          }) as NormalizedTrainCluster['composition'])
+        : undefined,
+      sample_entries: Array.isArray(row.sample_entries)
+        ? (row.sample_entries.filter(
+            (entry): entry is { entry_key: string; display_name?: string } =>
+              typeof entry === 'object' &&
+              entry !== null &&
+              typeof (entry as { entry_key?: unknown }).entry_key === 'string',
+          ) as NormalizedTrainCluster['sample_entries'])
+        : undefined,
+    })
+  }
+
+  return normalized
+}
+
 function Live() {
   const { sport } = useParams()
   const [playerSearch, setPlayerSearch] = useState('')
@@ -256,9 +324,7 @@ function Live() {
   const topN = ownershipWatchlist?.top_n_default ?? 10
   const topEntries = ownershipWatchlist ? ownershipWatchlist.entries.slice(0, Math.max(0, topN)) : []
   const trainClustersRaw = primaryContest?.train_clusters
-  const trainClusterRows = Array.isArray(trainClustersRaw)
-    ? trainClustersRaw
-    : (trainClustersRaw?.clusters ?? [])
+  const trainClusterRows = normalizeTrainClusterRows(trainClustersRaw)
   const sortedClusters = [...trainClusterRows].sort(
     (a, b) => (b.entry_count ?? b.user_count ?? 0) - (a.entry_count ?? a.user_count ?? 0),
   )
@@ -308,7 +374,7 @@ function Live() {
     ? nonCashingMetrics.top_remaining_players
     : null
   const trainMetrics = primaryContest?.metrics?.trains
-  const trainClusterLookup = new Map<string, (typeof sortedClusters)[number]>()
+  const trainClusterLookup = new Map<string, NormalizedTrainCluster>()
   for (const cluster of trainClusterRows) {
     const key = cluster.cluster_key ?? cluster.cluster_id
     if (key) {
@@ -326,9 +392,9 @@ function Live() {
       const cluster = trainClusterLookup.get(ref.cluster_key)
       return cluster ? { ref, cluster } : null
     })
-    .filter((item): item is { ref: (typeof trainRefs)[number]; cluster: (typeof sortedClusters)[number] } => Boolean(item))
+    .filter((item): item is { ref: (typeof trainRefs)[number]; cluster: NormalizedTrainCluster } => Boolean(item))
   const displayClusters: Array<{
-    cluster: (typeof sortedClusters)[number]
+    cluster: NormalizedTrainCluster
     ref?: (typeof trainRefs)[number]
   }> = trainMetrics ? metricClusters : sortedClusters.map((cluster) => ({ cluster, ref: undefined }))
 

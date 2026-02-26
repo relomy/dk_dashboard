@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import latest from '../../public/mock/latest.json'
 import manifestToday from '../../public/mock/manifest/2026-02-21.json'
 import snapshotV3 from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
+import type { Snapshot } from '../lib/types'
 
 describe('v3 fixture bundle', () => {
   it('loads canonical v3 snapshot fixture with schema_version 3', () => {
@@ -26,8 +27,8 @@ describe('v3 fixture bundle', () => {
   })
 
   it('matches current v3 builder shape for key fields', () => {
-    for (const sport of Object.keys(snapshotV3.sports ?? {})) {
-      const sportPayload = snapshotV3.sports[sport]
+    const typedSnapshot = snapshotV3 as unknown as Snapshot
+    for (const sportPayload of Object.values(typedSnapshot.sports ?? {})) {
       expect(typeof sportPayload.primary_contest?.selection_reason).toBe('object')
       expect(Array.isArray(sportPayload.contests?.[0]?.standings)).toBe(true)
     }
