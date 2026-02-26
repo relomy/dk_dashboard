@@ -2,13 +2,33 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
-import emptyStandingsFixture from '../../public/mock/snapshots/canonical-live-snapshot-empty-standings.json'
-import missingSectionsFixture from '../../public/mock/snapshots/canonical-live-snapshot-missing-sections.json'
-import noPrimaryFixture from '../../public/mock/snapshots/canonical-live-snapshot-no-primary.json'
-import v2Fixture from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
-import v2MissingMetricsFixture from '../../public/mock/snapshots/canonical-live-snapshot.v2-missing-metrics.json'
+import v3Fixture from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
+import v3MissingMetricsFixture from '../../public/mock/snapshots/canonical-live-snapshot.v3-missing-metrics.json'
 import Live from '../routes/Live'
+
+function buildNoPrimaryFixture() {
+  const snapshot = structuredClone(v3Fixture) as any
+  delete snapshot.sports.nba.primary_contest
+  snapshot.sports.nba.contests.forEach((contest: any) => {
+    contest.is_primary = false
+  })
+  return snapshot
+}
+
+function buildMissingSectionsFixture() {
+  const snapshot = structuredClone(v3Fixture) as any
+  const contest = snapshot.sports.nba.contests[0]
+  delete contest.ownership_watchlist
+  delete contest.train_clusters
+  delete contest.standings
+  return snapshot
+}
+
+function buildEmptyStandingsFixture() {
+  const snapshot = structuredClone(v3Fixture) as any
+  snapshot.sports.nba.contests[0].standings = []
+  return snapshot
+}
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -58,7 +78,7 @@ async function renderLive(snapshot: unknown, path = 'snapshots/canonical-live-sn
 }
 
 it('resolves and renders the selected primary contest for live route', async () => {
-  await renderLive(snapshotFixture)
+  await renderLive(v3Fixture)
   expect(screen.getByRole('heading', { name: /primary contest/i })).toBeInTheDocument()
   expect(screen.getByText(/contest key:/i)).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: /vip board/i })).toBeInTheDocument()
@@ -66,7 +86,7 @@ it('resolves and renders the selected primary contest for live route', async () 
 })
 
 it('renders against v3 single-contest shape (object selection_reason + standings array)', async () => {
-  const snapshotV3Shape = structuredClone(snapshotFixture) as any
+  const snapshotV3Shape = structuredClone(v3Fixture) as any
   snapshotV3Shape.sports.nba.primary_contest.selection_reason = { mode: 'explicit_id', detail: 'test' }
   snapshotV3Shape.sports.nba.contests[0].standings = [
     {
@@ -89,12 +109,12 @@ it('renders against v3 single-contest shape (object selection_reason + standings
 })
 
 it('shows explicit state when primary contest is not configured', async () => {
-  await renderLive(noPrimaryFixture)
+  await renderLive(buildNoPrimaryFixture())
   expect(screen.getByText(/primary contest is not configured for this sport/i)).toBeInTheDocument()
 })
 
 it('prefers contest.is_primary before primary_contest key/id fallbacks', async () => {
-  const snapshotWithConflictingPointers = structuredClone(snapshotFixture) as any
+  const snapshotWithConflictingPointers = structuredClone(v3Fixture) as any
   snapshotWithConflictingPointers.sports.nba.primary_contest = {
     contest_id: '1002',
     contest_key: 'nba:1002',
@@ -109,7 +129,7 @@ it('prefers contest.is_primary before primary_contest key/id fallbacks', async (
 })
 
 it('uses payout_cents as cashing truth for VIP lineups', async () => {
-  const snapshotWithConflictingCashingSignals = structuredClone(snapshotFixture) as any
+  const snapshotWithConflictingCashingSignals = structuredClone(v3Fixture) as any
   snapshotWithConflictingCashingSignals.sports.nba.contests[0].vip_lineups[0].display_name = 'Payout Truth Test'
   snapshotWithConflictingCashingSignals.sports.nba.contests[0].vip_lineups[0].payout_cents = 100
   snapshotWithConflictingCashingSignals.sports.nba.contests[0].vip_lineups[0].live = {
@@ -130,7 +150,7 @@ it('uses payout_cents as cashing truth for VIP lineups', async () => {
 })
 
 it('renders distance-to-cash metrics from schema v3 snapshots', async () => {
-  await renderLive(v2Fixture, 'snapshots/canonical-live-snapshot.v3.json')
+  await renderLive(v3Fixture, 'snapshots/canonical-live-snapshot.v3.json')
   const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
   if (!(vipPanel instanceof HTMLElement)) {
     throw new Error('VIP panel not found')
@@ -145,7 +165,7 @@ it('renders distance-to-cash metrics from schema v3 snapshots', async () => {
 })
 
 it('shows unavailable distance-to-cash when metrics are missing', async () => {
-  await renderLive(v2MissingMetricsFixture, 'snapshots/canonical-live-snapshot.v2-missing-metrics.json')
+  await renderLive(v3MissingMetricsFixture, 'snapshots/canonical-live-snapshot.v3-missing-metrics.json')
   const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
   if (!(vipPanel instanceof HTMLElement)) {
     throw new Error('VIP panel not found')
@@ -158,7 +178,7 @@ it('shows unavailable distance-to-cash when metrics are missing', async () => {
 })
 
 it('does not join distance metrics by display_name fallback', async () => {
-  const snapshotWithoutStableMetricKeys = structuredClone(v2Fixture) as any
+  const snapshotWithoutStableMetricKeys = structuredClone(v3Fixture) as any
   const firstMetricRow = snapshotWithoutStableMetricKeys.sports.nba.contests[0].metrics.distance_to_cash.per_vip[0]
   firstMetricRow.vip_entry_key = null
   firstMetricRow.entry_key = null
@@ -187,7 +207,7 @@ it('does not join distance metrics by display_name fallback', async () => {
 })
 
 it('renders VIP players_live table rows when details are available', async () => {
-  const snapshotWithPlayersLive = structuredClone(v2Fixture) as any
+  const snapshotWithPlayersLive = structuredClone(v3Fixture) as any
   const vip = snapshotWithPlayersLive.sports.nba.contests[0].vip_lineups[0]
   const lineupName = vip.display_name
   vip.players_live = [
@@ -205,7 +225,7 @@ it('renders VIP players_live table rows when details are available', async () =>
     },
   ]
 
-  await renderLive(snapshotWithPlayersLive, 'snapshots/canonical-live-snapshot.v2.json')
+  await renderLive(snapshotWithPlayersLive, 'snapshots/canonical-live-snapshot.v3.json')
   const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
   if (!(vipPanel instanceof HTMLElement)) {
     throw new Error('VIP panel not found')
@@ -222,7 +242,7 @@ it('renders VIP players_live table rows when details are available', async () =>
 })
 
 it('renders value badges for vip players_live rows', async () => {
-  const snapshotWithPlayersLive = structuredClone(v2Fixture) as any
+  const snapshotWithPlayersLive = structuredClone(v3Fixture) as any
   const vip = snapshotWithPlayersLive.sports.nba.contests[0].vip_lineups[0]
   const lineupName = vip.display_name
   vip.players_live = [
@@ -252,7 +272,7 @@ it('renders value badges for vip players_live rows', async () => {
     },
   ]
 
-  await renderLive(snapshotWithPlayersLive, 'snapshots/canonical-live-snapshot.v2.json')
+  await renderLive(snapshotWithPlayersLive, 'snapshots/canonical-live-snapshot.v3.json')
   const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
   if (!(vipPanel instanceof HTMLElement)) {
     throw new Error('VIP panel not found')
@@ -268,12 +288,12 @@ it('renders value badges for vip players_live rows', async () => {
 })
 
 it('renders VIP players_live empty state when details list is present but empty', async () => {
-  const snapshotWithEmptyPlayersLive = structuredClone(v2Fixture) as any
+  const snapshotWithEmptyPlayersLive = structuredClone(v3Fixture) as any
   const vip = snapshotWithEmptyPlayersLive.sports.nba.contests[0].vip_lineups[0]
   const lineupName = vip.display_name
   vip.players_live = []
 
-  await renderLive(snapshotWithEmptyPlayersLive, 'snapshots/canonical-live-snapshot.v2.json')
+  await renderLive(snapshotWithEmptyPlayersLive, 'snapshots/canonical-live-snapshot.v3.json')
   const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
   if (!(vipPanel instanceof HTMLElement)) {
     throw new Error('VIP panel not found')
@@ -285,8 +305,8 @@ it('renders VIP players_live empty state when details list is present but empty'
   expect(within(lineupCard).getByText(/no player live details available/i)).toBeInTheDocument()
 })
 
-it('renders threat metrics from schema v2 snapshots', async () => {
-  const snapshotWithThreat = structuredClone(v2Fixture) as any
+it('renders threat metrics from schema v3 snapshots', async () => {
+  const snapshotWithThreat = structuredClone(v3Fixture) as any
   snapshotWithThreat.sports.nba.contests[0].metrics.threat.top_swing_players = [
     {
       player_name: 'Threat Fixture Player',
@@ -302,7 +322,7 @@ it('renders threat metrics from schema v2 snapshots', async () => {
       uniqueness_delta_pct: 6.55,
     },
   ]
-  await renderLive(snapshotWithThreat, 'snapshots/canonical-live-snapshot.v2.json')
+  await renderLive(snapshotWithThreat, 'snapshots/canonical-live-snapshot.v3.json')
   const threatPanel = screen.getByRole('heading', { name: /threat & leverage/i }).closest('.panel')
   if (!(threatPanel instanceof HTMLElement)) {
     throw new Error('Threat panel not found')
@@ -322,12 +342,12 @@ it('renders threat metrics from schema v2 snapshots', async () => {
 })
 
 it('shows unavailable threat state when metrics are missing', async () => {
-  await renderLive(v2MissingMetricsFixture, 'snapshots/canonical-live-snapshot.v2-missing-metrics.json')
+  await renderLive(v3MissingMetricsFixture, 'snapshots/canonical-live-snapshot.v3-missing-metrics.json')
   expect(screen.getByText(/threat metrics unavailable for this contest/i)).toBeInTheDocument()
 })
 
 it('renders VIP and train slot names directly from name-only fields', async () => {
-  const snapshotWithUnknownNames = structuredClone(snapshotFixture) as any
+  const snapshotWithUnknownNames = structuredClone(v3Fixture) as any
   snapshotWithUnknownNames.sports.nba.contests[0].vip_lineups[0].slots[0].player_name = 'Unknown Slot Name'
   snapshotWithUnknownNames.sports.nba.contests[0].vip_lineups[0].players_live = null
   snapshotWithUnknownNames.sports.nba.contests[0].train_clusters.clusters[0].composition[0].player_name =
@@ -339,7 +359,7 @@ it('renders VIP and train slot names directly from name-only fields', async () =
 })
 
 it('renders ownership watchlist total and respects top_n_default', async () => {
-  const snapshotWithTopN = structuredClone(snapshotFixture) as any
+  const snapshotWithTopN = structuredClone(v3Fixture) as any
   snapshotWithTopN.sports.nba.contests[0].ownership_watchlist.entries = [
     {
       entry_key: 'ownership-entry-1',
@@ -368,7 +388,7 @@ it('renders ownership watchlist total and respects top_n_default', async () => {
 })
 
 it('renders ownership summary cards from metrics using stable per-vip keys', async () => {
-  const snapshotWithOwnershipSummary = structuredClone(v2Fixture) as any
+  const snapshotWithOwnershipSummary = structuredClone(v3Fixture) as any
   snapshotWithOwnershipSummary.sports.nba.contests[0].metrics.ownership_summary = {
     source: 'vip_lineup_players',
     scope: 'vip_lineup',
@@ -388,7 +408,7 @@ it('renders ownership summary cards from metrics using stable per-vip keys', asy
     ],
   }
 
-  await renderLive(snapshotWithOwnershipSummary, 'snapshots/canonical-live-snapshot.v2.json')
+  await renderLive(snapshotWithOwnershipSummary, 'snapshots/canonical-live-snapshot.v3.json')
   const ownershipPanel = screen.getByRole('heading', { level: 2, name: /^ownership remaining$/i }).closest('.panel')
   if (!(ownershipPanel instanceof HTMLElement)) {
     throw new Error('Ownership panel not found')
@@ -406,12 +426,12 @@ it('renders ownership summary cards from metrics using stable per-vip keys', asy
 })
 
 it('shows ownership summary unavailable state when summary metrics are missing', async () => {
-  await renderLive(v2MissingMetricsFixture, 'snapshots/canonical-live-snapshot.v2-missing-metrics.json')
+  await renderLive(v3MissingMetricsFixture, 'snapshots/canonical-live-snapshot.v3-missing-metrics.json')
   expect(screen.getByText(/ownership summary metrics unavailable for this contest/i)).toBeInTheDocument()
 })
 
 it('shows ownership summary empty state when summary rows do not match VIP keys', async () => {
-  const snapshotWithUnmatchedOwnershipRows = structuredClone(v2Fixture) as any
+  const snapshotWithUnmatchedOwnershipRows = structuredClone(v3Fixture) as any
   snapshotWithUnmatchedOwnershipRows.sports.nba.contests[0].metrics.ownership_summary = {
     source: 'vip_lineup_players',
     scope: 'vip_lineup',
@@ -425,12 +445,12 @@ it('shows ownership summary empty state when summary rows do not match VIP keys'
     ],
   }
 
-  await renderLive(snapshotWithUnmatchedOwnershipRows, 'snapshots/canonical-live-snapshot.v2.json')
+  await renderLive(snapshotWithUnmatchedOwnershipRows, 'snapshots/canonical-live-snapshot.v3.json')
   expect(screen.getByText(/no ownership summary rows available for VIP lineups/i)).toBeInTheDocument()
 })
 
 it('renders non-cashing panel with users, avg PMR, and top remaining players', async () => {
-  const snapshotWithNonCashing = structuredClone(v2Fixture) as any
+  const snapshotWithNonCashing = structuredClone(v3Fixture) as any
   snapshotWithNonCashing.sports.nba.contests[0].metrics.non_cashing = {
     users_not_cashing: 109,
     avg_pmr_remaining: 342.83,
@@ -440,7 +460,7 @@ it('renders non-cashing panel with users, avg PMR, and top remaining players', a
     ],
   }
 
-  await renderLive(snapshotWithNonCashing, 'snapshots/canonical-live-snapshot.v2.json')
+  await renderLive(snapshotWithNonCashing, 'snapshots/canonical-live-snapshot.v3.json')
   const panel = screen.getByRole('heading', { name: /non-cashing info/i }).closest('.panel')
   if (!(panel instanceof HTMLElement)) {
     throw new Error('Non-cashing panel not found')
@@ -453,19 +473,19 @@ it('renders non-cashing panel with users, avg PMR, and top remaining players', a
 })
 
 it('shows non-cashing unavailable state when metrics are missing', async () => {
-  await renderLive(v2MissingMetricsFixture, 'snapshots/canonical-live-snapshot.v2-missing-metrics.json')
+  await renderLive(v3MissingMetricsFixture, 'snapshots/canonical-live-snapshot.v3-missing-metrics.json')
   expect(screen.getByText(/non-cashing metrics unavailable for this contest/i)).toBeInTheDocument()
 })
 
 it('renders avg salary per player remaining from live metrics', async () => {
-  const snapshotWithAvgSalary = structuredClone(v2Fixture) as any
+  const snapshotWithAvgSalary = structuredClone(v3Fixture) as any
   delete snapshotWithAvgSalary.sports.nba.contests[0].metrics.non_cashing
   snapshotWithAvgSalary.sports.nba.contests[0].live_metrics = {
     ...(snapshotWithAvgSalary.sports.nba.contests[0].live_metrics ?? {}),
     avg_salary_per_player_remaining: 6158,
   }
 
-  await renderLive(snapshotWithAvgSalary, 'snapshots/canonical-live-snapshot.v2.json')
+  await renderLive(snapshotWithAvgSalary, 'snapshots/canonical-live-snapshot.v3.json')
   const panel = screen.getByRole('heading', { name: /non-cashing info/i }).closest('.panel')
   if (!(panel instanceof HTMLElement)) {
     throw new Error('Non-cashing panel not found')
@@ -475,14 +495,14 @@ it('renders avg salary per player remaining from live metrics', async () => {
 })
 
 it('shows non-cashing empty top-player state when list is present but empty', async () => {
-  const snapshotWithEmptyTopRemaining = structuredClone(v2Fixture) as any
+  const snapshotWithEmptyTopRemaining = structuredClone(v3Fixture) as any
   snapshotWithEmptyTopRemaining.sports.nba.contests[0].metrics.non_cashing = {
     users_not_cashing: 0,
     avg_pmr_remaining: 0,
     top_remaining_players: [],
   }
 
-  await renderLive(snapshotWithEmptyTopRemaining, 'snapshots/canonical-live-snapshot.v2.json')
+  await renderLive(snapshotWithEmptyTopRemaining, 'snapshots/canonical-live-snapshot.v3.json')
   const panel = screen.getByRole('heading', { name: /non-cashing info/i }).closest('.panel')
   if (!(panel instanceof HTMLElement)) {
     throw new Error('Non-cashing panel not found')
@@ -491,13 +511,13 @@ it('shows non-cashing empty top-player state when list is present but empty', as
 })
 
 it('shows non-cashing top-player unavailable state when section exists but list is missing', async () => {
-  const snapshotWithMissingTopPlayers = structuredClone(v2Fixture) as any
+  const snapshotWithMissingTopPlayers = structuredClone(v3Fixture) as any
   snapshotWithMissingTopPlayers.sports.nba.contests[0].metrics.non_cashing = {
     users_not_cashing: 7,
     avg_pmr_remaining: 123.45,
   }
 
-  await renderLive(snapshotWithMissingTopPlayers, 'snapshots/canonical-live-snapshot.v2.json')
+  await renderLive(snapshotWithMissingTopPlayers, 'snapshots/canonical-live-snapshot.v3.json')
   const panel = screen.getByRole('heading', { name: /non-cashing info/i }).closest('.panel')
   if (!(panel instanceof HTMLElement)) {
     throw new Error('Non-cashing panel not found')
@@ -506,14 +526,14 @@ it('shows non-cashing top-player unavailable state when section exists but list 
 })
 
 it('shows unavailable placeholders when sections are missing', async () => {
-  await renderLive(missingSectionsFixture)
+  await renderLive(buildMissingSectionsFixture())
   expect(screen.getByText(/ownership watchlist unavailable for this contest/i)).toBeInTheDocument()
   expect(screen.getByText(/train cluster data unavailable for this contest/i)).toBeInTheDocument()
   expect(screen.getByText(/standings unavailable for this contest/i)).toBeInTheDocument()
 })
 
 it('renders train clusters with cluster rule and sorts by entry_count desc', async () => {
-  const snapshotWithSortedClusters = structuredClone(snapshotFixture) as any
+  const snapshotWithSortedClusters = structuredClone(v3Fixture) as any
   if (snapshotWithSortedClusters.sports.nba.contests[0].metrics) {
     delete snapshotWithSortedClusters.sports.nba.contests[0].metrics.trains
   }
@@ -549,7 +569,7 @@ it('renders train clusters with cluster rule and sorts by entry_count desc', asy
 })
 
 it('uses train metrics top clusters by default and toggles full list', async () => {
-  await renderLive(v2Fixture, 'snapshots/canonical-live-snapshot.v2.json')
+  await renderLive(v3Fixture, 'snapshots/canonical-live-snapshot.v3.json')
   const trainPanel = screen.getByRole('heading', { name: /train finder/i }).closest('.panel')
   if (!(trainPanel instanceof HTMLElement)) {
     throw new Error('Train panel not found')
@@ -562,7 +582,7 @@ it('uses train metrics top clusters by default and toggles full list', async () 
 })
 
 it('handles malformed train cluster rows by falling back to unavailable state', async () => {
-  const snapshotWithMalformedTrains = structuredClone(snapshotFixture) as any
+  const snapshotWithMalformedTrains = structuredClone(v3Fixture) as any
   if (snapshotWithMalformedTrains.sports.nba.contests[0].metrics) {
     delete snapshotWithMalformedTrains.sports.nba.contests[0].metrics.trains
   }
@@ -578,7 +598,7 @@ it('handles malformed train cluster rows by falling back to unavailable state', 
 })
 
 it('renders standings table when standings data is present', async () => {
-  await renderLive(snapshotFixture)
+  await renderLive(v3Fixture)
   const standingsPanel = screen.getByRole('heading', { name: /standings/i }).closest('.panel')
   if (!(standingsPanel instanceof HTMLElement)) {
     throw new Error('Standings panel not found')
@@ -590,13 +610,13 @@ it('renders standings table when standings data is present', async () => {
 })
 
 it('shows empty state when standings object exists but has no rows', async () => {
-  await renderLive(emptyStandingsFixture)
+  await renderLive(buildEmptyStandingsFixture())
   expect(screen.getByText(/no standings rows available/i)).toBeInTheDocument()
   expect(screen.queryByText(/standings unavailable for this contest/i)).not.toBeInTheDocument()
 })
 
 it('uses payout_cents presence for standings cashing semantics', async () => {
-  const snapshotWithMixedPayouts = structuredClone(snapshotFixture) as any
+  const snapshotWithMixedPayouts = structuredClone(v3Fixture) as any
   snapshotWithMixedPayouts.sports.nba.contests[0].standings = [
     {
       entry_key: 'row-paid',
@@ -632,7 +652,7 @@ it('uses payout_cents presence for standings cashing semantics', async () => {
 })
 
 it('renders player pool with search and default ownership-first sort', async () => {
-  const snapshotWithPlayers = structuredClone(snapshotFixture) as any
+  const snapshotWithPlayers = structuredClone(v3Fixture) as any
   snapshotWithPlayers.sports.nba.players = [
     {
       player_id: 'p-low',
@@ -671,7 +691,7 @@ it('renders player pool with search and default ownership-first sort', async () 
 })
 
 it('filters irrelevant players using ownership, points, and value signals', async () => {
-  const snapshotWithMixedRelevance = structuredClone(snapshotFixture) as any
+  const snapshotWithMixedRelevance = structuredClone(v3Fixture) as any
   snapshotWithMixedRelevance.sports.nba.players = [
     {
       player_id: 'p-hidden',
@@ -732,7 +752,7 @@ it('filters irrelevant players using ownership, points, and value signals', asyn
 })
 
 it('trims ownership precision to two decimals for VIP and player pool rows', async () => {
-  const snapshotWithPreciseOwnership = structuredClone(v2Fixture) as any
+  const snapshotWithPreciseOwnership = structuredClone(v3Fixture) as any
   const contest = snapshotWithPreciseOwnership.sports.nba.contests[0]
   const vip = contest.vip_lineups[0]
   const lineupName = vip.display_name
@@ -767,7 +787,7 @@ it('trims ownership precision to two decimals for VIP and player pool rows', asy
     },
   ]
 
-  await renderLive(snapshotWithPreciseOwnership, 'snapshots/canonical-live-snapshot.v2.json')
+  await renderLive(snapshotWithPreciseOwnership, 'snapshots/canonical-live-snapshot.v3.json')
 
   const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
   if (!(vipPanel instanceof HTMLElement)) {
@@ -789,7 +809,7 @@ it('trims ownership precision to two decimals for VIP and player pool rows', asy
 })
 
 it('renders player board parity columns position matchup salary points value ownership', async () => {
-  const snapshotWithParityPlayers = structuredClone(snapshotFixture) as any
+  const snapshotWithParityPlayers = structuredClone(v3Fixture) as any
   snapshotWithParityPlayers.sports.nba.players = [
     {
       name: 'Parity Player',
@@ -821,7 +841,7 @@ it('renders player board parity columns position matchup salary points value own
 })
 
 it('renders player pool value badges from thresholds with unknown fallback', async () => {
-  const snapshotWithValueTiers = structuredClone(snapshotFixture) as any
+  const snapshotWithValueTiers = structuredClone(v3Fixture) as any
   snapshotWithValueTiers.sports.nba.players = [
     {
       name: 'Tier Elite',
@@ -895,7 +915,7 @@ it('renders player pool value badges from thresholds with unknown fallback', asy
 })
 
 it('applies team accent classes to player pool rows with alias normalization and neutral fallback', async () => {
-  const snapshotWithTeams = structuredClone(snapshotFixture) as any
+  const snapshotWithTeams = structuredClone(v3Fixture) as any
   snapshotWithTeams.sports.nba.players = [
     {
       name: 'Alias Team',
@@ -959,7 +979,7 @@ it('applies team accent classes to player pool rows with alias normalization and
 })
 
 it('does not apply team accent classes to vip players_live rows in phase 1', async () => {
-  const snapshotWithVipPlayers = structuredClone(v2Fixture) as any
+  const snapshotWithVipPlayers = structuredClone(v3Fixture) as any
   snapshotWithVipPlayers.sports.nba.players = [
     {
       name: 'VIP Team Match',
@@ -990,7 +1010,7 @@ it('does not apply team accent classes to vip players_live rows in phase 1', asy
     },
   ]
 
-  await renderLive(snapshotWithVipPlayers, 'snapshots/canonical-live-snapshot.v2.json')
+  await renderLive(snapshotWithVipPlayers, 'snapshots/canonical-live-snapshot.v3.json')
   const vipPanel = screen.getByRole('heading', { name: /vip board/i }).closest('.panel')
   if (!(vipPanel instanceof HTMLElement)) {
     throw new Error('VIP panel not found')
@@ -1008,7 +1028,7 @@ it('does not apply team accent classes to vip players_live rows in phase 1', asy
 })
 
 it('falls back to positions when roster_positions is an empty array', async () => {
-  const snapshotWithEmptyRosterPositions = structuredClone(snapshotFixture) as any
+  const snapshotWithEmptyRosterPositions = structuredClone(v3Fixture) as any
   snapshotWithEmptyRosterPositions.sports.nba.players = [
     {
       name: 'Fallback Positions',

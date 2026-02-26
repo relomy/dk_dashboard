@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v2.json'
+import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
 import App from '../App'
 
 afterEach(() => {
@@ -87,7 +87,7 @@ it('allows authenticated friend to reach dashboard routes', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v2.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v3.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba'],
@@ -126,7 +126,7 @@ it('clears local auth state when logout request fails', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v2.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v3.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba'],

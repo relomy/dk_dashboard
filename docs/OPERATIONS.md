@@ -55,9 +55,9 @@ npm run auth:reset-local -- --username <owner_username>
 This wipes local auth tables and reseeds one owner with a temporary password.
 
 ## Canonical fixtures
-- Baseline snapshot fixture: `public/mock/snapshots/canonical-live-snapshot.v2.json`.
+- Baseline snapshot fixture: `public/mock/snapshots/canonical-live-snapshot.v3.json`.
 - Baseline variant fixtures (edge cases only):
-  - `public/mock/snapshots/canonical-live-snapshot.v2-missing-metrics.json`
+  - `public/mock/snapshots/canonical-live-snapshot.v3-missing-metrics.json`
 - In mock mode, `public/mock/latest.json` and `public/mock/manifest/2026-02-13.json` should point to the canonical baseline fixture by default.
 - Route tests should use the baseline fixture unless they are explicitly testing one of the edge-case variants above.
 

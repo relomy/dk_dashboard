@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
-import missingSectionsFixture from '../../public/mock/snapshots/canonical-live-snapshot-missing-sections.json'
 import Latest from '../routes/Latest'
 
 vi.mock('../context/ProfileContext', () => ({
@@ -22,6 +21,15 @@ const latestPayload = {
   generated_at: '2026-02-13T18:25:07Z',
   available_sports: ['nba'],
   manifest_today_path: 'manifest/2026-02-13.json',
+}
+
+function buildMissingSectionsFixture() {
+  const snapshot = structuredClone(snapshotFixture) as any
+  const contest = snapshot.sports.nba.contests[0]
+  delete contest.ownership_watchlist
+  delete contest.train_clusters
+  delete contest.standings
+  return snapshot
 }
 
 function firstVipDisplayName(snapshot: any): string | null {
@@ -84,6 +92,7 @@ it('renders latest snapshot summary', async () => {
 })
 
 it('renders latest route with missing live-only sections fixture', async () => {
+  const missingSectionsFixture = buildMissingSectionsFixture()
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -92,7 +101,7 @@ it('renders latest route with missing live-only sections fixture', async () => {
         return new Response(
           JSON.stringify({
             ...latestPayload,
-            latest_snapshot_path: 'snapshots/canonical-live-snapshot-missing-sections.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v3-missing-sections.json',
           }),
           { status: 200 },
         )

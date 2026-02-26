@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import missingSectionsFixture from '../../public/mock/snapshots/canonical-live-snapshot-missing-sections.json'
+import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
 import History from '../routes/History'
 
 vi.mock('../context/ProfileContext', () => ({
@@ -28,12 +28,22 @@ function getRequestedSnapshotPath(url: string): string | null {
   }
 }
 
+function buildMissingSectionsFixture() {
+  const snapshot = structuredClone(snapshotFixture) as any
+  const contest = snapshot.sports.nba.contests[0]
+  delete contest.ownership_watchlist
+  delete contest.train_clusters
+  delete contest.standings
+  return snapshot
+}
+
 afterEach(() => {
   vi.restoreAllMocks()
   cleanup()
 })
 
 it('resolves timestamp via UTC day manifest and renders snapshot', async () => {
+  const missingSectionsFixture = buildMissingSectionsFixture()
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -49,7 +59,7 @@ it('resolves timestamp via UTC day manifest and renders snapshot', async () => {
             snapshots: [
               {
                 snapshot_at: '2026-02-13T18:25:00Z',
-                path: 'snapshots/canonical-live-snapshot-missing-sections.json',
+                path: 'snapshots/canonical-live-snapshot.v3-missing-sections.json',
                 sports_present: ['nba'],
                 contest_counts_by_sport: { nba: 0 },
                 state_counts: {},
@@ -125,6 +135,7 @@ it('shows snapshot not found for missing exact match', async () => {
 })
 
 it('renders timeline list from manifest metadata and navigates on item click', async () => {
+  const missingSectionsFixture = buildMissingSectionsFixture()
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -134,7 +145,7 @@ it('renders timeline list from manifest metadata and navigates on item click', a
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v2.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v3.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -154,7 +165,7 @@ it('renders timeline list from manifest metadata and navigates on item click', a
             snapshots: [
               {
                 snapshot_at: '2026-02-13T18:25:00Z',
-                path: 'snapshots/canonical-live-snapshot.v2.json',
+                path: 'snapshots/canonical-live-snapshot.v3.json',
                 sports_present: ['nba', 'nfl'],
                 contest_counts_by_sport: { nba: 2, nfl: 1 },
                 state_counts: { live: 1, upcoming: 1 },

@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
-import noPrimaryFixture from '../../public/mock/snapshots/canonical-live-snapshot-no-primary.json'
 import Sport from '../routes/Sport'
 
 vi.mock('../context/ProfileContext', () => ({
@@ -30,6 +29,16 @@ function firstVipNameForSport(snapshot: any, sport: string): string | null {
     }
   }
   return null
+}
+
+function buildNoPrimaryFixture() {
+  const snapshot = structuredClone(snapshotFixture) as any
+  delete snapshot.sports.nba.primary_contest
+  snapshot.sports.nba.contests.forEach((contest: any) => {
+    contest.is_primary = false
+    contest.state = 'live'
+  })
+  return snapshot
 }
 
 it('uses cached snapshot and renders grouped contests plus player table behavior', async () => {
@@ -159,7 +168,7 @@ it('renders sport route even when primary contest config is missing (live-only c
   vi.stubGlobal('fetch', fetchSpy)
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  queryClient.setQueryData(['snapshot', 'cached.json'], noPrimaryFixture)
+  queryClient.setQueryData(['snapshot', 'cached.json'], buildNoPrimaryFixture())
 
   render(
     <QueryClientProvider client={queryClient}>
