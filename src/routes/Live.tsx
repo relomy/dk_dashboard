@@ -220,7 +220,7 @@ function normalizeTrainClusterRows(trainClusters: unknown): NormalizedTrainClust
       continue
     }
     const row = raw as Record<string, unknown>
-    normalized.push({
+    const normalizedRow: NormalizedTrainCluster = {
       cluster_key: typeof row.cluster_key === 'string' ? row.cluster_key : undefined,
       cluster_id: typeof row.cluster_id === 'string' ? row.cluster_id : undefined,
       entry_count: typeof row.entry_count === 'number' ? row.entry_count : undefined,
@@ -252,7 +252,22 @@ function normalizeTrainClusterRows(trainClusters: unknown): NormalizedTrainClust
               typeof (entry as { entry_key?: unknown }).entry_key === 'string',
           ) as NormalizedTrainCluster['sample_entries'])
         : undefined,
-    })
+    }
+
+    const hasSignal =
+      Boolean(normalizedRow.cluster_key) ||
+      Boolean(normalizedRow.cluster_id) ||
+      typeof normalizedRow.entry_count === 'number' ||
+      typeof normalizedRow.user_count === 'number' ||
+      Boolean(normalizedRow.lineup_signature) ||
+      Boolean(normalizedRow.composition?.length) ||
+      Boolean(normalizedRow.sample_entries?.length)
+
+    if (!hasSignal) {
+      continue
+    }
+
+    normalized.push(normalizedRow)
   }
 
   return normalized

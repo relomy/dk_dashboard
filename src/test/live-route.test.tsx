@@ -561,6 +561,22 @@ it('uses train metrics top clusters by default and toggles full list', async () 
   expect(within(trainTable).getByText('e74fb79a025e')).toBeInTheDocument()
 })
 
+it('handles malformed train cluster rows by falling back to unavailable state', async () => {
+  const snapshotWithMalformedTrains = structuredClone(snapshotFixture) as any
+  if (snapshotWithMalformedTrains.sports.nba.contests[0].metrics) {
+    delete snapshotWithMalformedTrains.sports.nba.contests[0].metrics.trains
+  }
+  snapshotWithMalformedTrains.sports.nba.contests[0].train_clusters = [
+    null,
+    'invalid-row',
+    { cluster_key: 123, entry_count: 'x' },
+    { sample_entries: [{ entry_key: 42 }] },
+  ]
+
+  await renderLive(snapshotWithMalformedTrains)
+  expect(screen.getByText(/train cluster data unavailable for this contest/i)).toBeInTheDocument()
+})
+
 it('renders standings table when standings data is present', async () => {
   await renderLive(snapshotFixture)
   const standingsPanel = screen.getByRole('heading', { name: /standings/i }).closest('.panel')
