@@ -16,10 +16,20 @@ describe('v3 fixture bundle', () => {
 
   it('references v3 snapshot paths from manifest rows', () => {
     expect(manifestToday).toBeDefined()
-    for (const item of manifestToday.items ?? []) {
-      expect(typeof item.snapshot_path).toBe('string')
-      expect(item.snapshot_path.endsWith('.json')).toBe(true)
-      expect(item.snapshot_path.includes('.v3') || item.snapshot_path.includes('/live-')).toBe(true)
+    expect(Array.isArray(manifestToday.snapshots)).toBe(true)
+    expect((manifestToday.snapshots ?? []).length).toBeGreaterThan(0)
+    for (const item of manifestToday.snapshots ?? []) {
+      expect(typeof item.path).toBe('string')
+      expect(item.path.endsWith('.json')).toBe(true)
+      expect(item.path.includes('.v3') || item.path.includes('/live-')).toBe(true)
+    }
+  })
+
+  it('matches current v3 builder shape for key fields', () => {
+    for (const sport of Object.keys(snapshotV3.sports ?? {})) {
+      const sportPayload = snapshotV3.sports[sport]
+      expect(typeof sportPayload.primary_contest?.selection_reason).toBe('object')
+      expect(Array.isArray(sportPayload.contests?.[0]?.standings)).toBe(true)
     }
   })
 })
