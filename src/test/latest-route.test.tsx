@@ -23,6 +23,14 @@ const latestPayload = {
   manifest_today_path: 'manifest/2026-02-13.json',
 }
 
+function getRequestedSnapshotPath(url: string): string | null {
+  try {
+    return new URL(url, 'http://local.test').searchParams.get('path')
+  } catch {
+    return null
+  }
+}
+
 function buildMissingSectionsFixture() {
   const snapshot = structuredClone(snapshotFixture) as any
   const contest = snapshot.sports.nba.contests[0]
@@ -93,6 +101,7 @@ it('renders latest snapshot summary', async () => {
 
 it('renders latest route with missing live-only sections fixture', async () => {
   const missingSectionsFixture = buildMissingSectionsFixture()
+  let requestedSnapshotPath: string | null = null
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -105,6 +114,10 @@ it('renders latest route with missing live-only sections fixture', async () => {
           }),
           { status: 200 },
         )
+      }
+      requestedSnapshotPath = getRequestedSnapshotPath(url)
+      if (requestedSnapshotPath !== 'snapshots/canonical-live-snapshot.v3-missing-sections.json') {
+        return new Response(JSON.stringify({ error: 'unexpected snapshot path' }), { status: 404 })
       }
       return new Response(JSON.stringify(missingSectionsFixture), { status: 200 })
     }),
@@ -123,6 +136,7 @@ it('renders latest route with missing live-only sections fixture', async () => {
   )
 
   expect((await screen.findAllByText(/last updated:/i)).length).toBeGreaterThan(0)
+  expect(requestedSnapshotPath).toBe('snapshots/canonical-live-snapshot.v3-missing-sections.json')
   fireEvent.change(screen.getByLabelText(/vip filter/i), { target: { value: 'active' } })
   expect(screen.getAllByText(/no matching vip lineups/i).length).toBeGreaterThan(0)
 })

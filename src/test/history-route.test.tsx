@@ -44,6 +44,7 @@ afterEach(() => {
 
 it('resolves timestamp via UTC day manifest and renders snapshot', async () => {
   const missingSectionsFixture = buildMissingSectionsFixture()
+  let requestedSnapshotPath: string | null = null
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -73,6 +74,11 @@ it('resolves timestamp via UTC day manifest and renders snapshot', async () => {
         )
       }
 
+      requestedSnapshotPath = requestedPath
+      if (requestedSnapshotPath !== 'snapshots/canonical-live-snapshot.v3-missing-sections.json') {
+        return new Response(JSON.stringify({ error: 'unexpected snapshot path' }), { status: 404 })
+      }
+
       return new Response(JSON.stringify(missingSectionsFixture), { status: 200 })
     }),
   )
@@ -90,6 +96,7 @@ it('resolves timestamp via UTC day manifest and renders snapshot', async () => {
   )
 
   expect(await screen.findByText(/last updated:/i)).toBeInTheDocument()
+  expect(requestedSnapshotPath).toBe('snapshots/canonical-live-snapshot.v3-missing-sections.json')
 })
 
 it('shows snapshot not found for missing exact match', async () => {

@@ -149,6 +149,41 @@ Before release:
    - `/history` list + timestamp route
    - `/health` status visibility
 
+## Snapshot v3 cutover
+- Production contract assumes canonical `schema_version: 3` snapshot artifacts only.
+- No UI compatibility layer should be added for older snapshot shapes.
+- Mock baseline is:
+  - `public/mock/snapshots/canonical-live-snapshot.v3.json`
+- Mock edge-case baseline is:
+  - `public/mock/snapshots/canonical-live-snapshot.v3-missing-metrics.json`
+
+Release gate:
+1. `GET /api/latest` returns a `latest_snapshot_path` under `snapshots/`
+2. `GET /api/snapshot?path=<latest_snapshot_path>` returns a valid v3 envelope
+3. manifest entry path(s) resolve through `/api/snapshot?path=...`
+4. `/latest`, `/live/:sport`, `/sport/:sport`, `/history`, and `/health` all load against the published artifact set
+
+## Rollback triggers
+Rollback immediately if:
+- `/api/latest` points to a missing snapshot path
+- `/api/snapshot?path=...` returns `404` for current latest or manifest path
+- `/latest` or `/live/:sport` fails to render against the latest published snapshot
+- history timestamp resolution fails because manifest pathing is wrong
+- a published snapshot is not a valid v3 envelope
+
+## Rollback procedure
+Dashboard rollback is data-first:
+
+1. Repoint `latest.json` and the current manifest entry to the last known good snapshot artifact from `dk_results`.
+2. Republish the data root to R2.
+3. Re-run API smoke checks:
+   - `/api/latest`
+   - `/api/snapshot?path=manifest/YYYY-MM-DD.json`
+   - `/api/snapshot?path=snapshots/<latest>.json`
+4. Verify `/latest` and `/live/:sport` in the deployed app.
+
+If the regression is code, revert the dashboard cutover commit(s), redeploy Pages, and repeat the API/UI smoke checks.
+
 ## Operational troubleshooting
 - 401/403 errors across routes:
   - likely missing/expired session; log in again.
