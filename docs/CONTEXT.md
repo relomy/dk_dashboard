@@ -125,8 +125,19 @@ The condition of an entry being on track to win a payout, or having won one.
 _Avoid_: in the money
 
 **Distance to cash**:
-How far a VIP's entry sits above or below the cash line, measured in points or
-rank.
+A projected, positional signal: how far a VIP's entry sits above or below the
+cash line right now, measured in points or rank. It says *whether* an entry is
+on track, not how much it wins.
+
+**Payout**:
+The money an individual entry wins, credited when it finishes above the cash
+line. A monetary outcome — distinct from distance to cash, which is only a
+position relative to the line.
+_Avoid_: winnings
+
+**Prize pool**:
+The total money a contest distributes across all paid entries.
+_Avoid_: pot
 
 **PMR (Player Minutes Remaining)**:
 The total game minutes left across all players in a lineup; more PMR means more
