@@ -12,16 +12,7 @@ on `relomy/dk_dashboard`. These are the default names (role == label name):
 | wontfix          | `wontfix`        | Acknowledged but will not be worked on.              |
 
 ## Status on the repository
-- `wontfix` already exists (GitHub default label).
-- `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human` must be
-  created before the workflow is usable.
+All five labels exist on `relomy/dk_dashboard`.
 
-## Creating the labels
-This session cannot create repository labels (no label-write tool / no `gh`
-access). Run the helper script once with an account that has repo access:
-
-```bash
-scripts/setup-triage-labels.sh          # uses gh CLI, targets relomy/dk_dashboard
-```
-
-The script is idempotent — re-running it leaves existing labels untouched.
+To add or rename a label later, use the GitHub UI (Issues → Labels) or the
+`gh label` command with repo access, then update the table above to match.
