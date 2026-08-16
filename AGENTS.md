@@ -47,3 +47,11 @@ In the final response, include:
 2. What commands were run.
 3. What passed or failed.
 4. Any follow-up risk or next step, if applicable.
+
+## Agent skills
+Configuration for engineering-workflow skills lives under `docs/agents/`:
+- `docs/agents/issue-tracker.md` — work items live in GitHub Issues (`relomy/dk_dashboard`).
+- `docs/agents/triage-labels.md` — the five canonical triage labels and how to create them.
+- `docs/agents/domain.md` — single-context domain-docs layout (`docs/CONTEXT.md` + `docs/adr/`).
+
+Edit those files directly to adjust tracker, labels, or docs layout.
