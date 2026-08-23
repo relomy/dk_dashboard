@@ -17,7 +17,6 @@
 ## Agent skills
 
 ### Issue tracker
-
 Issues and specs live in GitHub Issues; use `gh` for issue operations. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
