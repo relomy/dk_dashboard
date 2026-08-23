@@ -17,3 +17,8 @@ This repository uses a **single-context** layout (no monorepo / workspace split)
 - If the project later grows into multiple independent contexts (e.g. a
   workspace split), switch to a multi-context layout: a root `CONTEXT-MAP.md`
   pointing at per-context `CONTEXT.md` files.
+
+Before exploring a relevant area, read `docs/CONTEXT.md` and the ADRs under
+`docs/adr/`. If they do not exist, proceed silently. Use the glossary vocabulary
+from `docs/CONTEXT.md` when naming domain concepts, and flag conflicts with
+existing ADRs instead of silently overriding them.

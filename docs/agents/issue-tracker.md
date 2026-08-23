@@ -21,3 +21,15 @@ Typical flow:
 - Prefer searching existing issues before opening a new one to avoid duplicates.
 - Keep titles short and imperative; put reproduction/detail in the body.
 - Reference issues from commits and PRs (`#123`) so history stays linked.
+
+## CLI operations
+
+- Create: `gh issue create --title "..." --body "..."`
+- Read: `gh issue view <number> --comments`
+- List: `gh issue list --state open`
+- Comment: `gh issue comment <number> --body "..."`
+- Label: `gh issue edit <number> --add-label "..."` or `--remove-label "..."`
+- Close: `gh issue close <number> --comment "..."`
+
+When a skill says to publish to the issue tracker, create a GitHub issue.
+PRs are not a separate triage request surface.
