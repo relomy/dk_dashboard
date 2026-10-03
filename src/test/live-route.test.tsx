@@ -321,7 +321,7 @@ it('renders non-cashing panel with users, avg PMR, and top remaining players', a
 
   await renderLive(snapshot)
   const nonCashing = panel(/non-cashing info/i)
-  expect(within(nonCashing).getByText(/users not cashing:\s*109/i)).toBeInTheDocument()
+  expect(within(nonCashing).getByText(/entries not cashing:\s*109/i)).toBeInTheDocument()
   expect(within(nonCashing).getByText(/avg pmr remaining:\s*342.83/i)).toBeInTheDocument()
   expect(within(nonCashing).getByText(/top remaining players/i)).toBeInTheDocument()
   expect(within(nonCashing).getByText('Jalen Johnson')).toBeInTheDocument()
@@ -364,7 +364,7 @@ it('shows unavailable placeholders when sections are missing', async () => {
   delete contest.standings
 
   await renderLive(snapshot)
-  expect(screen.getByText(/ownership watchlist unavailable for this contest/i)).toBeInTheDocument()
+  expect(screen.getByText(/^ownership leaders unavailable for this contest\.$/i)).toBeInTheDocument()
   expect(screen.getByText(/train data unavailable for this contest/i)).toBeInTheDocument()
   expect(screen.getByText(/standings unavailable for this contest/i)).toBeInTheDocument()
   expect(screen.queryByText(/cluster/i)).not.toBeInTheDocument()

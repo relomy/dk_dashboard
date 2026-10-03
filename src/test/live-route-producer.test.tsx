@@ -197,7 +197,7 @@ it('says the feed does not provide the four metrics yet, linking dk_results#156'
 
   expectFeedNotProvided(subPanel(/vip vs field leverage/i))
   expectFeedNotProvided(subPanel(/vip ownership summary/i))
-  expectFeedNotProvided(subPanel(/users not cashing/i))
+  expectFeedNotProvided(subPanel(/entries not cashing/i))
   expectFeedNotProvided(subPanel(/avg salary per player remaining/i))
 })
 
@@ -235,7 +235,7 @@ it('populates the four panels when the feed provides the metrics', async () => {
 
   const nonCashing = panel(/non-cashing info/i)
   expect(within(nonCashing).queryByText(/feed does not provide/i)).not.toBeInTheDocument()
-  expect(within(nonCashing).getByText(/users not cashing: 77/i)).toBeInTheDocument()
+  expect(within(nonCashing).getByText(/entries not cashing: 77/i)).toBeInTheDocument()
 
   const avg = subPanel(/avg salary per player remaining/i)
   expect(within(avg).getByText('$4,322')).toBeInTheDocument()
@@ -272,6 +272,17 @@ it('omits update times and selection reason the snapshot does not carry instead 
 
   expect(within(panel(/primary contest/i)).queryByText(/selection reason/i)).not.toBeInTheDocument()
   expect(screen.queryByText(/unknown/i)).not.toBeInTheDocument()
+})
+
+it('says Ownership leaders, not watchlist, when the panel has no entries', async () => {
+  const snapshot = structuredClone(producerSnapshot)
+  ;(cfbContest(snapshot) as unknown as { ownership_watchlist: { entries: unknown[] } }).ownership_watchlist.entries = []
+
+  await renderLiveAgainstProducerSnapshot('cfb', snapshot)
+
+  const leaders = subPanel(/^ownership leaders$/i)
+  expect(within(leaders).getByText('No Ownership leaders entries available.')).toBeInTheDocument()
+  expect(screen.queryByText(/watchlist/i)).not.toBeInTheDocument()
 })
 
 function trainRanks() {

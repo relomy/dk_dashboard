@@ -575,7 +575,7 @@ function Live() {
           )}
         </div>
         {!ownershipWatchlist ? (
-          <p className="meta-text">Ownership watchlist unavailable for this contest.</p>
+          <p className="meta-text">Ownership leaders unavailable for this contest.</p>
         ) : (
           <div className="panel-subtle page-stack-sm">
             <h3 className="subsection-title">Ownership leaders</h3>
@@ -584,7 +584,7 @@ function Live() {
             </p>
             <p className="meta-text">Top {topN}</p>
             {topEntries.length === 0 ? (
-              <p className="meta-text">No ownership watchlist entries available.</p>
+              <p className="meta-text">No Ownership leaders entries available.</p>
             ) : (
               <table className="data-table">
                 <thead>
@@ -625,12 +625,12 @@ function Live() {
         </div>
         {!nonCashingMetrics ? (
           <div className="panel-subtle page-stack-sm">
-            <h3 className="subsection-title">Users not cashing</h3>
+            <h3 className="subsection-title">Entries not cashing</h3>
             <FeedNotProvided />
           </div>
         ) : (
           <>
-            <p className="item-title">Users not cashing: {formatValue(nonCashingMetrics.users_not_cashing)}</p>
+            <p className="item-title">Entries not cashing: {formatValue(nonCashingMetrics.users_not_cashing)}</p>
             <p className="item-title">Avg PMR remaining: {formatValue(nonCashingMetrics.avg_pmr_remaining)}</p>
             <div className="panel-subtle page-stack-sm">
               <h3 className="subsection-title">Top remaining players</h3>
