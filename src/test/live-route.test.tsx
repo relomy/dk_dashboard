@@ -322,7 +322,7 @@ it('renders non-cashing panel with users, avg PMR, and top remaining players', a
   await renderLive(snapshot)
   const nonCashing = panel(/non-cashing info/i)
   expect(within(nonCashing).getByText(/entries not cashing:\s*109/i)).toBeInTheDocument()
-  expect(within(nonCashing).getByText(/avg pmr remaining:\s*342.83/i)).toBeInTheDocument()
+  expect(within(nonCashing).getByText(/avg pmr remaining:\s*342.8$/i)).toBeInTheDocument()
   expect(within(nonCashing).getByText(/top remaining players/i)).toBeInTheDocument()
   expect(within(nonCashing).getByText('Jalen Johnson')).toBeInTheDocument()
   expect(within(nonCashing).getByText('92.66%')).toBeInTheDocument()
@@ -525,7 +525,7 @@ it('renders player board parity columns position matchup salary points value own
   }
   expect(view.getByRole('cell', { name: 'QB' })).toBeInTheDocument()
   expect(view.getByRole('cell', { name: '$5,100' })).toBeInTheDocument()
-  expect(view.getByRole('cell', { name: '12.8' })).toBeInTheDocument()
+  expect(view.getByRole('cell', { name: '12.75' })).toBeInTheDocument()
   expect(view.getByRole('cell', { name: '2.5' })).toBeInTheDocument()
 })
 

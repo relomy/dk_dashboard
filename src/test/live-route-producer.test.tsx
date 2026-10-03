@@ -106,7 +106,7 @@ it('shows Rank, Entries, Points, PMR and Lineup for each train with rounded numb
     .getAllByRole('cell')
     .slice(0, 4)
     .map((cell) => cell.textContent)
-  expect(cells).toEqual(['8', '3', '177.5', '119.8'])
+  expect(cells).toEqual(['8', '3', '177.52', '119.8'])
 })
 
 it('shows each train lineup as slot chips with locked slots muted and in position', async () => {
@@ -189,7 +189,7 @@ it('titles the top-10 panel Ownership leaders with rounded points and PMR', asyn
   const cells = within(rows[1])
     .getAllByRole('cell')
     .map((cell) => cell.textContent)
-  expect(cells).toEqual(['bruc0074', '272.07%', '231.8', '142', '113.2'])
+  expect(cells).toEqual(['bruc0074', '272.07%', '231.8', '142', '113.18'])
 })
 
 it('says the feed does not provide the four metrics yet, linking dk_results#156', async () => {
@@ -298,6 +298,18 @@ it('omits the Field remaining line when leverage rows exist but the field total 
   const leverage = subPanel(/vip vs field leverage/i)
   expect(within(leverage).getByText('+9.5%')).toBeInTheDocument()
   expect(within(leverage).queryByText(/field remaining.*:/i)).not.toBeInTheDocument()
+})
+
+it('rounds standings points to 2 decimals and PMR to 1', async () => {
+  await renderLiveAgainstProducerSnapshot('mlb')
+
+  const row = within(panel(/^standings$/i)).getByText('nycgator12').closest('tr')
+  if (!(row instanceof HTMLTableRowElement)) throw new Error('No standings row')
+  const cells = within(row)
+    .getAllByRole('cell')
+    .slice(0, 4)
+    .map((cell) => cell.textContent)
+  expect(cells).toEqual(['nycgator12', '1', '43.15', '56.5'])
 })
 
 function trainRanks() {

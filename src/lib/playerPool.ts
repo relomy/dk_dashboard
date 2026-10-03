@@ -1,4 +1,4 @@
-import { formatPoints } from './format'
+import { DASH } from './format'
 import { isRelevantPlayerRow } from './playerPresentation'
 import type { Player } from './types'
 
@@ -17,13 +17,11 @@ export interface PlayerPoolRow {
   status: string
 }
 
-const DASH = '—'
-
-function firstNonEmpty(...values: Array<string | undefined>): string | undefined {
+function firstNonBlank(...values: Array<string | undefined>): string | undefined {
   return values.find((v) => typeof v === 'string' && v.trim())
 }
 
-function joinNonEmpty(values?: string[]): string | undefined {
+function joinRosterPositions(values?: string[]): string | undefined {
   if (!Array.isArray(values)) return undefined
   const joined = values.filter(Boolean).join('/')
   return joined.trim() ? joined : undefined
@@ -35,7 +33,7 @@ function finiteOrNull(value: number | null | undefined): number | null {
 
 function toRow(player: Player, index: number): PlayerPoolRow {
   const position =
-    firstNonEmpty(player.position, joinNonEmpty(player.roster_positions)) ?? DASH
+    firstNonBlank(player.position, joinRosterPositions(player.roster_positions)) ?? DASH
   const key =
     player.player_key ||
     (`${player.name}|${player.team}|${player.salary}|${position}`.trim() || `player-${index}`)
@@ -70,8 +68,4 @@ export function buildPlayerPool(players: Player[], search: string): PlayerPoolRo
 export function formatOwnership(value: number | null): string {
   if (value === null) return DASH
   return `${Math.round(value * 100) / 100}%`
-}
-
-export function formatPlayerPoints(value: number | null): string {
-  return formatPoints(value)
 }

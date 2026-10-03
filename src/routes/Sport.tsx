@@ -4,8 +4,9 @@ import { useParams } from 'react-router-dom'
 import StatusBadge from '../components/StatusBadge'
 import { useProfiles } from '../context/ProfileContext'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
+import { formatPoints } from '../lib/format'
 import type { ProfileMatchRules } from '../lib/profiles'
-import { buildPlayerPool, formatOwnership, formatPlayerPoints } from '../lib/playerPool'
+import { buildPlayerPool, formatOwnership } from '../lib/playerPool'
 import type { Contest, ContestState, Player, SportSnapshot } from '../lib/types'
 import { filterVipLineups } from '../lib/vipMatcher'
 
@@ -132,7 +133,7 @@ function PlayerPoolTable({ players }: { players: Player[] }) {
               <td>{player.name}</td>
               <td>{player.team}</td>
               <td>{player.position}</td>
-              <td>{formatPlayerPoints(player.points)}</td>
+              <td>{formatPoints(player.points)}</td>
               <td>{formatOwnership(player.ownershipPct)}</td>
             </tr>
           ))}

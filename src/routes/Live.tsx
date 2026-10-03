@@ -4,7 +4,7 @@ import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { formatPmr, formatPoints } from '../lib/format'
 import { parseLineupSignature } from '../lib/lineup'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from '../lib/perVipKeys'
-import { buildPlayerPool, formatOwnership, formatPlayerPoints } from '../lib/playerPool'
+import { buildPlayerPool, formatOwnership } from '../lib/playerPool'
 import { classifyValueTier, resolveTeamStyleToken, type ValueTier } from '../lib/playerPresentation'
 import type { ContestMetricsDistanceToCash, VipLineup } from '../lib/types'
 
@@ -317,7 +317,7 @@ function Live() {
         {selectionReason ? <p className="meta-text">Selection reason: {selectionReason}</p> : null}
         <p className="meta-text">
           Cash line:{' '}
-          {cashLinePoints === null || cashLinePoints === undefined ? '—' : `${cashLinePoints} pts`}
+          {cashLinePoints === null || cashLinePoints === undefined ? '—' : `${formatPoints(cashLinePoints)} pts`}
           {cashLineRank === null || cashLineRank === undefined ? '' : ` | Rank cutoff: ${cashLineRank}`}
         </p>
       </div>
@@ -383,7 +383,7 @@ function Live() {
                               <td>{player.player_name}</td>
                               <td>{formatValue(player.ownership_pct, { suffix: '%' })}</td>
                               <td>{formatCurrency(player.salary)}</td>
-                              <td>{formatValue(player.points)}</td>
+                              <td>{formatPoints(player.points)}</td>
                               <td>{renderValueBadge(player.value)}</td>
                               <td>{formatValue(player.rt_projection)}</td>
                               <td>{player.time_remaining_display ?? '—'}</td>
@@ -457,7 +457,7 @@ function Live() {
                   <td>{player.matchup}</td>
                   <td>{formatCurrency(player.salary)}</td>
                   <td>{formatOwnership(player.ownershipPct)}</td>
-                  <td>{formatPlayerPoints(player.points)}</td>
+                  <td>{formatPoints(player.points)}</td>
                   <td>{renderValueBadge(player.value)}</td>
                   <td>{player.status}</td>
                 </tr>
@@ -633,7 +633,7 @@ function Live() {
         ) : (
           <>
             <p className="item-title">Entries not cashing: {formatValue(nonCashingMetrics.users_not_cashing)}</p>
-            <p className="item-title">Avg PMR remaining: {formatValue(nonCashingMetrics.avg_pmr_remaining)}</p>
+            <p className="item-title">Avg PMR remaining: {formatPmr(nonCashingMetrics.avg_pmr_remaining)}</p>
             <div className="panel-subtle page-stack-sm">
               <h3 className="subsection-title">Top remaining players</h3>
               {topRemainingPlayers === null ? (
@@ -748,8 +748,8 @@ function Live() {
                     <tr key={String(row.entry_key ?? `standings-${String(row.rank ?? 'row')}-${rowIndex}`)}>
                       <td>{String(row.username ?? row.entry_key ?? '—')}</td>
                       <td>{formatValue(typeof row.rank === 'number' ? row.rank : undefined)}</td>
-                      <td>{formatValue(typeof row.points === 'number' ? row.points : undefined)}</td>
-                      <td>{formatValue(typeof row.pmr === 'number' ? row.pmr : undefined)}</td>
+                      <td>{formatPoints(typeof row.points === 'number' ? row.points : undefined)}</td>
+                      <td>{formatPmr(typeof row.pmr === 'number' ? row.pmr : undefined)}</td>
                       <td>
                         {formatValue(
                           typeof row.ownership_remaining_total_pct === 'number'

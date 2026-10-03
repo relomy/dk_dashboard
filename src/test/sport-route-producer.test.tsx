@@ -81,7 +81,7 @@ it('Sport pool shows real positions, actual points and ownership with no Project
   expect(headers).toEqual(['Name', 'Team', 'Positions', 'Actual', 'Ownership'])
 
   const fry = records.find((r) => r.Name === 'David Fry')
-  expect(fry).toMatchObject({ Team: 'CLE', Positions: '1B', Actual: '0.0', Ownership: '13.25%' })
+  expect(fry).toMatchObject({ Team: 'CLE', Positions: '1B', Actual: '0.00', Ownership: '13.25%' })
   expect(records.every((r) => r.Positions !== '-' && r.Positions !== '—')).toBe(true)
 })
 
@@ -104,5 +104,5 @@ it('Sport pool and Live pool agree on position, points and ownership for the sam
     })
   }
   const daniels = sport.find((r) => r.Name === 'Ashton Daniels')
-  expect(daniels).toMatchObject({ Positions: 'QB', Actual: '18.2', Ownership: '24.02%' })
+  expect(daniels).toMatchObject({ Positions: 'QB', Actual: '18.16', Ownership: '24.02%' })
 })
