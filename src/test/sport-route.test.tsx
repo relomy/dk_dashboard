@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import producerSnapshot from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import Sport from '../routes/Sport'
+import type { Contest, Snapshot } from '../lib/types'
 
 vi.mock('../context/ProfileContext', () => ({
   useProfiles: () => ({
@@ -24,7 +25,7 @@ const VIP_NAME = 'cglenn91'
 
 // The producer fixture carries no VIP lineups, so inject one into the cfb primary contest.
 const snapshotFixture = (() => {
-  const snapshot = structuredClone(producerSnapshot) as any
+  const snapshot = structuredClone(producerSnapshot) as unknown as Snapshot
   snapshot.sports.cfb.contests[0].vip_lineups = [
     {
       entry_key: 'vip-entry-1',
@@ -39,9 +40,9 @@ const snapshotFixture = (() => {
 })()
 
 function buildNoPrimaryFixture() {
-  const snapshot = structuredClone(snapshotFixture) as any
+  const snapshot = structuredClone(snapshotFixture) as unknown as Snapshot
   delete snapshot.sports.cfb.primary_contest
-  snapshot.sports.cfb.contests.forEach((contest: any) => {
+  snapshot.sports.cfb.contests.forEach((contest) => {
     contest.is_primary = false
     contest.state = 'live'
   })
@@ -126,8 +127,8 @@ it('loads latest snapshot when cache is empty', async () => {
 })
 
 it('does not use history snapshot cache for sport route data', async () => {
-  const latestSnapshot = structuredClone(snapshotFixture) as any
-  const historySnapshot = structuredClone(snapshotFixture) as any
+  const latestSnapshot = structuredClone(snapshotFixture) as unknown as Snapshot
+  const historySnapshot = structuredClone(snapshotFixture) as unknown as Snapshot
   historySnapshot.sports = {}
 
   const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
@@ -190,13 +191,13 @@ it('renders sport route even when primary contest config is missing (live-only c
 })
 
 it('renders completed VIP cashing with payout amount', async () => {
-  const snapshotWithPayout = structuredClone(snapshotFixture) as any
+  const snapshotWithPayout = structuredClone(snapshotFixture) as unknown as Snapshot
   const contest = snapshotWithPayout.sports.cfb.contests[0]
   contest.state = 'completed'
   contest.currency = 'USD'
   contest.vip_lineups[0].payout_cents = 2000
   contest.vip_lineups[0].live = {
-    ...(contest.vip_lineups[0].live ?? {}),
+    updated_at: '2026-10-03T20:48:31Z',
     payout_cents: 2000,
   }
 
@@ -222,8 +223,8 @@ it('renders completed VIP cashing with payout amount', async () => {
 })
 
 it('does not fallback to legacy entry_fee dollars when entry_fee_cents is missing', async () => {
-  const snapshotWithLegacyMoneyOnly = structuredClone(snapshotFixture) as any
-  const contest = snapshotWithLegacyMoneyOnly.sports.cfb.contests[0]
+  const snapshotWithLegacyMoneyOnly = structuredClone(snapshotFixture) as unknown as Snapshot
+  const contest = snapshotWithLegacyMoneyOnly.sports.cfb.contests[0] as Partial<Contest> & { entry_fee?: number }
   contest.entry_fee = 25
   delete contest.entry_fee_cents
 

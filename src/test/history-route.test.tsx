@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import snapshotFixture from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import History from '../routes/History'
+import type { Snapshot } from '../lib/types'
 
 vi.mock('../context/ProfileContext', () => ({
   useProfiles: () => ({
@@ -29,7 +30,7 @@ function getRequestedSnapshotPath(url: string): string | null {
 }
 
 function buildMissingSectionsFixture() {
-  const snapshot = structuredClone(snapshotFixture) as any
+  const snapshot = structuredClone(snapshotFixture) as unknown as Snapshot
   const contest = snapshot.sports.cfb.contests[0]
   delete contest.ownership_watchlist
   delete contest.train_clusters

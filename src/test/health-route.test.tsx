@@ -4,13 +4,14 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import snapshotFixture from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import Health from '../routes/Health'
+import type { Snapshot } from '../lib/types'
 
 afterEach(() => {
   vi.restoreAllMocks()
 })
 
 function buildHealthFixture() {
-  const snapshot = structuredClone(snapshotFixture) as any
+  const snapshot = structuredClone(snapshotFixture) as unknown as Snapshot
   snapshot.sports.golf.status = 'stale'
   snapshot.sports.golf.error = 'Upstream timeout'
   return snapshot

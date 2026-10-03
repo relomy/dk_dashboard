@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import producerSnapshot from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import Latest from '../routes/Latest'
+import type { Snapshot } from '../lib/types'
 
 vi.mock('../context/ProfileContext', () => ({
   useProfiles: () => ({
@@ -19,7 +20,7 @@ const VIP_NAME = 'cglenn91'
 
 // The producer fixture carries no VIP lineups, so inject one into the cfb primary contest.
 const snapshotFixture = (() => {
-  const snapshot = structuredClone(producerSnapshot) as any
+  const snapshot = structuredClone(producerSnapshot) as unknown as Snapshot
   snapshot.sports.cfb.contests[0].vip_lineups = [
     {
       entry_key: 'vip-entry-1',
@@ -50,7 +51,7 @@ function getRequestedSnapshotPath(url: string): string | null {
 }
 
 function buildMissingSectionsFixture() {
-  const snapshot = structuredClone(snapshotFixture) as any
+  const snapshot = structuredClone(snapshotFixture) as unknown as Snapshot
   const contest = snapshot.sports.cfb.contests[0]
   delete contest.ownership_watchlist
   delete contest.train_clusters
@@ -176,13 +177,13 @@ it('refresh button refetches latest and snapshot', async () => {
 })
 
 it('renders completed VIP cashing with payout amount', async () => {
-  const snapshotWithPayout = structuredClone(snapshotFixture) as any
+  const snapshotWithPayout = structuredClone(snapshotFixture) as unknown as Snapshot
   const contest = snapshotWithPayout.sports.cfb.contests[0]
   contest.state = 'completed'
   contest.currency = 'USD'
   contest.vip_lineups[0].payout_cents = 2000
   contest.vip_lineups[0].live = {
-    ...(contest.vip_lineups[0].live ?? {}),
+    updated_at: '2026-10-03T20:48:31Z',
     payout_cents: 2000,
   }
 
