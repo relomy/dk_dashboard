@@ -178,12 +178,17 @@ Notes:
   salary: number,
   team: string,
   game_status: string,
-  matchup: string,
+  matchup?: string,            // "vs. X" (home) / "at X" (away), stable through Final; omitted when unknown
   ownership_pct: number,       // percent, 0-100
   fantasy_points: number,
   value: number
 }
 ```
+
+Notes:
+- `matchup` comes from DraftKings draftables, matched by draftable ID (relomy/dk_results#158). It is
+  omitted when there is no opponent (golf), the player isn't in the draftables payload, or the
+  draftables read failed. It is never filled from `game_status`.
 
 ## Day manifest schema
 ```ts
