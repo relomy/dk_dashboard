@@ -58,6 +58,11 @@ the Watchlist, not the field.
 The tracked subset of a contest's entries, used as a stand-in for the field when
 full contest data is unavailable.
 
+**Ownership leaders**:
+The ten entries in a contest with the most ownership remaining, ranked from the
+whole field rather than chosen by you.
+_Avoid_: watchlist
+
 ### People and entries
 
 **VIP**:
