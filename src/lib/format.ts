@@ -1,10 +1,10 @@
 const DASH = '—'
 
-function formatFixed(value: number | null | undefined, digits: number): string {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
+function formatFixed(value: number | null | undefined, decimals: number): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
     return DASH
   }
-  return value.toFixed(digits)
+  return value.toFixed(decimals)
 }
 
 export function formatPoints(value: number | null | undefined): string {
