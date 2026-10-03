@@ -43,6 +43,14 @@ function scoreForSort(player: Player): number {
   return player.actual_points ?? player.projected_points ?? Number.NEGATIVE_INFINITY
 }
 
+function resolvePlayerRowKey(player: Player, index: number): string {
+  if (player.player_id) {
+    return player.player_id
+  }
+  const composite = `${player.name}|${player.team}|${player.salary}|${(player.positions ?? []).join('/')}`
+  return composite.trim() ? composite : `player-${index}`
+}
+
 function groupContestsByState(contests: Contest[]): Record<ContestState, Contest[]> {
   const grouped: Record<ContestState, Contest[]> = {
     upcoming: [],
@@ -136,7 +144,7 @@ function PlayerPoolTable({ players }: { players: Player[] }) {
         </thead>
         <tbody>
           {filtered.map((player, index) => (
-            <tr key={player.player_id || `${player.name}-${index}`}>
+            <tr key={resolvePlayerRowKey(player, index)}>
               <td>{player.name}</td>
               <td>{player.team}</td>
               <td>{player.positions?.join('/') || '-'}</td>

@@ -5,7 +5,7 @@ const MOCK_ENV = {
     apiBaseUrl: '',
     useMock: true,
     mockSnapshotOnly: true,
-    mockSnapshotPath: 'snapshots/canonical-live-snapshot.v2.json',
+    mockSnapshotPath: 'snapshots/canonical-live-snapshot.v3.json',
   },
 }
 

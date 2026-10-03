@@ -2,9 +2,9 @@
   "available_sports":[
     "nba"
   ],
-  "generated_at":"2026-02-21T15:02:54Z",
-  "latest_snapshot_path":"snapshots/canonical-live-snapshot.v2.json",
+  "generated_at":"2026-02-21T14:40:43Z",
+  "latest_snapshot_path":"snapshots/canonical-live-snapshot.v3.json",
   "manifest_today_path":"manifest/2026-02-21.json",
   "manifest_yesterday_path":"manifest/2026-02-20.json",
-  "snapshot_at":"2026-02-21T15:02:54Z"
+  "snapshot_at":"2026-02-21T14:40:43Z"
 }

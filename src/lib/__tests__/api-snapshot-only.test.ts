@@ -5,7 +5,7 @@ const SNAPSHOT_ONLY_ENV = {
     apiBaseUrl: '',
     useMock: true,
     mockSnapshotOnly: true,
-    mockSnapshotPath: 'snapshots/canonical-live-snapshot.v2.json',
+    mockSnapshotPath: 'snapshots/canonical-live-snapshot.v3.json',
   },
 }
 
@@ -32,7 +32,7 @@ describe('fetchJson snapshot-only mock mode', () => {
       manifest_today_path: string
     }>('/api/latest')
 
-    expect(latest.latest_snapshot_path).toBe('snapshots/canonical-live-snapshot.v2.json')
+    expect(latest.latest_snapshot_path).toBe('snapshots/canonical-live-snapshot.v3.json')
     expect(latest.manifest_today_path).toBe('')
     expect(fetchSpy).not.toHaveBeenCalled()
   })
@@ -48,11 +48,11 @@ describe('fetchJson snapshot-only mock mode', () => {
 
     const { fetchJson } = await importApiWithSnapshotOnlyEnv()
     const payload = await fetchJson<{ contests: unknown[] }>(
-      '/api/snapshot?path=snapshots/canonical-live-snapshot.v2.json',
+      '/api/snapshot?path=snapshots/canonical-live-snapshot.v3.json',
     )
 
     expect(fetchSpy).toHaveBeenCalledTimes(1)
-    expect(fetchSpy.mock.calls[0][0]).toBe('/mock/snapshots/canonical-live-snapshot.v2.json')
+    expect(fetchSpy.mock.calls[0][0]).toBe('/mock/snapshots/canonical-live-snapshot.v3.json')
     expect(payload).toEqual({ contests: [] })
   })
 })

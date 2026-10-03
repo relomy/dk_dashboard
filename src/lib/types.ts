@@ -64,7 +64,9 @@ export interface ContestMetricsThreat {
   field_remaining_is_partial?: boolean
   field_remaining_pct?: number | null
   top_swing_players?: Array<{
+    player_key?: string
     player_name: string
+    ownership_remaining_pct?: number | null
     remaining_ownership_pct?: number | null
     vip_count?: number
   }>
@@ -166,43 +168,80 @@ export interface Contest {
       pmr?: number
     }>
   }
-  train_clusters?: {
-    updated_at: string
-    cluster_rule?: {
-      type: 'shared_slots'
-      min_shared: number
-    }
-    clusters: Array<{
-      cluster_key: string
-      entry_count: number
-      best_rank?: number
-      best_points?: number
-      avg_pmr?: number
-      avg_ownership_remaining_pct?: number
-      composition: VipLineupSlot[]
-      sample_entries?: Array<{
+  train_clusters?:
+    | Array<{
+        cluster_id?: string
+        cluster_key?: string
+        user_count?: number
+        entry_count?: number
+        rank?: number
+        points?: number
+        best_points?: number
+        pmr?: number
+        avg_pmr?: number
+        avg_ownership_remaining_pct?: number
+        lineup_signature?: string
+        composition?: VipLineupSlot[]
+        entry_keys?: string[]
+        sample_entries?: Array<{
+          entry_key: string
+          display_name?: string
+          current_rank?: number
+          current_points?: number
+          pmr?: number
+        }>
+      }>
+    | {
+        updated_at: string
+        cluster_rule?: {
+          type: 'shared_slots'
+          min_shared: number
+        }
+        clusters: Array<{
+          cluster_key: string
+          entry_count: number
+          best_rank?: number
+          best_points?: number
+          avg_pmr?: number
+          avg_ownership_remaining_pct?: number
+          composition: VipLineupSlot[]
+          sample_entries?: Array<{
+            entry_key: string
+            display_name?: string
+            current_rank?: number
+            current_points?: number
+            pmr?: number
+          }>
+        }>
+      }
+  standings?:
+    | Array<{
         entry_key: string
         display_name?: string
-        current_rank?: number
-        current_points?: number
+        username?: string
+        rank?: number
+        points?: number
         pmr?: number
+        payout_cents?: number | null
+        ownership_remaining_pct?: number
+        ownership_remaining_total_pct?: number
       }>
-    }>
-  }
-  standings?: {
-    updated_at: string
-    total_rows?: number
-    is_truncated?: boolean
-    rows: Array<{
-      entry_key: string
-      display_name?: string
-      rank?: number
-      points?: number
-      pmr?: number
-      payout_cents?: number
-      ownership_remaining_pct?: number
-    }>
-  }
+    | {
+        updated_at: string
+        total_rows?: number
+        is_truncated?: boolean
+        rows: Array<{
+          entry_key: string
+          display_name?: string
+          username?: string
+          rank?: number
+          points?: number
+          pmr?: number
+          payout_cents?: number
+          ownership_remaining_pct?: number
+          ownership_remaining_total_pct?: number
+        }>
+      }
   metrics?: ContestMetrics
 }
 
@@ -231,7 +270,7 @@ export interface SportSnapshot {
   primary_contest?: {
     contest_id: string
     contest_key: string
-    selection_reason: string
+    selection_reason: string | { mode?: string; [key: string]: unknown }
     selected_at: string
   }
   contests: Contest[]

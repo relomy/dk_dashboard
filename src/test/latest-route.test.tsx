@@ -2,8 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v2.json'
-import missingSectionsFixture from '../../public/mock/snapshots/canonical-live-snapshot-missing-sections.json'
+import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
 import Latest from '../routes/Latest'
 
 vi.mock('../context/ProfileContext', () => ({
@@ -17,11 +16,28 @@ vi.mock('../context/ProfileContext', () => ({
 }))
 
 const latestPayload = {
-  latest_snapshot_path: 'snapshots/canonical-live-snapshot.v2.json',
+  latest_snapshot_path: 'snapshots/canonical-live-snapshot.v3.json',
   snapshot_at: '2026-02-13T18:25:00Z',
   generated_at: '2026-02-13T18:25:07Z',
   available_sports: ['nba'],
   manifest_today_path: 'manifest/2026-02-13.json',
+}
+
+function getRequestedSnapshotPath(url: string): string | null {
+  try {
+    return new URL(url, 'http://local.test').searchParams.get('path')
+  } catch {
+    return null
+  }
+}
+
+function buildMissingSectionsFixture() {
+  const snapshot = structuredClone(snapshotFixture) as any
+  const contest = snapshot.sports.nba.contests[0]
+  delete contest.ownership_watchlist
+  delete contest.train_clusters
+  delete contest.standings
+  return snapshot
 }
 
 function firstVipDisplayName(snapshot: any): string | null {
@@ -84,6 +100,8 @@ it('renders latest snapshot summary', async () => {
 })
 
 it('renders latest route with missing live-only sections fixture', async () => {
+  const missingSectionsFixture = buildMissingSectionsFixture()
+  let requestedSnapshotPath: string | null = null
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -92,10 +110,14 @@ it('renders latest route with missing live-only sections fixture', async () => {
         return new Response(
           JSON.stringify({
             ...latestPayload,
-            latest_snapshot_path: 'snapshots/canonical-live-snapshot-missing-sections.json',
+            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v3-missing-sections.json',
           }),
           { status: 200 },
         )
+      }
+      requestedSnapshotPath = getRequestedSnapshotPath(url)
+      if (requestedSnapshotPath !== 'snapshots/canonical-live-snapshot.v3-missing-sections.json') {
+        return new Response(JSON.stringify({ error: 'unexpected snapshot path' }), { status: 404 })
       }
       return new Response(JSON.stringify(missingSectionsFixture), { status: 200 })
     }),
@@ -114,6 +136,7 @@ it('renders latest route with missing live-only sections fixture', async () => {
   )
 
   expect((await screen.findAllByText(/last updated:/i)).length).toBeGreaterThan(0)
+  expect(requestedSnapshotPath).toBe('snapshots/canonical-live-snapshot.v3-missing-sections.json')
   fireEvent.change(screen.getByLabelText(/vip filter/i), { target: { value: 'active' } })
   expect(screen.getAllByText(/no matching vip lineups/i).length).toBeGreaterThan(0)
 })

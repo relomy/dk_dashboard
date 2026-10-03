@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import latest from '../../../public/mock/latest.json'
-import v2Fixture from '../../../public/mock/snapshots/canonical-live-snapshot.v2.json'
+import v3Fixture from '../../../public/mock/snapshots/canonical-live-snapshot.v3.json'
 import { isEnvelopeSnapshot } from '../snapshotContract'
 
 test('mock latest has required fields', () => {
@@ -10,7 +10,7 @@ test('mock latest has required fields', () => {
 
 test('accepts envelope fixture shape and rejects legacy raw fixture shape', () => {
   const rawShape = {
-    schema_version: 2,
+    schema_version: 3,
     snapshot_at: '2026-02-21T00:00:00Z',
     generated_at: '2026-02-21T00:00:00Z',
     contest: {},
@@ -20,12 +20,12 @@ test('accepts envelope fixture shape and rejects legacy raw fixture shape', () =
   }
 
   expect(isEnvelopeSnapshot(rawShape)).toBe(false)
-  expect(isEnvelopeSnapshot(v2Fixture)).toBe(true)
+  expect(isEnvelopeSnapshot(v3Fixture)).toBe(true)
 })
 
 test('rejects malformed envelope sport payloads', () => {
   const missingPlayers = {
-    schema_version: 2,
+    schema_version: 3,
     snapshot_at: '2026-02-21T00:00:00Z',
     generated_at: '2026-02-21T00:00:00Z',
     sports: {
@@ -37,7 +37,7 @@ test('rejects malformed envelope sport payloads', () => {
     },
   }
   const missingContests = {
-    schema_version: 2,
+    schema_version: 3,
     snapshot_at: '2026-02-21T00:00:00Z',
     generated_at: '2026-02-21T00:00:00Z',
     sports: {

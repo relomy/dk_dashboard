@@ -1,7 +1,7 @@
 # Dashboard Feature Parity Gap
 
 Date: 2026-02-21
-Scope: Google-sheet parity tranche for `Live` route using schema v2 metrics and additive VIP/player fields.
+Scope: Google-sheet parity tranche for `Live` route using schema v3 metrics and additive VIP/player fields.
 
 ## Baseline
 - `dk_results/docs/dk-results-feature-spec.md`
