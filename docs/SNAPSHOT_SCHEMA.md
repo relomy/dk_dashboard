@@ -1,37 +1,48 @@
 # Snapshot Schema
 
-Current snapshot format uses `schema_version: 1`.
+Current snapshot format uses `schema_version: 3`.
+
+This document describes what the producer emits (dk_results `snapshot_feed.py`, checked against
+commit `a04055d`, `src/dk_results/services/snapshot_v3/`). The producer is the source of truth; when
+this document and the emitted snapshot disagree, the emitted snapshot wins. A real emitted snapshot
+is committed at `public/mock/snapshots/live-2026-10-03T20-48-31Z.json` (provenance in
+`public/mock/PRODUCER_FIXTURE.md`).
 
 ## Conventions
-- All IDs are strings (`contest_id`, `contest_key`, `player_id`, `entry_id`, `vip_entry_key`, `entry_key`).
-- All timestamps are UTC ISO strings.
+- IDs are strings (`contest_id`, `contest_key`, `player_key`, `entry_key`, `vip_entry_key`, `cluster_id`).
+- All timestamps are UTC ISO strings (`YYYY-MM-DDTHH:MM:SSZ`).
 - Money values are integer cents.
 - Contest state and sport status are separate concepts.
+- Optional values may be present with `null` rather than absent.
 - Dashboard contract fixtures are envelope snapshots (`sports[...]`), not legacy/raw sport payload roots.
 
 ## Top-level snapshot
 ```ts
 {
-  schema_version: number, // currently 1
+  schema_version: 3,
   snapshot_at: string,    // UTC ISO
-  generated_at: string,   // UTC ISO
-  sports: Record<string, SportSnapshot>
+  generated_at: string,   // UTC ISO, same value as snapshot_at
+  sports: Record<string, SportSnapshot> // lowercase sport keys, e.g. "mlb"
 }
 ```
 
 ## `SportSnapshot`
 ```ts
 {
-  status: 'ok' | 'stale' | 'error',
+  status: 'ok',           // the producer currently only emits 'ok'
   updated_at: string,     // UTC ISO
-  error?: string,
-  primary_contest?: {
+  primary_contest: {
     contest_id: string,
     contest_key: string,
-    selection_reason: string,
-    selected_at: string    // UTC ISO
+    selection_reason: {
+      mode: string,       // e.g. "explicit_id"
+      criteria: Record<string, unknown>,
+      selected_from_candidate_count: number,
+      tie_breakers: string[]
+    },
+    selected_at: string   // UTC ISO
   },
-  contests: Contest[],
+  contests: [Contest],    // exactly one contest, the primary contest
   players: Player[]
 }
 ```
@@ -40,125 +51,137 @@ Current snapshot format uses `schema_version: 1`.
 ```ts
 {
   contest_id: string,
-  contest_key: string,    // stable key, e.g. "nba:1001"
-  is_primary?: boolean,   // true on the selected primary contest
-  name: string,
+  contest_key: string | null,  // "<sport>:<contest_id>", e.g. "mlb:196293731"
+  name: string | null,
   sport: string,
-  contest_type: string,
-  start_time: string,     // UTC ISO
-  state: 'upcoming' | 'live' | 'completed' | 'cancelled' | 'unknown',
-  completed_at?: string,  // UTC ISO
-  entry_fee_cents: number,
-  prize_pool_cents: number,
-  currency: string,       // e.g. "USD"
-  entries_count: number,
-  max_entries: number,
+  contest_type: string,        // "classic"
+  start_time: string | null,   // UTC ISO
+  state: 'upcoming' | 'live' | 'completed' | 'cancelled' | null,
+  currency: string,            // "USD"
+  entry_fee_cents: number | null,
+  prize_pool_cents: number | null,
+  max_entries: number | null,
+  max_entries_per_user: number | null,
+  standings: StandingsRow[],   // capped by the producer's standings limit
   vip_lineups: VipLineup[],
-  live_metrics?: {
+  train_clusters: TrainCluster[],
+  ownership_watchlist?: {      // omitted when it has no entries and no total
+    ownership_remaining_total_pct?: number,
+    entries: Array<{           // top 10 by ownership remaining ("Ownership leaders")
+      entry_key: string,
+      display_name: string,
+      ownership_remaining_pct: number, // lineup total, can exceed 100
+      current_rank: number | null,
+      current_points: number | null,
+      pmr: number | null
+    }>
+  },
+  live_metrics?: {             // omitted when no member is available
     updated_at: string,
     cash_line?: {
-      cutoff_type?: 'points' | 'rank' | 'unknown',
-      rank_cutoff?: number,
-      points_cutoff?: number
-    }
-  },
-  ownership_watchlist?: {
-    updated_at: string,
-    ownership_remaining_total_pct?: number,
-    top_n_default?: number,
-    entries: Array<{
-      entry_key: string,
-      display_name?: string,
-      current_rank?: number,
-      current_points?: number,
-      ownership_remaining_pct?: number,
-      pmr?: number
-    }>
-  },
-  train_clusters?: {
-    updated_at: string,
-    cluster_rule?: {
-      type: 'shared_slots',
-      min_shared: number
+      cutoff_type: 'points' | 'rank' | 'unknown',
+      rank_cutoff: number | null,
+      points_cutoff: number | null
     },
-    clusters: Array<{
-      cluster_key: string,
-      entry_count: number,
-      best_rank?: number,
-      best_points?: number,
-      avg_pmr?: number,
-      avg_ownership_remaining_pct?: number,
-      composition: Array<{ slot: string; player_name: string; multiplier?: number }>,
-      sample_entries?: Array<{
-        entry_key: string,
-        display_name?: string,
-        current_rank?: number,
-        current_points?: number,
-        pmr?: number
-      }>
-    }>
+    avg_salary_per_player_remaining?: number // derived from VIP live slots only
   },
-  standings?: {
+  metrics?: {                  // omitted when no member is available
     updated_at: string,
-    total_rows?: number,
-    is_truncated?: boolean,
-    rows: Array<{
-      entry_key: string,
-      display_name?: string,
-      rank?: number,
-      points?: number,
-      pmr?: number,
-      payout_cents?: number,
-      ownership_remaining_pct?: number
-    }>
+    distance_to_cash?: {
+      cutoff_points?: number,
+      per_vip: Array<{
+        vip_entry_key: string | null,
+        entry_key: string | null,
+        display_name: string | null,
+        points_delta: number,
+        rank_delta?: number
+      }>
+    },
+    threat?: {
+      top_swing_players: Array<{
+        player_key: string,
+        player_name: string,
+        vip_count: number,
+        ownership_remaining_pct?: number
+      }>
+    }
   }
 }
 ```
 
-## `VipLineup`
+## `StandingsRow`
 ```ts
 {
-  vip_entry_key: string,
-  entry_id?: string,
-  username?: string,
-  display_name: string,
-  slots: Array<{ slot: string; player_name: string; multiplier?: number }>,
-  rank?: number,
-  points?: number,
-  payout_cents?: number,
-  live?: {
-    updated_at: string,
-    current_points?: number,
-    current_rank?: number,
-    cash_line_delta_points?: number,
-    is_cashing?: boolean,
-    ownership_remaining_pct?: number,
-    pmr?: number
-  }
+  rank: number | string,       // numeric rank, or the raw value when it cannot be parsed
+  entry_key: string,
+  username: string,
+  points: number | null,
+  pmr: number | null,
+  payout_cents: number | null,
+  is_cashing: boolean,
+  ownership_remaining_total_pct: number | null,
+  remaining_salary: number,
+  is_vip: boolean
+}
+```
+
+## `TrainCluster`
+A train is a group of entries with the same points and PMR that have spent at most the salary limit.
+```ts
+{
+  cluster_id: string,          // 12-char hash of lineup_signature
+  cluster_rule: string,        // e.g. "salary_remaining<=40000_and_same_points_pmr"
+  user_count: number,          // entries in the train (always > 1)
+  rank: number,
+  points: number | null,
+  pmr: number | null,
+  lineup_signature: string,    // player names joined by "|"; hidden slots read "LOCKED 🔒"
+  entry_keys: string[]
 }
 ```
 
 Notes:
-- `slot` values are opaque and must be rendered in provided order.
-- `multiplier` is optional; if absent, UI treats as 1.0.
-- `cash_line_delta_points` is interpreted against `contest.live_metrics.cash_line.cutoff_type`.
+- Clusters are sorted by `user_count` desc, then `points` desc.
+- `lineup_signature` comes from the best-ranked member and can be `""` when no lineup is known.
+
+## `VipLineup`
+```ts
+{
+  display_name?: string,
+  entry_key?: string,
+  vip_entry_key?: string,
+  rank?: number | string,
+  pts?: number,
+  pmr?: number,
+  players_live?: Array<{
+    player_name: string,
+    player_key?: string,
+    salary?: number,
+    is_live: boolean
+  }>
+}
+```
+
+Notes:
 - Cashing precedence is metrics-first for live UX:
   - if `contest.metrics.distance_to_cash.per_vip` has a row, derive cashing from `points_delta` (fallback `rank_delta`)
   - otherwise fallback to `payout_cents` presence
-- For standings rows, `payout_cents` presence implies the row is currently cashing when no metrics-derived status is available.
+- For standings rows, prefer the emitted `is_cashing`.
 
 ## `Player`
 ```ts
 {
-  player_id: string,
+  player_key: string,          // "<sport>:<name>:<team>:<salary>:<position>"
   name: string,
-  team: string,
-  positions: string[],
+  position: string,
+  roster_positions: string[],
   salary: number,
-  status: string,
-  projected_points?: number | null,
-  actual_points?: number | null,
-  ownership_pct?: number | null
+  team: string,
+  game_status: string,
+  matchup: string,
+  ownership_pct: number,       // percent, 0-100
+  fantasy_points: number,
+  value: number
 }
 ```
 
@@ -180,12 +203,15 @@ Notes:
 }
 ```
 
-Manifest naming uses UTC dates: `manifest/YYYY-MM-DD.json`.
+Manifest naming uses UTC dates: `manifest/YYYY-MM-DD.json`. Snapshot rows are sorted newest first.
 
 ## Test fixture baseline
-- Canonical contract fixture: `public/mock/snapshots/canonical-live-snapshot.v3.json`.
+- Producer fixture: `public/mock/snapshots/live-2026-10-03T20-48-31Z.json` and
+  `public/mock/manifest/2026-10-03.json`, pulled from R2 and trimmed only by dropping array
+  elements. Provenance and trimming are recorded in `public/mock/PRODUCER_FIXTURE.md`.
+- Hand-written contract fixture: `public/mock/snapshots/canonical-live-snapshot.v3.json`. It follows
+  an earlier documented shape, not the emitted one, and is being replaced by the producer fixture.
 - Targeted behavior variants:
   - `public/mock/snapshots/canonical-live-snapshot.v3-missing-metrics.json`
   - in-test v3-derived variants for missing sections, empty standings, and missing primary contest
-- Stage-0 contract tests must use envelope fixtures generated by `export_snapshot`/`export_fixture`.
 - `db_main --snapshot-out` legacy/raw shape is excluded from dashboard fixture-shape gating.
