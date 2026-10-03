@@ -564,7 +564,7 @@ it('renders train clusters with cluster rule and sorts by entry_count desc', asy
   const trainTable = within(trainPanel).getByRole('table')
   const tableRows = within(trainTable).getAllByRole('row')
   expect(tableRows.length).toBeGreaterThan(1)
-  expect(within(tableRows[1]).getByText('cluster-sort-test')).toBeInTheDocument()
+  expect(within(tableRows[1]).getAllByRole('cell')[1]).toHaveTextContent('25')
   expect(screen.queryByText(/Sample B4/i)).not.toBeInTheDocument()
 })
 
@@ -575,10 +575,10 @@ it('uses train metrics top clusters by default and toggles full list', async () 
     throw new Error('Train panel not found')
   }
   const trainTable = within(trainPanel).getByRole('table')
-  expect(within(trainTable).queryByText('e74fb79a025e')).not.toBeInTheDocument()
+  const topRowCount = within(trainTable).getAllByRole('row').length
   const toggleButton = within(trainPanel).getByRole('button', { name: /show all clusters/i })
   fireEvent.click(toggleButton)
-  expect(within(trainTable).getByText('e74fb79a025e')).toBeInTheDocument()
+  expect(within(trainTable).getAllByRole('row').length).toBeGreaterThan(topRowCount)
 })
 
 it('handles malformed train cluster rows by falling back to unavailable state', async () => {

@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
+import { formatPmr, formatPoints } from '../lib/format'
+import { parseLineupSignature } from '../lib/lineup'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from '../lib/perVipKeys'
 import { classifyValueTier, isRelevantPlayerRow, resolveTeamStyleToken, type ValueTier } from '../lib/playerPresentation'
 import type { ContestMetricsDistanceToCash, VipLineup } from '../lib/types'
@@ -16,6 +18,7 @@ type OwnershipSummaryRow = {
 type NormalizedTrainCluster = {
   cluster_key?: string
   cluster_id?: string
+  cluster_rule?: string
   entry_count?: number
   user_count?: number
   best_rank?: number
@@ -223,6 +226,7 @@ function normalizeTrainClusterRows(trainClusters: unknown): NormalizedTrainClust
     const normalizedRow: NormalizedTrainCluster = {
       cluster_key: typeof row.cluster_key === 'string' ? row.cluster_key : undefined,
       cluster_id: typeof row.cluster_id === 'string' ? row.cluster_id : undefined,
+      cluster_rule: typeof row.cluster_rule === 'string' && row.cluster_rule ? row.cluster_rule : undefined,
       entry_count: typeof row.entry_count === 'number' ? row.entry_count : undefined,
       user_count: typeof row.user_count === 'number' ? row.user_count : undefined,
       best_rank: typeof row.best_rank === 'number' ? row.best_rank : undefined,
@@ -340,6 +344,8 @@ function Live() {
   const topEntries = ownershipWatchlist ? ownershipWatchlist.entries.slice(0, Math.max(0, topN)) : []
   const trainClustersRaw = primaryContest?.train_clusters
   const trainClusterRows = normalizeTrainClusterRows(trainClustersRaw)
+  const trainsUpdatedAt = primaryContest?.live_metrics?.updated_at
+  const trainRule = trainClusterRows.find((cluster) => cluster.cluster_rule)?.cluster_rule
   const sortedClusters = [...trainClusterRows].sort(
     (a, b) => (b.entry_count ?? b.user_count ?? 0) - (a.entry_count ?? a.user_count ?? 0),
   )
@@ -779,19 +785,10 @@ function Live() {
           <p className="meta-text">Train cluster data unavailable for this contest.</p>
         ) : (
           <>
-            <p className="meta-text">
-              Updated:{' '}
-              {!Array.isArray(trainClustersRaw) && trainClustersRaw?.updated_at
-                ? new Date(trainClustersRaw.updated_at).toLocaleString()
-                : 'unknown'}
-            </p>
-            <p className="meta-text">
-              Cluster rule:{' '}
-              {!Array.isArray(trainClustersRaw) ? trainClustersRaw?.cluster_rule?.type ?? 'unknown' : 'unknown'}{' '}
-              {!Array.isArray(trainClustersRaw) && trainClustersRaw?.cluster_rule?.min_shared !== undefined
-                ? `(min shared: ${trainClustersRaw.cluster_rule.min_shared})`
-                : ''}
-            </p>
+            {trainsUpdatedAt ? (
+              <p className="meta-text">Updated: {new Date(trainsUpdatedAt).toLocaleString()}</p>
+            ) : null}
+            {trainRule ? <p className="meta-text">Train rule: {trainRule}</p> : null}
             {trainMetrics && trainRefs.length > 0 ? (
               <div className="action-row">
                 <button type="button" onClick={() => setShowAllTrains((value) => !value)}>
@@ -806,45 +803,38 @@ function Live() {
                 <thead>
                   <tr>
                     <th>Rank</th>
-                    <th>Cluster</th>
                     <th>Entries</th>
-                    <th>Best rank</th>
-                    <th>Best pts</th>
-                    <th>Avg PMR</th>
-                    <th>Avg own%</th>
+                    <th>Points</th>
+                    <th>PMR</th>
                     <th>Lineup</th>
-                    <th>Samples</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {displayClusters.map(({ cluster, ref }, clusterIndex) => {
+                  {displayClusters.map(({ cluster }, clusterIndex) => {
                     const lineupSummary = (cluster.composition ?? [])
                       .map((slot) => `${slot.slot}:${slot.player_name}${slot.multiplier ? ` x${slot.multiplier}` : ''}`)
                       .join(' | ')
+                    const lineupSlots = parseLineupSignature(cluster.lineup_signature)
                     return (
-                      <tr key={cluster.cluster_key || `cluster-${clusterIndex}`}>
-                        <td>{ref?.rank ?? '—'}</td>
-                        <td>{cluster.cluster_key ?? cluster.cluster_id ?? `cluster-${clusterIndex}`}</td>
+                      <tr key={cluster.cluster_id ?? cluster.cluster_key ?? `cluster-${clusterIndex}`}>
+                        <td>{formatValue(cluster.rank ?? cluster.best_rank)}</td>
                         <td>{cluster.entry_count ?? cluster.user_count ?? 0}</td>
-                        <td>{formatValue(cluster.best_rank ?? cluster.rank)}</td>
-                        <td>{formatValue(cluster.best_points ?? cluster.points)}</td>
-                        <td>{formatValue(cluster.avg_pmr ?? cluster.pmr)}</td>
-                        <td>{formatValue(cluster.avg_ownership_remaining_pct, { suffix: '%' })}</td>
+                        <td>{formatPoints(cluster.points ?? cluster.best_points)}</td>
+                        <td>{formatPmr(cluster.pmr ?? cluster.avg_pmr)}</td>
                         <td>
-                          <span className="live-train-lineup">{lineupSummary || cluster.lineup_signature || '—'}</span>
-                        </td>
-                        <td>
-                          {cluster.sample_entries?.length ? (
-                            <details>
-                              <summary>{cluster.sample_entries.length} sample entries</summary>
-                              <ul>
-                                {cluster.sample_entries.slice(0, 3).map((entry) => (
-                                  <li key={`${cluster.cluster_key}-sample-${entry.entry_key}`}>
-                                    {entry.display_name ?? entry.entry_key}
-                                  </li>
-                                ))}
-                              </ul>
-                            </details>
+                          {lineupSummary ? (
+                            <span className="live-train-lineup">{lineupSummary}</span>
+                          ) : lineupSlots.length ? (
+                            <ul className="live-train-lineup" aria-label="Lineup">
+                              {lineupSlots.map((slot, slotIndex) => (
+                                <li
+                                  key={slotIndex}
+                                  className={slot.locked ? 'live-train-chip live-train-chip-locked' : 'live-train-chip'}
+                                >
+                                  {slot.label}
+                                </li>
+                              ))}
+                            </ul>
                           ) : (
                             '—'
                           )}
