@@ -1,1 +1,0 @@
-{"date_utc":"2026-02-21","generated_at":"2026-02-21T14:40:43Z","manifest_version":1,"snapshots":[{"byte_size":148794,"contest_counts_by_sport":{"nba":1},"path":"snapshots/canonical-live-snapshot.v3.json","snapshot_at":"2026-02-21T14:40:43Z","sports_present":["nba"],"sports_status":{"nba":{"status":"ok","updated_at":"2026-02-21T14:40:43Z"}},"state_counts":{"completed":1}}]}

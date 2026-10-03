@@ -2,8 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
+import snapshotFixture from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import History from '../routes/History'
+import type { Snapshot } from '../lib/types'
 
 vi.mock('../context/ProfileContext', () => ({
   useProfiles: () => ({
@@ -29,8 +30,8 @@ function getRequestedSnapshotPath(url: string): string | null {
 }
 
 function buildMissingSectionsFixture() {
-  const snapshot = structuredClone(snapshotFixture) as any
-  const contest = snapshot.sports.nba.contests[0]
+  const snapshot = structuredClone(snapshotFixture) as unknown as Snapshot
+  const contest = snapshot.sports.cfb.contests[0]
   delete contest.ownership_watchlist
   delete contest.train_clusters
   delete contest.standings
@@ -60,7 +61,7 @@ it('resolves timestamp via UTC day manifest and renders snapshot', async () => {
             snapshots: [
               {
                 snapshot_at: '2026-02-13T18:25:00Z',
-                path: 'snapshots/canonical-live-snapshot.v3-missing-sections.json',
+                path: 'snapshots/live-2026-10-03T20-48-31Z-missing-sections.json',
                 sports_present: ['nba'],
                 contest_counts_by_sport: { nba: 0 },
                 state_counts: {},
@@ -75,7 +76,7 @@ it('resolves timestamp via UTC day manifest and renders snapshot', async () => {
       }
 
       requestedSnapshotPath = requestedPath
-      if (requestedSnapshotPath !== 'snapshots/canonical-live-snapshot.v3-missing-sections.json') {
+      if (requestedSnapshotPath !== 'snapshots/live-2026-10-03T20-48-31Z-missing-sections.json') {
         return new Response(JSON.stringify({ error: 'unexpected snapshot path' }), { status: 404 })
       }
 
@@ -96,7 +97,7 @@ it('resolves timestamp via UTC day manifest and renders snapshot', async () => {
   )
 
   expect(await screen.findByText(/last updated:/i)).toBeInTheDocument()
-  expect(requestedSnapshotPath).toBe('snapshots/canonical-live-snapshot.v3-missing-sections.json')
+  expect(requestedSnapshotPath).toBe('snapshots/live-2026-10-03T20-48-31Z-missing-sections.json')
 })
 
 it('shows snapshot not found for missing exact match', async () => {
@@ -152,7 +153,7 @@ it('renders timeline list from manifest metadata and navigates on item click', a
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v3.json',
+            latest_snapshot_path: 'snapshots/live-2026-10-03T20-48-31Z.json',
             snapshot_at: '2026-02-13T18:25:00Z',
             generated_at: '2026-02-13T18:25:07Z',
             available_sports: ['nba', 'nfl'],
@@ -172,7 +173,7 @@ it('renders timeline list from manifest metadata and navigates on item click', a
             snapshots: [
               {
                 snapshot_at: '2026-02-13T18:25:00Z',
-                path: 'snapshots/canonical-live-snapshot.v3.json',
+                path: 'snapshots/live-2026-10-03T20-48-31Z.json',
                 sports_present: ['nba', 'nfl'],
                 contest_counts_by_sport: { nba: 2, nfl: 1 },
                 state_counts: { live: 1, upcoming: 1 },

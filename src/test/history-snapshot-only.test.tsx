@@ -8,7 +8,7 @@ vi.mock('../lib/env', () => ({
     apiBaseUrl: '',
     useMock: true,
     mockSnapshotOnly: true,
-    mockSnapshotPath: 'snapshots/canonical-live-snapshot.v3.json',
+    mockSnapshotPath: 'snapshots/live-2026-10-03T20-48-31Z.json',
   },
 }))
 

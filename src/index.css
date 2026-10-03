@@ -560,11 +560,28 @@ summary:focus-visible {
 }
 
 .live-train-lineup {
-  display: inline-block;
-  max-width: 28rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  max-width: 32rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.live-train-chip {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--card);
   white-space: nowrap;
+}
+
+.live-train-chip-locked {
+  border-style: dashed;
+  border-color: var(--line);
+  background: var(--bg);
+  color: var(--muted-ink);
 }
 
 .live-secondary-panel {

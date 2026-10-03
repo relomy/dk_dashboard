@@ -4,7 +4,9 @@ import { useParams } from 'react-router-dom'
 import StatusBadge from '../components/StatusBadge'
 import { useProfiles } from '../context/ProfileContext'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
+import { formatPoints } from '../lib/format'
 import type { ProfileMatchRules } from '../lib/profiles'
+import { buildPlayerPool, formatOwnership } from '../lib/playerPool'
 import type { Contest, ContestState, Player, SportSnapshot } from '../lib/types'
 import { filterVipLineups } from '../lib/vipMatcher'
 
@@ -37,18 +39,6 @@ function formatBadgeMoney(cents: number, currency: string): string {
   } catch {
     return `$${(safeCents / 100).toFixed(0)}`
   }
-}
-
-function scoreForSort(player: Player): number {
-  return player.actual_points ?? player.projected_points ?? Number.NEGATIVE_INFINITY
-}
-
-function resolvePlayerRowKey(player: Player, index: number): string {
-  if (player.player_id) {
-    return player.player_id
-  }
-  const composite = `${player.name}|${player.team}|${player.salary}|${(player.positions ?? []).join('/')}`
-  return composite.trim() ? composite : `player-${index}`
 }
 
 function groupContestsByState(contests: Contest[]): Record<ContestState, Contest[]> {
@@ -111,11 +101,7 @@ function PlayerPoolTable({ players }: { players: Player[] }) {
   const [search, setSearch] = useState('')
 
   const filtered = useMemo(() => {
-    const lowered = search.trim().toLowerCase()
-
-    return [...players]
-      .filter((player) => (lowered ? player.name.toLowerCase().includes(lowered) : true))
-      .sort((a, b) => scoreForSort(b) - scoreForSort(a))
+    return buildPlayerPool(players, search)
   }, [players, search])
 
   return (
@@ -138,19 +124,17 @@ function PlayerPoolTable({ players }: { players: Player[] }) {
             <th>Team</th>
             <th>Positions</th>
             <th>Actual</th>
-            <th>Projected</th>
             <th>Ownership</th>
           </tr>
         </thead>
         <tbody>
-          {filtered.map((player, index) => (
-            <tr key={resolvePlayerRowKey(player, index)}>
+          {filtered.map((player) => (
+            <tr key={player.key}>
               <td>{player.name}</td>
               <td>{player.team}</td>
-              <td>{player.positions?.join('/') || '-'}</td>
-              <td>{player.actual_points ?? '-'}</td>
-              <td>{player.projected_points ?? '-'}</td>
-              <td>{player.ownership_pct ?? '-'}</td>
+              <td>{player.position}</td>
+              <td>{formatPoints(player.points)}</td>
+              <td>{formatOwnership(player.ownershipPct)}</td>
             </tr>
           ))}
         </tbody>

@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
+import snapshotFixture from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import App from '../App'
 
 afterEach(() => {
@@ -87,11 +87,11 @@ it('allows authenticated friend to reach dashboard routes', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v3.json',
-            snapshot_at: '2026-02-13T18:25:00Z',
-            generated_at: '2026-02-13T18:25:07Z',
-            available_sports: ['nba'],
-            manifest_today_path: 'manifest/2026-02-13.json',
+            latest_snapshot_path: 'snapshots/live-2026-10-03T20-48-31Z.json',
+            snapshot_at: '2026-10-03T20:48:31Z',
+            generated_at: '2026-10-03T20:48:31Z',
+            available_sports: ['cfb', 'golf', 'mlb'],
+            manifest_today_path: 'manifest/2026-10-03.json',
           }),
           { status: 200 },
         )
@@ -126,11 +126,11 @@ it('clears local auth state when logout request fails', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v3.json',
-            snapshot_at: '2026-02-13T18:25:00Z',
-            generated_at: '2026-02-13T18:25:07Z',
-            available_sports: ['nba'],
-            manifest_today_path: 'manifest/2026-02-13.json',
+            latest_snapshot_path: 'snapshots/live-2026-10-03T20-48-31Z.json',
+            snapshot_at: '2026-10-03T20:48:31Z',
+            generated_at: '2026-10-03T20:48:31Z',
+            available_sports: ['cfb', 'golf', 'mlb'],
+            manifest_today_path: 'manifest/2026-10-03.json',
           }),
           { status: 200 },
         )

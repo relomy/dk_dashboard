@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
+import { formatPmr, formatPoints } from '../lib/format'
+import { parseLineupSignature } from '../lib/lineup'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from '../lib/perVipKeys'
-import { classifyValueTier, isRelevantPlayerRow, resolveTeamStyleToken, type ValueTier } from '../lib/playerPresentation'
+import { buildPlayerPool, formatOwnership } from '../lib/playerPool'
+import { classifyValueTier, resolveTeamStyleToken, type ValueTier } from '../lib/playerPresentation'
 import type { ContestMetricsDistanceToCash, VipLineup } from '../lib/types'
 
 type OwnershipSummaryRow = {
@@ -14,20 +17,13 @@ type OwnershipSummaryRow = {
 }
 
 type NormalizedTrainCluster = {
-  cluster_key?: string
-  cluster_id?: string
-  entry_count?: number
-  user_count?: number
-  best_rank?: number
+  cluster_id: string
+  cluster_rule?: string
+  user_count: number
   rank?: number
-  best_points?: number
   points?: number
-  avg_pmr?: number
   pmr?: number
-  avg_ownership_remaining_pct?: number
   lineup_signature?: string
-  composition?: Array<{ slot: string; player_name: string; multiplier?: number }>
-  sample_entries?: Array<{ entry_key: string; display_name?: string }>
 }
 
 function resolveCashing(
@@ -85,66 +81,25 @@ function formatPercent(value: number): string {
   return `${formatTrimmedNumber(value, 2)}%`
 }
 
+const FEED_ISSUE_URL = 'https://github.com/relomy/dk_results/issues/156'
+
+function FeedNotProvided() {
+  return (
+    <p className="meta-text">
+      The feed does not provide this metric yet (
+      <a href={FEED_ISSUE_URL} target="_blank" rel="noreferrer">
+        relomy/dk_results#156
+      </a>
+      ).
+    </p>
+  )
+}
+
 function formatCurrency(value: number | null | undefined): string {
   if (value === null || value === undefined) {
     return '—'
   }
   return `$${Math.round(value).toLocaleString()}`
-}
-
-function joinNonEmpty(values?: string[]): string | undefined {
-  if (!Array.isArray(values)) {
-    return undefined
-  }
-  const joined = values.filter(Boolean).join('/')
-  return joined.trim() ? joined : undefined
-}
-
-function firstNonEmptyString(...values: Array<string | undefined>): string | undefined {
-  for (const value of values) {
-    if (typeof value === 'string' && value.trim()) {
-      return value
-    }
-  }
-  return undefined
-}
-
-function playerSortScore(player: {
-  ownership_pct?: number | null
-  fantasy_points?: number | null
-  actual_points?: number | null
-  projected_points?: number | null
-}) {
-  if (player.ownership_pct !== null && player.ownership_pct !== undefined) {
-    return player.ownership_pct
-  }
-  if (player.fantasy_points !== null && player.fantasy_points !== undefined) {
-    return player.fantasy_points
-  }
-  if (player.actual_points !== null && player.actual_points !== undefined) {
-    return player.actual_points
-  }
-  if (player.projected_points !== null && player.projected_points !== undefined) {
-    return player.projected_points
-  }
-  return Number.NEGATIVE_INFINITY
-}
-
-function playerPointsSignal(player: {
-  fantasy_points?: number | null
-  actual_points?: number | null
-  projected_points?: number | null
-}) {
-  if (player.fantasy_points !== null && player.fantasy_points !== undefined) {
-    return player.fantasy_points
-  }
-  if (player.actual_points !== null && player.actual_points !== undefined) {
-    return player.actual_points
-  }
-  if (player.projected_points !== null && player.projected_points !== undefined) {
-    return player.projected_points
-  }
-  return 0
 }
 
 function formatBadgeValue(value: unknown, tier: ValueTier): string {
@@ -164,28 +119,8 @@ function renderValueBadge(value: unknown) {
   return <span className={`value-badge value-badge--${tier}`}>{formatBadgeValue(value, tier)}</span>
 }
 
-function resolvePlayerRowKey(
-  player: {
-    player_id?: string
-    name: string
-    team: string
-    salary: number
-    position?: string
-    roster_positions?: string[]
-    positions?: string[]
-  },
-  index: number,
-): string {
-  if (player.player_id) {
-    return player.player_id
-  }
-  const pos = firstNonEmptyString(player.position, joinNonEmpty(player.roster_positions), joinNonEmpty(player.positions)) ?? ''
-  const composite = `${player.name}|${player.team}|${player.salary}|${pos}`
-  return composite.trim() ? composite : `player-${index}`
-}
-
-function formatSelectionReason(value: unknown): string {
-  if (typeof value === 'string') {
+function formatSelectionReason(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.trim()) {
     return value
   }
   if (value && typeof value === 'object') {
@@ -194,80 +129,41 @@ function formatSelectionReason(value: unknown): string {
       return mode
     }
   }
-  return 'unknown'
+  return undefined
 }
 
 function normalizeStandingsRows(standings: unknown): Array<Record<string, unknown>> {
-  if (Array.isArray(standings)) {
-    return standings.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object'))
+  if (!Array.isArray(standings)) {
+    return []
   }
-  if (standings && typeof standings === 'object' && Array.isArray((standings as { rows?: unknown }).rows)) {
-    return (standings as { rows: Array<Record<string, unknown>> }).rows
-  }
-  return []
+  return standings.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object'))
 }
 
 function normalizeTrainClusterRows(trainClusters: unknown): NormalizedTrainCluster[] {
-  const rawRows = Array.isArray(trainClusters)
-    ? trainClusters
-    : trainClusters && typeof trainClusters === 'object' && Array.isArray((trainClusters as { clusters?: unknown }).clusters)
-      ? (trainClusters as { clusters: unknown[] }).clusters
-      : []
+  if (!Array.isArray(trainClusters)) {
+    return []
+  }
 
   const normalized: NormalizedTrainCluster[] = []
-  for (const raw of rawRows) {
+  for (const raw of trainClusters) {
     if (!raw || typeof raw !== 'object') {
       continue
     }
     const row = raw as Record<string, unknown>
-    const normalizedRow: NormalizedTrainCluster = {
-      cluster_key: typeof row.cluster_key === 'string' ? row.cluster_key : undefined,
-      cluster_id: typeof row.cluster_id === 'string' ? row.cluster_id : undefined,
-      entry_count: typeof row.entry_count === 'number' ? row.entry_count : undefined,
-      user_count: typeof row.user_count === 'number' ? row.user_count : undefined,
-      best_rank: typeof row.best_rank === 'number' ? row.best_rank : undefined,
-      rank: typeof row.rank === 'number' ? row.rank : undefined,
-      best_points: typeof row.best_points === 'number' ? row.best_points : undefined,
-      points: typeof row.points === 'number' ? row.points : undefined,
-      avg_pmr: typeof row.avg_pmr === 'number' ? row.avg_pmr : undefined,
-      pmr: typeof row.pmr === 'number' ? row.pmr : undefined,
-      avg_ownership_remaining_pct:
-        typeof row.avg_ownership_remaining_pct === 'number' ? row.avg_ownership_remaining_pct : undefined,
-      lineup_signature: typeof row.lineup_signature === 'string' ? row.lineup_signature : undefined,
-      composition: Array.isArray(row.composition)
-        ? (row.composition.filter((slot): slot is { slot: string; player_name: string; multiplier?: number } => {
-            return (
-              typeof slot === 'object' &&
-              slot !== null &&
-              typeof (slot as { slot?: unknown }).slot === 'string' &&
-              typeof (slot as { player_name?: unknown }).player_name === 'string'
-            )
-          }) as NormalizedTrainCluster['composition'])
-        : undefined,
-      sample_entries: Array.isArray(row.sample_entries)
-        ? (row.sample_entries.filter(
-            (entry): entry is { entry_key: string; display_name?: string } =>
-              typeof entry === 'object' &&
-              entry !== null &&
-              typeof (entry as { entry_key?: unknown }).entry_key === 'string',
-          ) as NormalizedTrainCluster['sample_entries'])
-        : undefined,
-    }
-
-    const hasSignal =
-      Boolean(normalizedRow.cluster_key) ||
-      Boolean(normalizedRow.cluster_id) ||
-      typeof normalizedRow.entry_count === 'number' ||
-      typeof normalizedRow.user_count === 'number' ||
-      Boolean(normalizedRow.lineup_signature) ||
-      Boolean(normalizedRow.composition?.length) ||
-      Boolean(normalizedRow.sample_entries?.length)
-
-    if (!hasSignal) {
+    // v3 requires cluster_id and user_count; rows missing either are malformed and dropped.
+    if (typeof row.cluster_id !== 'string' || !row.cluster_id || typeof row.user_count !== 'number') {
       continue
     }
 
-    normalized.push(normalizedRow)
+    normalized.push({
+      cluster_id: row.cluster_id,
+      cluster_rule: typeof row.cluster_rule === 'string' && row.cluster_rule ? row.cluster_rule : undefined,
+      user_count: row.user_count,
+      rank: typeof row.rank === 'number' ? row.rank : undefined,
+      points: typeof row.points === 'number' ? row.points : undefined,
+      pmr: typeof row.pmr === 'number' ? row.pmr : undefined,
+      lineup_signature: typeof row.lineup_signature === 'string' ? row.lineup_signature : undefined,
+    })
   }
 
   return normalized
@@ -276,7 +172,6 @@ function normalizeTrainClusterRows(trainClusters: unknown): NormalizedTrainClust
 function Live() {
   const { sport } = useParams()
   const [playerSearch, setPlayerSearch] = useState('')
-  const [showAllTrains, setShowAllTrains] = useState(false)
 
   const { snapshot, loading, error } = useSportSnapshot()
 
@@ -286,20 +181,10 @@ function Live() {
 
   const sportKey = sport.toLowerCase()
   const sportData = snapshot?.sports[sportKey]
-  const filteredPlayers = useMemo(() => {
-    const search = playerSearch.trim().toLowerCase()
-    const players = sportData?.players ?? []
-    return [...players]
-      .filter((player) => (search ? player.name.toLowerCase().includes(search) : true))
-      .filter((player) =>
-        isRelevantPlayerRow({
-          ownershipPct: player.ownership_pct,
-          points: playerPointsSignal(player),
-          value: player.value,
-        }),
-      )
-      .sort((a, b) => playerSortScore(b) - playerSortScore(a))
-  }, [playerSearch, sportData?.players])
+  const filteredPlayers = useMemo(
+    () => buildPlayerPool(sportData?.players ?? [], playerSearch),
+    [playerSearch, sportData?.players],
+  )
 
   if (loading) {
     return <p className="page">Loading live snapshot...</p>
@@ -340,9 +225,15 @@ function Live() {
   const topEntries = ownershipWatchlist ? ownershipWatchlist.entries.slice(0, Math.max(0, topN)) : []
   const trainClustersRaw = primaryContest?.train_clusters
   const trainClusterRows = normalizeTrainClusterRows(trainClustersRaw)
-  const sortedClusters = [...trainClusterRows].sort(
-    (a, b) => (b.entry_count ?? b.user_count ?? 0) - (a.entry_count ?? a.user_count ?? 0),
-  )
+  const trainsUpdatedAt = primaryContest?.live_metrics?.updated_at
+  const trainRule = trainClusterRows.find((cluster) => cluster.cluster_rule)?.cluster_rule
+  // Best-placed train first; trains without a rank go last.
+  const sortedTrains = [...trainClusterRows].sort((a, b) => {
+    if (a.rank === undefined || b.rank === undefined) {
+      return (a.rank === undefined ? 1 : 0) - (b.rank === undefined ? 1 : 0)
+    }
+    return a.rank - b.rank
+  })
   const standings = primaryContest?.standings
   const standingsRows = normalizeStandingsRows(standings)
   const distanceMetrics = primaryContest?.metrics?.distance_to_cash
@@ -380,38 +271,15 @@ function Live() {
   const cashLineRank = cashLine?.rank_cutoff
   const threatMetrics = primaryContest?.metrics?.threat
   const topSwingPlayers = threatMetrics?.top_swing_players ?? []
-  const vipLeverage = threatMetrics?.vip_vs_field_leverage ?? []
+  const vipLeverageRaw = threatMetrics?.vip_vs_field_leverage
+  const vipLeverage = vipLeverageRaw ?? []
   const fieldRemainingScope =
-    threatMetrics?.field_remaining_scope === 'contest_field' ? 'Contest field' : 'Watchlist'
+    threatMetrics?.field_remaining_scope === 'contest_field' ? ' (contest field)' : ''
   const nonCashingMetrics = primaryContest?.metrics?.non_cashing
   const avgSalaryPerPlayerRemaining = primaryContest?.live_metrics?.avg_salary_per_player_remaining
   const topRemainingPlayers = Array.isArray(nonCashingMetrics?.top_remaining_players)
     ? nonCashingMetrics.top_remaining_players
     : null
-  const trainMetrics = primaryContest?.metrics?.trains
-  const trainClusterLookup = new Map<string, NormalizedTrainCluster>()
-  for (const cluster of trainClusterRows) {
-    const key = cluster.cluster_key ?? cluster.cluster_id
-    if (key) {
-      trainClusterLookup.set(key, cluster)
-    }
-  }
-  const trainRefs = trainMetrics?.ranked_clusters ?? []
-  const topRefs = trainMetrics?.top_clusters ?? []
-  const recommendedTopN = trainMetrics?.recommended_top_n ?? 5
-  const selectedTrainRefs = showAllTrains
-    ? trainRefs
-    : (topRefs.length ? topRefs : trainRefs.slice(0, recommendedTopN))
-  const metricClusters = selectedTrainRefs
-    .map((ref) => {
-      const cluster = trainClusterLookup.get(ref.cluster_key)
-      return cluster ? { ref, cluster } : null
-    })
-    .filter((item): item is { ref: (typeof trainRefs)[number]; cluster: NormalizedTrainCluster } => Boolean(item))
-  const displayClusters: Array<{
-    cluster: NormalizedTrainCluster
-    ref?: (typeof trainRefs)[number]
-  }> = trainMetrics ? metricClusters : sortedClusters.map((cluster) => ({ cluster, ref: undefined }))
 
   if (!sportData.primary_contest) {
     return (
@@ -434,6 +302,8 @@ function Live() {
     )
   }
 
+  const selectionReason = formatSelectionReason(sportData.primary_contest.selection_reason)
+
   return (
     <section className="page page-stack">
       <h1 className="page-title">Live: {sport.toUpperCase()}</h1>
@@ -444,10 +314,10 @@ function Live() {
         <p className="meta-text">{primaryContest.name}</p>
         <p className="meta-text">Contest key: {primaryContest.contest_key}</p>
         <p className="meta-text">Contest id: {primaryContest.contest_id}</p>
-        <p className="meta-text">Selection reason: {formatSelectionReason(sportData.primary_contest.selection_reason)}</p>
+        {selectionReason ? <p className="meta-text">Selection reason: {selectionReason}</p> : null}
         <p className="meta-text">
           Cash line:{' '}
-          {cashLinePoints === null || cashLinePoints === undefined ? '—' : `${cashLinePoints} pts`}
+          {cashLinePoints === null || cashLinePoints === undefined ? '—' : `${formatPoints(cashLinePoints)} pts`}
           {cashLineRank === null || cashLineRank === undefined ? '' : ` | Rank cutoff: ${cashLineRank}`}
         </p>
       </div>
@@ -472,7 +342,7 @@ function Live() {
               const playersLive = Array.isArray(lineup.players_live) ? lineup.players_live : null
               const updatedAt = lineup.live?.updated_at
                 ? new Date(lineup.live.updated_at).toLocaleString()
-                : 'unknown'
+                : undefined
 
               return (
                 <li key={`${lineupKey}-${lineupIndex}`} className="item-card page-stack-sm">
@@ -486,7 +356,7 @@ function Live() {
                   {rankDelta === null || rankDelta === undefined ? null : (
                     <p className="meta-text">Rank delta: {formatSigned(rankDelta)}</p>
                   )}
-                  <p className="meta-text">Last updated: {updatedAt}</p>
+                  {updatedAt ? <p className="meta-text">Last updated: {updatedAt}</p> : null}
                   {playersLive ? (
                     playersLive.length === 0 ? (
                       <p className="meta-text">No player live details available.</p>
@@ -513,7 +383,7 @@ function Live() {
                               <td>{player.player_name}</td>
                               <td>{formatValue(player.ownership_pct, { suffix: '%' })}</td>
                               <td>{formatCurrency(player.salary)}</td>
-                              <td>{formatValue(player.points)}</td>
+                              <td>{formatPoints(player.points)}</td>
                               <td>{renderValueBadge(player.value)}</td>
                               <td>{formatValue(player.rt_projection)}</td>
                               <td>{player.time_remaining_display ?? '—'}</td>
@@ -576,20 +446,20 @@ function Live() {
               </tr>
             </thead>
             <tbody>
-              {filteredPlayers.map((player, playerIndex) => (
+              {filteredPlayers.map((player) => (
                 <tr
-                  key={resolvePlayerRowKey(player, playerIndex)}
+                  key={player.key}
                   className={`team-accent team-accent--${resolveTeamStyleToken(sportKey, player.team)}`}
                 >
-                  <td>{firstNonEmptyString(player.position, joinNonEmpty(player.roster_positions), joinNonEmpty(player.positions)) ?? '—'}</td>
+                  <td>{player.position}</td>
                   <td>{player.name}</td>
                   <td>{player.team}</td>
-                  <td>{player.matchup || '—'}</td>
+                  <td>{player.matchup}</td>
                   <td>{formatCurrency(player.salary)}</td>
-                  <td>{formatValue(player.ownership_pct, { suffix: '%' })}</td>
-                  <td>{formatValue(player.fantasy_points ?? player.actual_points)}</td>
+                  <td>{formatOwnership(player.ownershipPct)}</td>
+                  <td>{formatPoints(player.points)}</td>
                   <td>{renderValueBadge(player.value)}</td>
-                  <td>{player.game_status ?? player.status ?? '—'}</td>
+                  <td>{player.status}</td>
                 </tr>
               ))}
             </tbody>
@@ -625,13 +495,21 @@ function Live() {
                 </ul>
               )}
             </div>
-            <div className="panel-subtle page-stack-sm">
-              <h3 className="subsection-title">VIP vs field leverage</h3>
-              <p className="meta-text">
-                Field remaining ({fieldRemainingScope}):{' '}
-                {formatValue(threatMetrics.field_remaining_pct, { suffix: '%' })}
-                {threatMetrics.field_remaining_is_partial ? ' (partial)' : ''}
-              </p>
+          </div>
+        )}
+        <div className="panel-subtle page-stack-sm">
+          <h3 className="subsection-title">VIP vs field leverage</h3>
+          {!vipLeverageRaw ? (
+            <FeedNotProvided />
+          ) : (
+            <>
+              {typeof threatMetrics?.field_remaining_pct === 'number' ? (
+                <p className="meta-text">
+                  Field remaining{fieldRemainingScope}:{' '}
+                  {formatValue(threatMetrics.field_remaining_pct, { suffix: '%' })}
+                  {threatMetrics.field_remaining_is_partial ? ' (partial)' : ''}
+                </p>
+              ) : null}
               {vipLeverage.length === 0 ? (
                 <p className="meta-text">No VIP leverage data available.</p>
               ) : (
@@ -660,20 +538,21 @@ function Live() {
                   </tbody>
                 </table>
               )}
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       <div className="panel page-stack-sm">
         <h2 className="section-title">Ownership remaining</h2>
-        {!ownershipSummary ? (
-          <p className="meta-text">Ownership summary metrics unavailable for this contest.</p>
-        ) : ownershipSummaryRows.length === 0 ? (
-          <p className="meta-text">No ownership summary rows available for VIP lineups.</p>
-        ) : (
-          <div className="panel-subtle page-stack-sm">
-            <h3 className="subsection-title">VIP ownership summary</h3>
+        <div className="panel-subtle page-stack-sm">
+          <h3 className="subsection-title">VIP ownership summary</h3>
+          {!ownershipSummary ? (
+            <FeedNotProvided />
+          ) : ownershipSummaryRows.length === 0 ? (
+            <p className="meta-text">No ownership summary rows available for VIP lineups.</p>
+          ) : (
+            <>
             <table className="data-table">
               <thead>
                 <tr>
@@ -694,19 +573,20 @@ function Live() {
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
+            </>
+          )}
+        </div>
         {!ownershipWatchlist ? (
-          <p className="meta-text">Ownership watchlist unavailable for this contest.</p>
+          <p className="meta-text">Ownership leaders unavailable for this contest.</p>
         ) : (
           <div className="panel-subtle page-stack-sm">
-            <h3 className="subsection-title">Watchlist ownership remaining</h3>
+            <h3 className="subsection-title">Ownership leaders</h3>
             <p className="item-title">
               Ownership remaining total: {formatValue(ownershipWatchlist.ownership_remaining_total_pct, { suffix: '%' })}
             </p>
             <p className="meta-text">Top {topN}</p>
             {topEntries.length === 0 ? (
-              <p className="meta-text">No ownership watchlist entries available.</p>
+              <p className="meta-text">No Ownership leaders entries available.</p>
             ) : (
               <table className="data-table">
                 <thead>
@@ -723,9 +603,9 @@ function Live() {
                     <tr key={entry.entry_key || `watch-${entryIndex}`}>
                       <td>{entry.display_name ?? entry.entry_key}</td>
                       <td>{formatValue(entry.ownership_remaining_pct, { suffix: '%' })}</td>
-                      <td>{formatValue(entry.pmr)}</td>
+                      <td>{formatPmr(entry.pmr)}</td>
                       <td>{formatValue(entry.current_rank)}</td>
-                      <td>{formatValue(entry.current_points)}</td>
+                      <td>{formatPoints(entry.current_points)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -737,13 +617,23 @@ function Live() {
 
       <div className="panel page-stack-sm">
         <h2 className="section-title">Non-cashing info</h2>
-        <p className="item-title">Avg salary per player remaining: {formatCurrency(avgSalaryPerPlayerRemaining)}</p>
+        <div className="panel-subtle page-stack-sm">
+          <h3 className="subsection-title">Avg salary per player remaining</h3>
+          {avgSalaryPerPlayerRemaining === undefined || avgSalaryPerPlayerRemaining === null ? (
+            <FeedNotProvided />
+          ) : (
+            <p className="item-title">{formatCurrency(avgSalaryPerPlayerRemaining)}</p>
+          )}
+        </div>
         {!nonCashingMetrics ? (
-          <p className="meta-text">Non-cashing metrics unavailable for this contest.</p>
+          <div className="panel-subtle page-stack-sm">
+            <h3 className="subsection-title">Entries not cashing</h3>
+            <FeedNotProvided />
+          </div>
         ) : (
           <>
-            <p className="item-title">Users not cashing: {formatValue(nonCashingMetrics.users_not_cashing)}</p>
-            <p className="item-title">Avg PMR remaining: {formatValue(nonCashingMetrics.avg_pmr_remaining)}</p>
+            <p className="item-title">Entries not cashing: {formatValue(nonCashingMetrics.users_not_cashing)}</p>
+            <p className="item-title">Avg PMR remaining: {formatPmr(nonCashingMetrics.avg_pmr_remaining)}</p>
             <div className="panel-subtle page-stack-sm">
               <h3 className="subsection-title">Top remaining players</h3>
               {topRemainingPlayers === null ? (
@@ -776,75 +666,47 @@ function Live() {
       <div className="panel page-stack-sm">
         <h2 className="section-title">Train finder</h2>
         {!trainClusterRows.length ? (
-          <p className="meta-text">Train cluster data unavailable for this contest.</p>
+          <p className="meta-text">Train data unavailable for this contest.</p>
         ) : (
           <>
-            <p className="meta-text">
-              Updated:{' '}
-              {!Array.isArray(trainClustersRaw) && trainClustersRaw?.updated_at
-                ? new Date(trainClustersRaw.updated_at).toLocaleString()
-                : 'unknown'}
-            </p>
-            <p className="meta-text">
-              Cluster rule:{' '}
-              {!Array.isArray(trainClustersRaw) ? trainClustersRaw?.cluster_rule?.type ?? 'unknown' : 'unknown'}{' '}
-              {!Array.isArray(trainClustersRaw) && trainClustersRaw?.cluster_rule?.min_shared !== undefined
-                ? `(min shared: ${trainClustersRaw.cluster_rule.min_shared})`
-                : ''}
-            </p>
-            {trainMetrics && trainRefs.length > 0 ? (
-              <div className="action-row">
-                <button type="button" onClick={() => setShowAllTrains((value) => !value)}>
-                  {showAllTrains ? `Show top ${recommendedTopN}` : 'Show all clusters'}
-                </button>
-              </div>
+            {trainsUpdatedAt ? (
+              <p className="meta-text">Updated: {new Date(trainsUpdatedAt).toLocaleString()}</p>
             ) : null}
-            {displayClusters.length === 0 ? (
-              <p className="meta-text">No train clusters available.</p>
+            {trainRule ? <p className="meta-text">Train rule: {trainRule}</p> : null}
+            {sortedTrains.length === 0 ? (
+              <p className="meta-text">No trains available.</p>
             ) : (
               <table className="data-table live-train-table">
                 <thead>
                   <tr>
                     <th>Rank</th>
-                    <th>Cluster</th>
                     <th>Entries</th>
-                    <th>Best rank</th>
-                    <th>Best pts</th>
-                    <th>Avg PMR</th>
-                    <th>Avg own%</th>
+                    <th>Points</th>
+                    <th>PMR</th>
                     <th>Lineup</th>
-                    <th>Samples</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {displayClusters.map(({ cluster, ref }, clusterIndex) => {
-                    const lineupSummary = (cluster.composition ?? [])
-                      .map((slot) => `${slot.slot}:${slot.player_name}${slot.multiplier ? ` x${slot.multiplier}` : ''}`)
-                      .join(' | ')
+                  {sortedTrains.map((train) => {
+                    const lineupSlots = parseLineupSignature(train.lineup_signature)
                     return (
-                      <tr key={cluster.cluster_key || `cluster-${clusterIndex}`}>
-                        <td>{ref?.rank ?? '—'}</td>
-                        <td>{cluster.cluster_key ?? cluster.cluster_id ?? `cluster-${clusterIndex}`}</td>
-                        <td>{cluster.entry_count ?? cluster.user_count ?? 0}</td>
-                        <td>{formatValue(cluster.best_rank ?? cluster.rank)}</td>
-                        <td>{formatValue(cluster.best_points ?? cluster.points)}</td>
-                        <td>{formatValue(cluster.avg_pmr ?? cluster.pmr)}</td>
-                        <td>{formatValue(cluster.avg_ownership_remaining_pct, { suffix: '%' })}</td>
+                      <tr key={train.cluster_id}>
+                        <td>{formatValue(train.rank)}</td>
+                        <td>{train.user_count}</td>
+                        <td>{formatPoints(train.points)}</td>
+                        <td>{formatPmr(train.pmr)}</td>
                         <td>
-                          <span className="live-train-lineup">{lineupSummary || cluster.lineup_signature || '—'}</span>
-                        </td>
-                        <td>
-                          {cluster.sample_entries?.length ? (
-                            <details>
-                              <summary>{cluster.sample_entries.length} sample entries</summary>
-                              <ul>
-                                {cluster.sample_entries.slice(0, 3).map((entry) => (
-                                  <li key={`${cluster.cluster_key}-sample-${entry.entry_key}`}>
-                                    {entry.display_name ?? entry.entry_key}
-                                  </li>
-                                ))}
-                              </ul>
-                            </details>
+                          {lineupSlots.length ? (
+                            <ul className="live-train-lineup" aria-label="Lineup">
+                              {lineupSlots.map((slot, slotIndex) => (
+                                <li
+                                  key={slotIndex}
+                                  className={slot.locked ? 'live-train-chip live-train-chip-locked' : 'live-train-chip'}
+                                >
+                                  {slot.label}
+                                </li>
+                              ))}
+                            </ul>
                           ) : (
                             '—'
                           )}
@@ -866,19 +728,7 @@ function Live() {
           <p className="meta-text">Standings unavailable for this contest.</p>
         ) : (
           <>
-            <p className="meta-text">
-              Updated:{' '}
-              {!Array.isArray(standings) && standings.updated_at
-                ? new Date(standings.updated_at).toLocaleString()
-                : 'unknown'}
-            </p>
             <p className="meta-text">Rows: {standingsRows.length}</p>
-            {!Array.isArray(standings) && standings.total_rows !== undefined ? (
-              <p className="meta-text">Total rows: {standings.total_rows}</p>
-            ) : null}
-            {!Array.isArray(standings) && standings.is_truncated ? (
-              <p className="meta-text">Showing truncated standings payload.</p>
-            ) : null}
             {standingsRows.length === 0 ? (
               <p className="meta-text">No standings rows available.</p>
             ) : (
@@ -896,17 +746,15 @@ function Live() {
                 <tbody>
                   {standingsRows.map((row, rowIndex) => (
                     <tr key={String(row.entry_key ?? `standings-${String(row.rank ?? 'row')}-${rowIndex}`)}>
-                      <td>{String(row.display_name ?? row.username ?? row.entry_key ?? '—')}</td>
+                      <td>{String(row.username ?? row.entry_key ?? '—')}</td>
                       <td>{formatValue(typeof row.rank === 'number' ? row.rank : undefined)}</td>
-                      <td>{formatValue(typeof row.points === 'number' ? row.points : undefined)}</td>
-                      <td>{formatValue(typeof row.pmr === 'number' ? row.pmr : undefined)}</td>
+                      <td>{formatPoints(typeof row.points === 'number' ? row.points : undefined)}</td>
+                      <td>{formatPmr(typeof row.pmr === 'number' ? row.pmr : undefined)}</td>
                       <td>
                         {formatValue(
-                          typeof row.ownership_remaining_pct === 'number'
-                            ? row.ownership_remaining_pct
-                            : typeof row.ownership_remaining_total_pct === 'number'
-                              ? row.ownership_remaining_total_pct
-                              : undefined,
+                          typeof row.ownership_remaining_total_pct === 'number'
+                            ? row.ownership_remaining_total_pct
+                            : undefined,
                           { suffix: '%' },
                         )}
                       </td>

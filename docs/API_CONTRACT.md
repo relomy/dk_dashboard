@@ -23,12 +23,12 @@ Returns metadata for the current snapshot and history manifests.
 ### Example
 ```json
 {
-  "latest_snapshot_path": "snapshots/canonical-live-snapshot.v3.json",
-  "snapshot_at": "2026-02-13T18:25:00Z",
-  "generated_at": "2026-02-13T18:25:07Z",
-  "available_sports": ["nba", "nfl"],
-  "manifest_today_path": "manifest/2026-02-13.json",
-  "manifest_yesterday_path": "manifest/2026-02-12.json"
+  "latest_snapshot_path": "snapshots/live-2026-10-03T20-48-31Z.json",
+  "snapshot_at": "2026-10-03T20:48:31Z",
+  "generated_at": "2026-10-03T20:48:31Z",
+  "available_sports": ["cfb", "golf", "mlb"],
+  "manifest_today_path": "manifest/2026-10-03.json",
+  "manifest_yesterday_path": "manifest/2026-10-02.json"
 }
 ```
 
@@ -36,8 +36,8 @@ Returns metadata for the current snapshot and history manifests.
 Returns JSON at the requested storage path. The path may reference either a full snapshot or a manifest.
 
 ### Common paths
-- Snapshot: `snapshots/canonical-live-snapshot.v3.json`
-- Manifest: `manifest/2026-02-13.json`
+- Snapshot: `snapshots/live-2026-10-03T20-48-31Z.json`
+- Manifest: `manifest/2026-10-03.json`
 
 ### Notes
 - The app treats timestamps as UTC in transport.
@@ -62,10 +62,8 @@ Contest-scoped live payload is expected on the selected contest:
 - `vip_lineup.slots[].player_name` (name-only slots in order)
 - `contest.ownership_watchlist.ownership_remaining_total_pct`
 - `contest.ownership_watchlist.top_n_default`
-- `contest.train_clusters.cluster_rule` (for example `shared_slots` with `min_shared`)
-- `contest.train_clusters.clusters[].composition[].player_name` (name-only composition in order)
-- `contest.standings.total_rows` and `contest.standings.is_truncated` (optional payload-size escape hatch)
-- standings cashing semantics (transitional): `standings.rows[].payout_cents` presence implies cashing when no metrics-derived status is available
+- `contest.train_clusters[]` (bare array; `cluster_rule`, `user_count`, `rank`, `points`, `pmr`, `lineup_signature`)
+- `contest.standings[]` (bare array; `payout_cents` presence implies cashing when no metrics-derived status is available)
 - vip cashing semantics (authoritative): derive from `contest.metrics.distance_to_cash.per_vip` when present; fallback to `payout_cents` presence only when metrics are unavailable
 
 Section presence rules:

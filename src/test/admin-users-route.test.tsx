@@ -40,11 +40,11 @@ it('blocks friend users from /admin/users', async () => {
       if (url.includes('/api/latest')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v3.json',
-            snapshot_at: '2026-02-13T18:25:00Z',
-            generated_at: '2026-02-13T18:25:07Z',
-            available_sports: ['nba'],
-            manifest_today_path: 'manifest/2026-02-13.json',
+            latest_snapshot_path: 'snapshots/live-2026-10-03T20-48-31Z.json',
+            snapshot_at: '2026-10-03T20:48:31Z',
+            generated_at: '2026-10-03T20:48:31Z',
+            available_sports: ['cfb', 'golf', 'mlb'],
+            manifest_today_path: 'manifest/2026-10-03.json',
           }),
           { status: 200 },
         )
@@ -53,8 +53,8 @@ it('blocks friend users from /admin/users', async () => {
         return new Response(
           JSON.stringify({
             schema_version: 3,
-            snapshot_at: '2026-02-13T18:25:00Z',
-            generated_at: '2026-02-13T18:25:07Z',
+            snapshot_at: '2026-10-03T20:48:31Z',
+            generated_at: '2026-10-03T20:48:31Z',
             sports: {},
           }),
           { status: 200 },

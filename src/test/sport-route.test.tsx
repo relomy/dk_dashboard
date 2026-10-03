@@ -2,8 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import snapshotFixture from '../../public/mock/snapshots/canonical-live-snapshot.v3.json'
+import producerSnapshot from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import Sport from '../routes/Sport'
+import type { Contest, Snapshot } from '../lib/types'
 
 vi.mock('../context/ProfileContext', () => ({
   useProfiles: () => ({
@@ -20,21 +21,28 @@ afterEach(() => {
   cleanup()
 })
 
-function firstVipNameForSport(snapshot: any, sport: string): string | null {
-  const contests = snapshot?.sports?.[sport]?.contests ?? []
-  for (const contest of contests) {
-    const lineup = (contest.vip_lineups ?? [])[0]
-    if (lineup?.display_name) {
-      return lineup.display_name
-    }
-  }
-  return null
-}
+const VIP_NAME = 'cglenn91'
+
+// The producer fixture carries no VIP lineups, so inject one into the cfb primary contest.
+const snapshotFixture = (() => {
+  const snapshot = structuredClone(producerSnapshot) as unknown as Snapshot
+  snapshot.sports.cfb.contests[0].vip_lineups = [
+    {
+      entry_key: 'vip-entry-1',
+      display_name: VIP_NAME,
+      rank: 12,
+      points: 140.5,
+      payout_cents: 5000,
+      slots: [{ slot: 'QB', player_name: 'Ashton Daniels' }],
+    },
+  ]
+  return snapshot
+})()
 
 function buildNoPrimaryFixture() {
-  const snapshot = structuredClone(snapshotFixture) as any
-  delete snapshot.sports.nba.primary_contest
-  snapshot.sports.nba.contests.forEach((contest: any) => {
+  const snapshot = structuredClone(snapshotFixture) as unknown as Snapshot
+  delete snapshot.sports.cfb.primary_contest
+  snapshot.sports.cfb.contests.forEach((contest) => {
     contest.is_primary = false
     contest.state = 'live'
   })
@@ -42,8 +50,7 @@ function buildNoPrimaryFixture() {
 }
 
 it('uses cached snapshot and renders grouped contests plus player table behavior', async () => {
-  const vipName = firstVipNameForSport(snapshotFixture, 'nba')
-  const fetchSpy = vi.fn()
+    const fetchSpy = vi.fn()
   vi.stubGlobal('fetch', fetchSpy)
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -51,7 +58,7 @@ it('uses cached snapshot and renders grouped contests plus player table behavior
 
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/sport/nba']}>
+      <MemoryRouter initialEntries={['/sport/cfb']}>
         <Routes>
           <Route path="/sport/:sport" element={<Sport />} />
         </Routes>
@@ -59,31 +66,29 @@ it('uses cached snapshot and renders grouped contests plus player table behavior
     </QueryClientProvider>,
   )
 
-  expect(await screen.findByRole('heading', { name: /sport: nba/i })).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: /open live sweat view/i })).toHaveAttribute('href', '/live/nba')
-  expect(screen.getByRole('heading', { name: /unknown/i })).toBeInTheDocument()
-  expect(screen.getByText(/Field size: 114/i)).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: /sport: cfb/i })).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: /open live sweat view/i })).toHaveAttribute('href', '/live/cfb')
+  expect(screen.getByRole('heading', { name: /live \(1\)/i })).toBeInTheDocument()
+  expect(screen.getByText(/Field size: 229/i)).toBeInTheDocument()
   expect(screen.getByText(/Max per user: 1/i)).toBeInTheDocument()
-  expect(screen.getByText(/Prize pool: \$1,000/i)).toBeInTheDocument()
-  expect(screen.getAllByText(/Cashed/i).length).toBeGreaterThan(0)
+  expect(screen.getByText(/Prize pool: \$5,000/i)).toBeInTheDocument()
+  expect(screen.getByText('Cashing')).toBeInTheDocument()
   expect(screen.queryByText(/Entries:\s*\d+\s*\/\s*\d+/i)).not.toBeInTheDocument()
-  if (vipName) {
-    expect(screen.getByText(vipName)).toBeInTheDocument()
-  }
+  expect(screen.getByText(VIP_NAME)).toBeInTheDocument()
 
   fireEvent.change(screen.getByLabelText(/vip filter/i), { target: { value: 'active' } })
   expect(screen.getByText(/no matching vip lineups/i)).toBeInTheDocument()
 
   expect(screen.getByRole('heading', { name: /player pool/i })).toBeInTheDocument()
 
-  fireEvent.change(screen.getByLabelText(/search players/i), { target: { value: 'LeBron' } })
-  expect(screen.getByRole('cell', { name: /LeBron James/i })).toBeInTheDocument()
+  fireEvent.change(screen.getByLabelText(/search players/i), { target: { value: 'Ashton' } })
+  expect(screen.getByRole('cell', { name: /Ashton Daniels/i })).toBeInTheDocument()
 
   expect(fetchSpy).not.toHaveBeenCalled()
 })
 
 it('loads latest snapshot when cache is empty', async () => {
-  const availableSport = Object.keys(snapshotFixture.sports).find((key) => key !== 'nba') ?? 'nba'
+  const availableSport = 'mlb'
 
   vi.stubGlobal(
     'fetch',
@@ -92,11 +97,11 @@ it('loads latest snapshot when cache is empty', async () => {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            latest_snapshot_path: 'snapshots/canonical-live-snapshot.v3.json',
-            snapshot_at: '2026-02-13T18:25:00Z',
-            generated_at: '2026-02-13T18:25:07Z',
-            available_sports: ['nba', availableSport],
-            manifest_today_path: 'manifest/2026-02-13.json',
+            latest_snapshot_path: 'snapshots/live-2026-10-03T20-48-31Z.json',
+            snapshot_at: '2026-10-03T20:48:31Z',
+            generated_at: '2026-10-03T20:48:31Z',
+            available_sports: ['cfb', availableSport],
+            manifest_today_path: 'manifest/2026-10-03.json',
           }),
           { status: 200 },
         )
@@ -118,12 +123,12 @@ it('loads latest snapshot when cache is empty', async () => {
   )
 
   expect(await screen.findByRole('heading', { name: new RegExp(`sport: ${availableSport}`, 'i') })).toBeInTheDocument()
-  expect(await screen.findByRole('heading', { name: /unknown/i })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: /live \(1\)/i })).toBeInTheDocument()
 })
 
 it('does not use history snapshot cache for sport route data', async () => {
-  const latestSnapshot = structuredClone(snapshotFixture) as any
-  const historySnapshot = structuredClone(snapshotFixture) as any
+  const latestSnapshot = structuredClone(snapshotFixture) as unknown as Snapshot
+  const historySnapshot = structuredClone(snapshotFixture) as unknown as Snapshot
   historySnapshot.sports = {}
 
   const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
@@ -131,11 +136,11 @@ it('does not use history snapshot cache for sport route data', async () => {
     if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
       return new Response(
         JSON.stringify({
-          latest_snapshot_path: 'snapshots/canonical-live-snapshot.v3.json',
-          snapshot_at: '2026-02-13T18:25:00Z',
-          generated_at: '2026-02-13T18:25:07Z',
-          available_sports: ['nba'],
-          manifest_today_path: 'manifest/2026-02-13.json',
+          latest_snapshot_path: 'snapshots/live-2026-10-03T20-48-31Z.json',
+          snapshot_at: '2026-10-03T20:48:31Z',
+          generated_at: '2026-10-03T20:48:31Z',
+          available_sports: ['cfb'],
+          manifest_today_path: 'manifest/2026-10-03.json',
         }),
         { status: 200 },
       )
@@ -150,7 +155,7 @@ it('does not use history snapshot cache for sport route data', async () => {
 
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/sport/nba']}>
+      <MemoryRouter initialEntries={['/sport/cfb']}>
         <Routes>
           <Route path="/sport/:sport" element={<Sport />} />
         </Routes>
@@ -158,7 +163,7 @@ it('does not use history snapshot cache for sport route data', async () => {
     </QueryClientProvider>,
   )
 
-  expect(await screen.findByRole('heading', { name: /sport: nba/i })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: /sport: cfb/i })).toBeInTheDocument()
   expect(screen.queryByText(/sport not found in snapshot/i)).not.toBeInTheDocument()
   expect(fetchSpy).toHaveBeenCalled()
 })
@@ -172,7 +177,7 @@ it('renders sport route even when primary contest config is missing (live-only c
 
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/sport/nba']}>
+      <MemoryRouter initialEntries={['/sport/cfb']}>
         <Routes>
           <Route path="/sport/:sport" element={<Sport />} />
         </Routes>
@@ -180,19 +185,19 @@ it('renders sport route even when primary contest config is missing (live-only c
     </QueryClientProvider>,
   )
 
-  expect(await screen.findByRole('heading', { name: /sport: nba/i })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: /sport: cfb/i })).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: /live \(1\)/i })).toBeInTheDocument()
   expect(fetchSpy).not.toHaveBeenCalled()
 })
 
 it('renders completed VIP cashing with payout amount', async () => {
-  const snapshotWithPayout = structuredClone(snapshotFixture) as any
-  const contest = snapshotWithPayout.sports.nba.contests[0]
+  const snapshotWithPayout = structuredClone(snapshotFixture) as unknown as Snapshot
+  const contest = snapshotWithPayout.sports.cfb.contests[0]
   contest.state = 'completed'
   contest.currency = 'USD'
   contest.vip_lineups[0].payout_cents = 2000
   contest.vip_lineups[0].live = {
-    ...(contest.vip_lineups[0].live ?? {}),
+    updated_at: '2026-10-03T20:48:31Z',
     payout_cents: 2000,
   }
 
@@ -204,7 +209,7 @@ it('renders completed VIP cashing with payout amount', async () => {
 
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/sport/nba']}>
+      <MemoryRouter initialEntries={['/sport/cfb']}>
         <Routes>
           <Route path="/sport/:sport" element={<Sport />} />
         </Routes>
@@ -212,14 +217,14 @@ it('renders completed VIP cashing with payout amount', async () => {
     </QueryClientProvider>,
   )
 
-  expect(await screen.findByRole('heading', { name: /sport: nba/i })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: /sport: cfb/i })).toBeInTheDocument()
   expect(screen.getAllByText(/Cashed \$20/i).length).toBeGreaterThan(0)
   expect(fetchSpy).not.toHaveBeenCalled()
 })
 
 it('does not fallback to legacy entry_fee dollars when entry_fee_cents is missing', async () => {
-  const snapshotWithLegacyMoneyOnly = structuredClone(snapshotFixture) as any
-  const contest = snapshotWithLegacyMoneyOnly.sports.nba.contests[0]
+  const snapshotWithLegacyMoneyOnly = structuredClone(snapshotFixture) as unknown as Snapshot
+  const contest = snapshotWithLegacyMoneyOnly.sports.cfb.contests[0] as Partial<Contest> & { entry_fee?: number }
   contest.entry_fee = 25
   delete contest.entry_fee_cents
 
@@ -231,7 +236,7 @@ it('does not fallback to legacy entry_fee dollars when entry_fee_cents is missin
 
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/sport/nba']}>
+      <MemoryRouter initialEntries={['/sport/cfb']}>
         <Routes>
           <Route path="/sport/:sport" element={<Sport />} />
         </Routes>
@@ -239,7 +244,7 @@ it('does not fallback to legacy entry_fee dollars when entry_fee_cents is missin
     </QueryClientProvider>,
   )
 
-  expect(await screen.findByRole('heading', { name: /sport: nba/i })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: /sport: cfb/i })).toBeInTheDocument()
   expect(screen.queryByText('$25')).not.toBeInTheDocument()
   expect(fetchSpy).not.toHaveBeenCalled()
 })
