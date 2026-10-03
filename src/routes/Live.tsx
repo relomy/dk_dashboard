@@ -503,11 +503,13 @@ function Live() {
             <FeedNotProvided />
           ) : (
             <>
-              <p className="meta-text">
-                Field remaining{fieldRemainingScope}:{' '}
-                {formatValue(threatMetrics?.field_remaining_pct, { suffix: '%' })}
-                {threatMetrics?.field_remaining_is_partial ? ' (partial)' : ''}
-              </p>
+              {typeof threatMetrics?.field_remaining_pct === 'number' ? (
+                <p className="meta-text">
+                  Field remaining{fieldRemainingScope}:{' '}
+                  {formatValue(threatMetrics.field_remaining_pct, { suffix: '%' })}
+                  {threatMetrics.field_remaining_is_partial ? ' (partial)' : ''}
+                </p>
+              ) : null}
               {vipLeverage.length === 0 ? (
                 <p className="meta-text">No VIP leverage data available.</p>
               ) : (

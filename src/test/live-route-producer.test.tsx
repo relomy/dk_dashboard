@@ -285,6 +285,21 @@ it('says Ownership leaders, not watchlist, when the panel has no entries', async
   expect(screen.queryByText(/watchlist/i)).not.toBeInTheDocument()
 })
 
+it('omits the Field remaining line when leverage rows exist but the field total does not', async () => {
+  const snapshot = structuredClone(producerSnapshot)
+  const contest = cfbContest(snapshot)
+  delete contest.metrics.threat.field_remaining_pct
+  contest.metrics.threat.vip_vs_field_leverage = [
+    { entry_key: 'vip-1', display_name: 'Leverage VIP', vip_remaining_pct: 40, uniqueness_delta_pct: 9.5 },
+  ]
+
+  await renderLiveAgainstProducerSnapshot('cfb', snapshot)
+
+  const leverage = subPanel(/vip vs field leverage/i)
+  expect(within(leverage).getByText('+9.5%')).toBeInTheDocument()
+  expect(within(leverage).queryByText(/field remaining.*:/i)).not.toBeInTheDocument()
+})
+
 function trainRanks() {
   const rows = within(within(panel(/train finder/i)).getByRole('table')).getAllByRole('row').slice(1)
   return rows.map((row) => within(row).getAllByRole('cell')[0].textContent)
