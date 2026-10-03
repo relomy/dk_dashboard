@@ -17,9 +17,9 @@ type OwnershipSummaryRow = {
 }
 
 type NormalizedTrainCluster = {
-  cluster_id?: string
+  cluster_id: string
   cluster_rule?: string
-  user_count?: number
+  user_count: number
   rank?: number
   points?: number
   pmr?: number
@@ -150,26 +150,20 @@ function normalizeTrainClusterRows(trainClusters: unknown): NormalizedTrainClust
       continue
     }
     const row = raw as Record<string, unknown>
-    const normalizedRow: NormalizedTrainCluster = {
-      cluster_id: typeof row.cluster_id === 'string' ? row.cluster_id : undefined,
+    // v3 requires cluster_id and user_count; rows missing either are malformed and dropped.
+    if (typeof row.cluster_id !== 'string' || !row.cluster_id || typeof row.user_count !== 'number') {
+      continue
+    }
+
+    normalized.push({
+      cluster_id: row.cluster_id,
       cluster_rule: typeof row.cluster_rule === 'string' && row.cluster_rule ? row.cluster_rule : undefined,
-      user_count: typeof row.user_count === 'number' ? row.user_count : undefined,
+      user_count: row.user_count,
       rank: typeof row.rank === 'number' ? row.rank : undefined,
       points: typeof row.points === 'number' ? row.points : undefined,
       pmr: typeof row.pmr === 'number' ? row.pmr : undefined,
       lineup_signature: typeof row.lineup_signature === 'string' ? row.lineup_signature : undefined,
-    }
-
-    const hasSignal =
-      Boolean(normalizedRow.cluster_id) ||
-      typeof normalizedRow.user_count === 'number' ||
-      Boolean(normalizedRow.lineup_signature)
-
-    if (!hasSignal) {
-      continue
-    }
-
-    normalized.push(normalizedRow)
+    })
   }
 
   return normalized
@@ -233,7 +227,13 @@ function Live() {
   const trainClusterRows = normalizeTrainClusterRows(trainClustersRaw)
   const trainsUpdatedAt = primaryContest?.live_metrics?.updated_at
   const trainRule = trainClusterRows.find((cluster) => cluster.cluster_rule)?.cluster_rule
-  const sortedClusters = [...trainClusterRows].sort((a, b) => (b.user_count ?? 0) - (a.user_count ?? 0))
+  // Best-placed train first; trains without a rank go last.
+  const sortedTrains = [...trainClusterRows].sort((a, b) => {
+    if (a.rank === undefined || b.rank === undefined) {
+      return (a.rank === undefined ? 1 : 0) - (b.rank === undefined ? 1 : 0)
+    }
+    return a.rank - b.rank
+  })
   const standings = primaryContest?.standings
   const standingsRows = normalizeStandingsRows(standings)
   const distanceMetrics = primaryContest?.metrics?.distance_to_cash
@@ -669,7 +669,7 @@ function Live() {
               <p className="meta-text">Updated: {new Date(trainsUpdatedAt).toLocaleString()}</p>
             ) : null}
             {trainRule ? <p className="meta-text">Train rule: {trainRule}</p> : null}
-            {sortedClusters.length === 0 ? (
+            {sortedTrains.length === 0 ? (
               <p className="meta-text">No trains available.</p>
             ) : (
               <table className="data-table live-train-table">
@@ -683,14 +683,14 @@ function Live() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedClusters.map((cluster, clusterIndex) => {
-                    const lineupSlots = parseLineupSignature(cluster.lineup_signature)
+                  {sortedTrains.map((train) => {
+                    const lineupSlots = parseLineupSignature(train.lineup_signature)
                     return (
-                      <tr key={cluster.cluster_id ?? `cluster-${clusterIndex}`}>
-                        <td>{formatValue(cluster.rank)}</td>
-                        <td>{cluster.user_count ?? 0}</td>
-                        <td>{formatPoints(cluster.points)}</td>
-                        <td>{formatPmr(cluster.pmr)}</td>
+                      <tr key={train.cluster_id}>
+                        <td>{formatValue(train.rank)}</td>
+                        <td>{train.user_count}</td>
+                        <td>{formatPoints(train.points)}</td>
+                        <td>{formatPmr(train.pmr)}</td>
                         <td>
                           {lineupSlots.length ? (
                             <ul className="live-train-lineup" aria-label="Lineup">

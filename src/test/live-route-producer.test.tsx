@@ -106,7 +106,7 @@ it('shows Rank, Entries, Points, PMR and Lineup for each train with rounded numb
     .getAllByRole('cell')
     .slice(0, 4)
     .map((cell) => cell.textContent)
-  expect(cells).toEqual(['175', '9', '102.0', '250.6'])
+  expect(cells).toEqual(['8', '3', '177.5', '119.8'])
 })
 
 it('shows each train lineup as slot chips with locked slots muted and in position', async () => {
@@ -139,6 +139,10 @@ it('shows a dash for a train whose lineup has no slots', async () => {
   clusters[0].lineup_signature = ''
   clusters[1].lineup_signature = ' | '
   delete clusters[2].lineup_signature
+  // Rank them best so they are the first three rows.
+  clusters.slice(0, 3).forEach((cluster, index) => {
+    cluster.rank = index + 1
+  })
 
   await renderLiveAgainstProducerSnapshot('mlb', snapshot)
 
@@ -250,4 +254,20 @@ it('omits Train finder header values the snapshot does not carry', async () => {
   expect(within(trains).queryByText(/updated:/i)).not.toBeInTheDocument()
   expect(within(trains).queryByText(/train rule:/i)).not.toBeInTheDocument()
   expect(within(trains).queryByText(/unknown/i)).not.toBeInTheDocument()
+})
+
+function trainRanks() {
+  const rows = within(within(panel(/train finder/i)).getByRole('table')).getAllByRole('row').slice(1)
+  return rows.map((row) => within(row).getAllByRole('cell')[0].textContent)
+}
+
+it('lists trains best-placed first, with trains missing a rank last', async () => {
+  const snapshot = structuredClone(producerSnapshot)
+  delete mlbContest(snapshot).train_clusters[0].rank
+
+  await renderLiveAgainstProducerSnapshot('mlb', snapshot)
+
+  expect(trainRanks()).toEqual([
+    '25', '49', '54', '54', '68', '68', '68', '68', '68', '88', '88', '101', '101', '101', '101', '123', '—',
+  ])
 })

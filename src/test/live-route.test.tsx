@@ -370,26 +370,6 @@ it('shows unavailable placeholders when sections are missing', async () => {
   expect(screen.queryByText(/cluster/i)).not.toBeInTheDocument()
 })
 
-it('sorts trains by entry count descending', async () => {
-  const snapshot = load()
-  const trains = contestOf(snapshot).train_clusters
-  trains.push({
-    cluster_id: 'sort-test',
-    cluster_rule: trains[0].cluster_rule,
-    user_count: 500,
-    rank: 15,
-    points: 153.4,
-    pmr: 1.8,
-    lineup_signature: 'Guard One|Guard Two',
-    entry_keys: ['a', 'b'],
-  })
-
-  await renderLive(snapshot)
-  const rows = within(within(panel(/train finder/i)).getByRole('table')).getAllByRole('row')
-  expect(within(rows[1]).getAllByRole('cell')[1]).toHaveTextContent('500')
-  expect(within(rows[1]).getByText('Guard One')).toBeInTheDocument()
-})
-
 it('has no show-all toggle: every emitted train is listed', async () => {
   await renderLive(load())
   const trains = panel(/train finder/i)
