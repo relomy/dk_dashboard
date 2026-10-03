@@ -35,10 +35,9 @@ function finiteOrNull(value: number | null | undefined): number | null {
 
 function toRow(player: Player, index: number): PlayerPoolRow {
   const position =
-    firstNonEmpty(player.position, joinNonEmpty(player.roster_positions), joinNonEmpty(player.positions)) ?? DASH
+    firstNonEmpty(player.position, joinNonEmpty(player.roster_positions)) ?? DASH
   const key =
     player.player_key ||
-    player.player_id ||
     (`${player.name}|${player.team}|${player.salary}|${position}`.trim() || `player-${index}`)
   return {
     key,
@@ -48,9 +47,9 @@ function toRow(player: Player, index: number): PlayerPoolRow {
     matchup: player.matchup || DASH,
     salary: player.salary,
     ownershipPct: finiteOrNull(player.ownership_pct),
-    points: finiteOrNull(player.fantasy_points ?? player.actual_points),
+    points: finiteOrNull(player.fantasy_points),
     value: finiteOrNull(player.value),
-    status: player.game_status ?? player.status ?? DASH,
+    status: player.game_status ?? DASH,
   }
 }
 

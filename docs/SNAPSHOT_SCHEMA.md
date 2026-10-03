@@ -209,9 +209,7 @@ Manifest naming uses UTC dates: `manifest/YYYY-MM-DD.json`. Snapshot rows are so
 - Producer fixture: `public/mock/snapshots/live-2026-10-03T20-48-31Z.json` and
   `public/mock/manifest/2026-10-03.json`, pulled from R2 and trimmed only by dropping array
   elements. Provenance and trimming are recorded in `public/mock/PRODUCER_FIXTURE.md`.
-- Hand-written contract fixture: `public/mock/snapshots/canonical-live-snapshot.v3.json`. It follows
-  an earlier documented shape, not the emitted one, and is being replaced by the producer fixture.
-- Targeted behavior variants:
-  - `public/mock/snapshots/canonical-live-snapshot.v3-missing-metrics.json`
-  - in-test v3-derived variants for missing sections, empty standings, and missing primary contest
+- It is the only committed snapshot fixture; there are no hand-written fixtures.
+- Targeted behavior variants are derived in-test from the producer fixture (missing sections, empty
+  standings, missing primary contest, injected VIP lineups and metrics).
 - `db_main --snapshot-out` legacy/raw shape is excluded from dashboard fixture-shape gating.

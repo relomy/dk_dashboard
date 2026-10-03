@@ -238,16 +238,6 @@ it('populates the four panels when the feed provides the metrics', async () => {
   expect(within(avg).queryByText(/feed does not provide/i)).not.toBeInTheDocument()
 })
 
-it('labels the show-all button for trains, not clusters', async () => {
-  const snapshot = structuredClone(producerSnapshot)
-  const contest = mlbContest(snapshot) as unknown as { metrics: unknown }
-  contest.metrics = { trains: { ranked_clusters: [{ cluster_key: 'x' }] } }
-  await renderLiveAgainstProducerSnapshot('mlb', snapshot)
-  const trains = panel(/train finder/i)
-  expect(within(trains).queryByRole('button', { name: /clusters/i })).not.toBeInTheDocument()
-  expect(within(trains).getByRole('button', { name: /show all trains/i })).toBeInTheDocument()
-})
-
 it('omits Train finder header values the snapshot does not carry', async () => {
   const snapshot = structuredClone(producerSnapshot)
   const contest = mlbContest(snapshot)

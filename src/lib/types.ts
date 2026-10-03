@@ -80,24 +80,6 @@ export interface ContestMetricsThreat {
   }>
 }
 
-export interface ContestMetricsTrains {
-  recommended_top_n: number
-  ranked_clusters: Array<{
-    cluster_key: string
-    rank: number
-    entry_count: number
-    best_rank?: number
-    avg_pmr?: number
-  }>
-  top_clusters?: Array<{
-    cluster_key: string
-    rank: number
-    entry_count: number
-    best_rank?: number
-    avg_pmr?: number
-  }>
-}
-
 export interface ContestMetricsOwnershipSummary {
   source: 'vip_lineup_players'
   scope: 'vip_lineup'
@@ -126,7 +108,6 @@ export interface ContestMetrics {
   ownership_summary?: ContestMetricsOwnershipSummary
   non_cashing?: ContestMetricsNonCashing
   threat?: ContestMetricsThreat
-  trains?: ContestMetricsTrains
 }
 
 export interface Contest {
@@ -168,99 +149,39 @@ export interface Contest {
       pmr?: number
     }>
   }
-  train_clusters?:
-    | Array<{
-        cluster_id?: string
-        cluster_key?: string
-        user_count?: number
-        entry_count?: number
-        rank?: number
-        points?: number
-        best_points?: number
-        pmr?: number
-        avg_pmr?: number
-        avg_ownership_remaining_pct?: number
-        lineup_signature?: string
-        composition?: VipLineupSlot[]
-        entry_keys?: string[]
-        sample_entries?: Array<{
-          entry_key: string
-          display_name?: string
-          current_rank?: number
-          current_points?: number
-          pmr?: number
-        }>
-      }>
-    | {
-        updated_at: string
-        cluster_rule?: {
-          type: 'shared_slots'
-          min_shared: number
-        }
-        clusters: Array<{
-          cluster_key: string
-          entry_count: number
-          best_rank?: number
-          best_points?: number
-          avg_pmr?: number
-          avg_ownership_remaining_pct?: number
-          composition: VipLineupSlot[]
-          sample_entries?: Array<{
-            entry_key: string
-            display_name?: string
-            current_rank?: number
-            current_points?: number
-            pmr?: number
-          }>
-        }>
-      }
-  standings?:
-    | Array<{
-        entry_key: string
-        display_name?: string
-        username?: string
-        rank?: number
-        points?: number
-        pmr?: number
-        payout_cents?: number | null
-        ownership_remaining_pct?: number
-        ownership_remaining_total_pct?: number
-      }>
-    | {
-        updated_at: string
-        total_rows?: number
-        is_truncated?: boolean
-        rows: Array<{
-          entry_key: string
-          display_name?: string
-          username?: string
-          rank?: number
-          points?: number
-          pmr?: number
-          payout_cents?: number
-          ownership_remaining_pct?: number
-          ownership_remaining_total_pct?: number
-        }>
-      }
+  train_clusters?: Array<{
+    cluster_id: string
+    cluster_rule?: string
+    user_count: number
+    rank?: number
+    points?: number
+    pmr?: number
+    lineup_signature?: string
+    entry_keys?: string[]
+  }>
+  standings?: Array<{
+    entry_key: string
+    username?: string
+    rank?: number
+    points?: number
+    pmr?: number
+    payout_cents?: number | null
+    ownership_remaining_total_pct?: number
+  }>
   metrics?: ContestMetrics
 }
 
 export interface Player {
   player_key?: string
-  player_id?: string
   name: string
   team: string
   position?: string
-  positions?: string[]
   roster_positions?: string[]
   matchup?: string
   salary: number
-  status?: string
   game_status?: string
   fantasy_points?: number | null
   value?: number | null
-  projected_points?: number | null
-  actual_points?: number | null
   ownership_pct?: number | null
 }
 

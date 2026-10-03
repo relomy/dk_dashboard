@@ -43,7 +43,7 @@
   - avg PMR remaining
   - top remaining players list with unavailable/empty states
 - Train finder:
-  - ranked/top cluster rendering from train metrics with show-all toggle
+  - trains from the feed, sorted by entry count
 
 ## Profiles and VIP filtering
 - Create multiple named profiles in `Settings`.

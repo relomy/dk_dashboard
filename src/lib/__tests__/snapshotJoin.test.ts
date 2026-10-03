@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import snapshotFixture from '../../../public/mock/snapshots/canonical-live-snapshot.v3.json'
+import snapshotFixture from '../../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from '../perVipKeys'
 import type { Snapshot } from '../types'
 

@@ -55,11 +55,9 @@ npm run auth:reset-local -- --username <owner_username>
 This wipes local auth tables and reseeds one owner with a temporary password.
 
 ## Canonical fixtures
-- Baseline snapshot fixture: `public/mock/snapshots/canonical-live-snapshot.v3.json`.
-- Baseline variant fixtures (edge cases only):
-  - `public/mock/snapshots/canonical-live-snapshot.v3-missing-metrics.json`
-- In mock mode, `public/mock/latest.json` and `public/mock/manifest/2026-02-13.json` should point to the canonical baseline fixture by default.
-- Route tests should use the baseline fixture unless they are explicitly testing one of the edge-case variants above.
+- Baseline snapshot fixture: `public/mock/snapshots/live-2026-10-03T20-48-31Z.json` (producer export; see `public/mock/PRODUCER_FIXTURE.md`).
+- In mock mode, `public/mock/latest.json` and `public/mock/manifest/2026-10-03.json` point to the baseline fixture.
+- Route tests run on the baseline fixture; edge cases are variants derived in-test.
 
 ### Fixture-change guardrails
 - Keep fixture names contract-oriented (avoid version/date-coupled names for the canonical baseline).
@@ -106,9 +104,9 @@ Path mapping rules:
 - `GET /api/snapshot?path=...` should read `<data-root>/<path>` (with standard path traversal protections).
 
 Example:
-- `latest_snapshot_path = "snapshots/live-2026-02-15T01-30-00Z.json"`
-- `manifest_today_path = "manifest/2026-02-15.json"`
-- manifest entry `path = "snapshots/live-2026-02-15T01-30-00Z.json"`
+- `latest_snapshot_path = "snapshots/live-2026-10-03T20-48-31Z.json"`
+- `manifest_today_path = "manifest/2026-10-03.json"`
+- manifest entry `path = "snapshots/live-2026-10-03T20-48-31Z.json"`
 
 For dev mock mode, this same shape lives under `public/mock`:
 - `public/mock/latest.json`
@@ -153,9 +151,7 @@ Before release:
 - Production contract assumes canonical `schema_version: 3` snapshot artifacts only.
 - No UI compatibility layer should be added for older snapshot shapes.
 - Mock baseline is:
-  - `public/mock/snapshots/canonical-live-snapshot.v3.json`
-- Mock edge-case baseline is:
-  - `public/mock/snapshots/canonical-live-snapshot.v3-missing-metrics.json`
+  - `public/mock/snapshots/live-2026-10-03T20-48-31Z.json`
 
 Release gate:
 1. `GET /api/latest` returns a `latest_snapshot_path` under `snapshots/`

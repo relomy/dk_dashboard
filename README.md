@@ -25,7 +25,7 @@ Notes:
 - Mock mode is dev-only.
 - Optional API base override is available for dev/preview: `VITE_API_BASE_URL`.
 - Optional snapshot-only helper is available for real-data validation without manifests:
-  `VITE_MOCK_SNAPSHOT_ONLY=true` and optional `VITE_MOCK_SNAPSHOT_PATH=snapshots/canonical-live-snapshot.v3.json`.
+  `VITE_MOCK_SNAPSHOT_ONLY=true` and optional `VITE_MOCK_SNAPSHOT_PATH=snapshots/live-2026-10-03T20-48-31Z.json`.
   In this mode, `/api/latest` is synthesized locally and History is disabled with `History requires manifest files.`.
 - In mock mode, auth backend calls are bypassed and the app uses a synthetic local `friend` session.
 
@@ -77,8 +77,8 @@ Expected shape (minimum):
 
 ### `GET /api/snapshot?path=...`
 Returns JSON content addressed by `path`, for example:
-- snapshot: `snapshots/canonical-live-snapshot.v3.json`
-- manifest: `manifest/2026-02-13.json`
+- snapshot: `snapshots/live-2026-10-03T20-48-31Z.json`
+- manifest: `manifest/2026-10-03.json`
 
 Error responses for `/api/latest` and `/api/snapshot` use:
 

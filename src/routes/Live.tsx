@@ -17,21 +17,13 @@ type OwnershipSummaryRow = {
 }
 
 type NormalizedTrainCluster = {
-  cluster_key?: string
   cluster_id?: string
   cluster_rule?: string
-  entry_count?: number
   user_count?: number
-  best_rank?: number
   rank?: number
-  best_points?: number
   points?: number
-  avg_pmr?: number
   pmr?: number
-  avg_ownership_remaining_pct?: number
   lineup_signature?: string
-  composition?: Array<{ slot: string; player_name: string; multiplier?: number }>
-  sample_entries?: Array<{ entry_key: string; display_name?: string }>
 }
 
 function resolveCashing(
@@ -141,71 +133,37 @@ function formatSelectionReason(value: unknown): string {
 }
 
 function normalizeStandingsRows(standings: unknown): Array<Record<string, unknown>> {
-  if (Array.isArray(standings)) {
-    return standings.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object'))
+  if (!Array.isArray(standings)) {
+    return []
   }
-  if (standings && typeof standings === 'object' && Array.isArray((standings as { rows?: unknown }).rows)) {
-    return (standings as { rows: Array<Record<string, unknown>> }).rows
-  }
-  return []
+  return standings.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object'))
 }
 
 function normalizeTrainClusterRows(trainClusters: unknown): NormalizedTrainCluster[] {
-  const rawRows = Array.isArray(trainClusters)
-    ? trainClusters
-    : trainClusters && typeof trainClusters === 'object' && Array.isArray((trainClusters as { clusters?: unknown }).clusters)
-      ? (trainClusters as { clusters: unknown[] }).clusters
-      : []
+  if (!Array.isArray(trainClusters)) {
+    return []
+  }
 
   const normalized: NormalizedTrainCluster[] = []
-  for (const raw of rawRows) {
+  for (const raw of trainClusters) {
     if (!raw || typeof raw !== 'object') {
       continue
     }
     const row = raw as Record<string, unknown>
     const normalizedRow: NormalizedTrainCluster = {
-      cluster_key: typeof row.cluster_key === 'string' ? row.cluster_key : undefined,
       cluster_id: typeof row.cluster_id === 'string' ? row.cluster_id : undefined,
       cluster_rule: typeof row.cluster_rule === 'string' && row.cluster_rule ? row.cluster_rule : undefined,
-      entry_count: typeof row.entry_count === 'number' ? row.entry_count : undefined,
       user_count: typeof row.user_count === 'number' ? row.user_count : undefined,
-      best_rank: typeof row.best_rank === 'number' ? row.best_rank : undefined,
       rank: typeof row.rank === 'number' ? row.rank : undefined,
-      best_points: typeof row.best_points === 'number' ? row.best_points : undefined,
       points: typeof row.points === 'number' ? row.points : undefined,
-      avg_pmr: typeof row.avg_pmr === 'number' ? row.avg_pmr : undefined,
       pmr: typeof row.pmr === 'number' ? row.pmr : undefined,
-      avg_ownership_remaining_pct:
-        typeof row.avg_ownership_remaining_pct === 'number' ? row.avg_ownership_remaining_pct : undefined,
       lineup_signature: typeof row.lineup_signature === 'string' ? row.lineup_signature : undefined,
-      composition: Array.isArray(row.composition)
-        ? (row.composition.filter((slot): slot is { slot: string; player_name: string; multiplier?: number } => {
-            return (
-              typeof slot === 'object' &&
-              slot !== null &&
-              typeof (slot as { slot?: unknown }).slot === 'string' &&
-              typeof (slot as { player_name?: unknown }).player_name === 'string'
-            )
-          }) as NormalizedTrainCluster['composition'])
-        : undefined,
-      sample_entries: Array.isArray(row.sample_entries)
-        ? (row.sample_entries.filter(
-            (entry): entry is { entry_key: string; display_name?: string } =>
-              typeof entry === 'object' &&
-              entry !== null &&
-              typeof (entry as { entry_key?: unknown }).entry_key === 'string',
-          ) as NormalizedTrainCluster['sample_entries'])
-        : undefined,
     }
 
     const hasSignal =
-      Boolean(normalizedRow.cluster_key) ||
       Boolean(normalizedRow.cluster_id) ||
-      typeof normalizedRow.entry_count === 'number' ||
       typeof normalizedRow.user_count === 'number' ||
-      Boolean(normalizedRow.lineup_signature) ||
-      Boolean(normalizedRow.composition?.length) ||
-      Boolean(normalizedRow.sample_entries?.length)
+      Boolean(normalizedRow.lineup_signature)
 
     if (!hasSignal) {
       continue
@@ -220,7 +178,6 @@ function normalizeTrainClusterRows(trainClusters: unknown): NormalizedTrainClust
 function Live() {
   const { sport } = useParams()
   const [playerSearch, setPlayerSearch] = useState('')
-  const [showAllTrains, setShowAllTrains] = useState(false)
 
   const { snapshot, loading, error } = useSportSnapshot()
 
@@ -276,9 +233,7 @@ function Live() {
   const trainClusterRows = normalizeTrainClusterRows(trainClustersRaw)
   const trainsUpdatedAt = primaryContest?.live_metrics?.updated_at
   const trainRule = trainClusterRows.find((cluster) => cluster.cluster_rule)?.cluster_rule
-  const sortedClusters = [...trainClusterRows].sort(
-    (a, b) => (b.entry_count ?? b.user_count ?? 0) - (a.entry_count ?? a.user_count ?? 0),
-  )
+  const sortedClusters = [...trainClusterRows].sort((a, b) => (b.user_count ?? 0) - (a.user_count ?? 0))
   const standings = primaryContest?.standings
   const standingsRows = normalizeStandingsRows(standings)
   const distanceMetrics = primaryContest?.metrics?.distance_to_cash
@@ -325,30 +280,6 @@ function Live() {
   const topRemainingPlayers = Array.isArray(nonCashingMetrics?.top_remaining_players)
     ? nonCashingMetrics.top_remaining_players
     : null
-  const trainMetrics = primaryContest?.metrics?.trains
-  const trainClusterLookup = new Map<string, NormalizedTrainCluster>()
-  for (const cluster of trainClusterRows) {
-    const key = cluster.cluster_key ?? cluster.cluster_id
-    if (key) {
-      trainClusterLookup.set(key, cluster)
-    }
-  }
-  const trainRefs = trainMetrics?.ranked_clusters ?? []
-  const topRefs = trainMetrics?.top_clusters ?? []
-  const recommendedTopN = trainMetrics?.recommended_top_n ?? 5
-  const selectedTrainRefs = showAllTrains
-    ? trainRefs
-    : (topRefs.length ? topRefs : trainRefs.slice(0, recommendedTopN))
-  const metricClusters = selectedTrainRefs
-    .map((ref) => {
-      const cluster = trainClusterLookup.get(ref.cluster_key)
-      return cluster ? { ref, cluster } : null
-    })
-    .filter((item): item is { ref: (typeof trainRefs)[number]; cluster: NormalizedTrainCluster } => Boolean(item))
-  const displayClusters: Array<{
-    cluster: NormalizedTrainCluster
-    ref?: (typeof trainRefs)[number]
-  }> = trainMetrics ? metricClusters : sortedClusters.map((cluster) => ({ cluster, ref: undefined }))
 
   if (!sportData.primary_contest) {
     return (
@@ -731,22 +662,15 @@ function Live() {
       <div className="panel page-stack-sm">
         <h2 className="section-title">Train finder</h2>
         {!trainClusterRows.length ? (
-          <p className="meta-text">Train cluster data unavailable for this contest.</p>
+          <p className="meta-text">Train data unavailable for this contest.</p>
         ) : (
           <>
             {trainsUpdatedAt ? (
               <p className="meta-text">Updated: {new Date(trainsUpdatedAt).toLocaleString()}</p>
             ) : null}
             {trainRule ? <p className="meta-text">Train rule: {trainRule}</p> : null}
-            {trainMetrics && trainRefs.length > 0 ? (
-              <div className="action-row">
-                <button type="button" onClick={() => setShowAllTrains((value) => !value)}>
-                  {showAllTrains ? `Show top ${recommendedTopN}` : 'Show all trains'}
-                </button>
-              </div>
-            ) : null}
-            {displayClusters.length === 0 ? (
-              <p className="meta-text">No train clusters available.</p>
+            {sortedClusters.length === 0 ? (
+              <p className="meta-text">No trains available.</p>
             ) : (
               <table className="data-table live-train-table">
                 <thead>
@@ -759,21 +683,16 @@ function Live() {
                   </tr>
                 </thead>
                 <tbody>
-                  {displayClusters.map(({ cluster }, clusterIndex) => {
-                    const lineupSummary = (cluster.composition ?? [])
-                      .map((slot) => `${slot.slot}:${slot.player_name}${slot.multiplier ? ` x${slot.multiplier}` : ''}`)
-                      .join(' | ')
+                  {sortedClusters.map((cluster, clusterIndex) => {
                     const lineupSlots = parseLineupSignature(cluster.lineup_signature)
                     return (
-                      <tr key={cluster.cluster_id ?? cluster.cluster_key ?? `cluster-${clusterIndex}`}>
-                        <td>{formatValue(cluster.rank ?? cluster.best_rank)}</td>
-                        <td>{cluster.entry_count ?? cluster.user_count ?? 0}</td>
-                        <td>{formatPoints(cluster.points ?? cluster.best_points)}</td>
-                        <td>{formatPmr(cluster.pmr ?? cluster.avg_pmr)}</td>
+                      <tr key={cluster.cluster_id ?? `cluster-${clusterIndex}`}>
+                        <td>{formatValue(cluster.rank)}</td>
+                        <td>{cluster.user_count ?? 0}</td>
+                        <td>{formatPoints(cluster.points)}</td>
+                        <td>{formatPmr(cluster.pmr)}</td>
                         <td>
-                          {lineupSummary ? (
-                            <span className="live-train-lineup">{lineupSummary}</span>
-                          ) : lineupSlots.length ? (
+                          {lineupSlots.length ? (
                             <ul className="live-train-lineup" aria-label="Lineup">
                               {lineupSlots.map((slot, slotIndex) => (
                                 <li
@@ -805,19 +724,8 @@ function Live() {
           <p className="meta-text">Standings unavailable for this contest.</p>
         ) : (
           <>
-            <p className="meta-text">
-              Updated:{' '}
-              {!Array.isArray(standings) && standings.updated_at
-                ? new Date(standings.updated_at).toLocaleString()
-                : 'unknown'}
-            </p>
+            <p className="meta-text">Updated: unknown</p>
             <p className="meta-text">Rows: {standingsRows.length}</p>
-            {!Array.isArray(standings) && standings.total_rows !== undefined ? (
-              <p className="meta-text">Total rows: {standings.total_rows}</p>
-            ) : null}
-            {!Array.isArray(standings) && standings.is_truncated ? (
-              <p className="meta-text">Showing truncated standings payload.</p>
-            ) : null}
             {standingsRows.length === 0 ? (
               <p className="meta-text">No standings rows available.</p>
             ) : (
@@ -835,17 +743,15 @@ function Live() {
                 <tbody>
                   {standingsRows.map((row, rowIndex) => (
                     <tr key={String(row.entry_key ?? `standings-${String(row.rank ?? 'row')}-${rowIndex}`)}>
-                      <td>{String(row.display_name ?? row.username ?? row.entry_key ?? '—')}</td>
+                      <td>{String(row.username ?? row.entry_key ?? '—')}</td>
                       <td>{formatValue(typeof row.rank === 'number' ? row.rank : undefined)}</td>
                       <td>{formatValue(typeof row.points === 'number' ? row.points : undefined)}</td>
                       <td>{formatValue(typeof row.pmr === 'number' ? row.pmr : undefined)}</td>
                       <td>
                         {formatValue(
-                          typeof row.ownership_remaining_pct === 'number'
-                            ? row.ownership_remaining_pct
-                            : typeof row.ownership_remaining_total_pct === 'number'
-                              ? row.ownership_remaining_total_pct
-                              : undefined,
+                          typeof row.ownership_remaining_total_pct === 'number'
+                            ? row.ownership_remaining_total_pct
+                            : undefined,
                           { suffix: '%' },
                         )}
                       </td>
