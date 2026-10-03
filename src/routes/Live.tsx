@@ -212,9 +212,9 @@ function Live() {
   const ownershipWatchlist = primaryContest?.ownership_watchlist
   const topN = ownershipWatchlist?.top_n_default ?? 10
   const topEntries = ownershipWatchlist ? ownershipWatchlist.entries.slice(0, Math.max(0, topN)) : []
-  const trainClusters = primaryContest?.train_clusters
+  const trainClusters = Array.isArray(primaryContest?.train_clusters?.clusters) ? primaryContest?.train_clusters : undefined
   const sortedClusters = trainClusters ? [...trainClusters.clusters].sort((a, b) => b.entry_count - a.entry_count) : []
-  const standings = primaryContest?.standings
+  const standings = Array.isArray(primaryContest?.standings?.rows) ? primaryContest?.standings : undefined
   const distanceMetrics = primaryContest?.metrics?.distance_to_cash
   const distanceLookup = new Map<string, ContestMetricsDistanceToCash['per_vip'][number]>()
   for (const entry of distanceMetrics?.per_vip ?? []) {

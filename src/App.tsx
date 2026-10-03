@@ -1,5 +1,6 @@
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import AppShell from './components/AppShell'
+import ErrorBoundary from './components/ErrorBoundary'
 import { AuthProvider } from './context/AuthContext'
 import { ProfileProvider } from './context/ProfileContext'
 import { useAuth } from './hooks/useAuth'
@@ -32,6 +33,15 @@ function RequireAuthenticatedLayout() {
   return <AppShell />
 }
 
+function LiveRoute() {
+  const location = useLocation()
+  return (
+    <ErrorBoundary key={location.pathname} label="Live">
+      <Live />
+    </ErrorBoundary>
+  )
+}
+
 function RequireOwner() {
   const { status, user } = useAuth()
 
@@ -60,7 +70,7 @@ function App() {
 
           <Route element={<RequireAuthenticatedLayout />}>
             <Route path="/latest" element={<Latest />} />
-            <Route path="/live/:sport" element={<Live />} />
+            <Route path="/live/:sport" element={<LiveRoute />} />
             <Route path="/history" element={<History />} />
             <Route path="/history/:timestamp" element={<History />} />
             <Route path="/sport/:sport" element={<Sport />} />

@@ -489,6 +489,19 @@ it('shows unavailable placeholders when sections are missing', async () => {
   expect(screen.getByText(/standings unavailable for this contest/i)).toBeInTheDocument()
 })
 
+it('treats flat-array train_clusters and standings as unavailable instead of crashing', async () => {
+  const snapshotWithFlatSections = structuredClone(snapshotFixture) as unknown as {
+    sports: { nba: { contests: Array<Record<string, unknown>> } }
+  }
+  const contest = snapshotWithFlatSections.sports.nba.contests[0]
+  contest.train_clusters = [{ cluster_id: 'c1', user_count: 2 }]
+  contest.standings = [{ entry_key: 'e1', rank: 1 }]
+
+  await renderLive(snapshotWithFlatSections)
+  expect(screen.getByText(/train cluster data unavailable for this contest/i)).toBeInTheDocument()
+  expect(screen.getByText(/standings unavailable for this contest/i)).toBeInTheDocument()
+})
+
 it('renders train clusters with cluster rule and sorts by entry_count desc', async () => {
   const snapshotWithSortedClusters = structuredClone(snapshotFixture) as any
   if (snapshotWithSortedClusters.sports.nba.contests[0].metrics) {
