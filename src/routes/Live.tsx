@@ -119,8 +119,8 @@ function renderValueBadge(value: unknown) {
   return <span className={`value-badge value-badge--${tier}`}>{formatBadgeValue(value, tier)}</span>
 }
 
-function formatSelectionReason(value: unknown): string {
-  if (typeof value === 'string') {
+function formatSelectionReason(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.trim()) {
     return value
   }
   if (value && typeof value === 'object') {
@@ -129,7 +129,7 @@ function formatSelectionReason(value: unknown): string {
       return mode
     }
   }
-  return 'unknown'
+  return undefined
 }
 
 function normalizeStandingsRows(standings: unknown): Array<Record<string, unknown>> {
@@ -302,6 +302,8 @@ function Live() {
     )
   }
 
+  const selectionReason = formatSelectionReason(sportData.primary_contest.selection_reason)
+
   return (
     <section className="page page-stack">
       <h1 className="page-title">Live: {sport.toUpperCase()}</h1>
@@ -312,7 +314,7 @@ function Live() {
         <p className="meta-text">{primaryContest.name}</p>
         <p className="meta-text">Contest key: {primaryContest.contest_key}</p>
         <p className="meta-text">Contest id: {primaryContest.contest_id}</p>
-        <p className="meta-text">Selection reason: {formatSelectionReason(sportData.primary_contest.selection_reason)}</p>
+        {selectionReason ? <p className="meta-text">Selection reason: {selectionReason}</p> : null}
         <p className="meta-text">
           Cash line:{' '}
           {cashLinePoints === null || cashLinePoints === undefined ? '—' : `${cashLinePoints} pts`}
@@ -340,7 +342,7 @@ function Live() {
               const playersLive = Array.isArray(lineup.players_live) ? lineup.players_live : null
               const updatedAt = lineup.live?.updated_at
                 ? new Date(lineup.live.updated_at).toLocaleString()
-                : 'unknown'
+                : undefined
 
               return (
                 <li key={`${lineupKey}-${lineupIndex}`} className="item-card page-stack-sm">
@@ -354,7 +356,7 @@ function Live() {
                   {rankDelta === null || rankDelta === undefined ? null : (
                     <p className="meta-text">Rank delta: {formatSigned(rankDelta)}</p>
                   )}
-                  <p className="meta-text">Last updated: {updatedAt}</p>
+                  {updatedAt ? <p className="meta-text">Last updated: {updatedAt}</p> : null}
                   {playersLive ? (
                     playersLive.length === 0 ? (
                       <p className="meta-text">No player live details available.</p>
@@ -724,7 +726,6 @@ function Live() {
           <p className="meta-text">Standings unavailable for this contest.</p>
         ) : (
           <>
-            <p className="meta-text">Updated: unknown</p>
             <p className="meta-text">Rows: {standingsRows.length}</p>
             {standingsRows.length === 0 ? (
               <p className="meta-text">No standings rows available.</p>

@@ -256,6 +256,24 @@ it('omits Train finder header values the snapshot does not carry', async () => {
   expect(within(trains).queryByText(/unknown/i)).not.toBeInTheDocument()
 })
 
+it('omits update times and selection reason the snapshot does not carry instead of saying unknown', async () => {
+  const snapshot = structuredClone(producerSnapshot)
+  cfbContest(snapshot).vip_lineups = [{ entry_key: 'vip-1', display_name: 'No Timestamp VIP', slots: [] }]
+  ;(snapshot.sports.cfb.primary_contest as Record<string, unknown>).selection_reason = {}
+
+  await renderLiveAgainstProducerSnapshot('cfb', snapshot)
+
+  const vipCard = screen.getByText('No Timestamp VIP').closest('li')
+  if (!(vipCard instanceof HTMLElement)) throw new Error('No VIP card')
+  expect(within(vipCard).queryByText(/last updated/i)).not.toBeInTheDocument()
+
+  const standings = panel(/^standings$/i)
+  expect(within(standings).queryByText(/updated:/i)).not.toBeInTheDocument()
+
+  expect(within(panel(/primary contest/i)).queryByText(/selection reason/i)).not.toBeInTheDocument()
+  expect(screen.queryByText(/unknown/i)).not.toBeInTheDocument()
+})
+
 function trainRanks() {
   const rows = within(within(panel(/train finder/i)).getByRole('table')).getAllByRole('row').slice(1)
   return rows.map((row) => within(row).getAllByRole('cell')[0].textContent)

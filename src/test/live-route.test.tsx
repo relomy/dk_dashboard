@@ -401,7 +401,6 @@ it('does not accept the pre-v3 train_clusters object shape', async () => {
 it('renders standings table from the producer snapshot', async () => {
   await renderLive(load())
   const standings = panel(/^standings$/i)
-  expect(within(standings).getByText(/updated:/i)).toBeInTheDocument()
   expect(within(standings).getByText('Rows: 35')).toBeInTheDocument()
   expect(within(standings).getByText('bruc0074')).toBeInTheDocument()
   expect(within(within(standings).getByRole('table')).getAllByRole('row')).toHaveLength(1 + 35)
