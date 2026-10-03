@@ -836,7 +836,7 @@ it('renders player board parity columns position matchup salary points value own
   expect(within(playerPanel).getByRole('columnheader', { name: /^value$/i })).toBeInTheDocument()
   expect(within(playerPanel).getByRole('cell', { name: 'PG/SG' })).toBeInTheDocument()
   expect(within(playerPanel).getByRole('cell', { name: '$5,100' })).toBeInTheDocument()
-  expect(within(playerPanel).getByRole('cell', { name: '12.75' })).toBeInTheDocument()
+  expect(within(playerPanel).getByRole('cell', { name: '12.8' })).toBeInTheDocument()
   expect(within(playerPanel).getByRole('cell', { name: '2.5' })).toBeInTheDocument()
 })
 

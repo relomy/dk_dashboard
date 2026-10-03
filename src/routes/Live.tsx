@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from '../lib/perVipKeys'
-import { classifyValueTier, isRelevantPlayerRow, resolveTeamStyleToken, type ValueTier } from '../lib/playerPresentation'
+import { buildPlayerPool, formatOwnership, formatPlayerPoints } from '../lib/playerPool'
+import { classifyValueTier, resolveTeamStyleToken, type ValueTier } from '../lib/playerPresentation'
 import type { ContestMetricsDistanceToCash, VipLineup } from '../lib/types'
 
 type OwnershipSummaryRow = {
@@ -92,61 +93,6 @@ function formatCurrency(value: number | null | undefined): string {
   return `$${Math.round(value).toLocaleString()}`
 }
 
-function joinNonEmpty(values?: string[]): string | undefined {
-  if (!Array.isArray(values)) {
-    return undefined
-  }
-  const joined = values.filter(Boolean).join('/')
-  return joined.trim() ? joined : undefined
-}
-
-function firstNonEmptyString(...values: Array<string | undefined>): string | undefined {
-  for (const value of values) {
-    if (typeof value === 'string' && value.trim()) {
-      return value
-    }
-  }
-  return undefined
-}
-
-function playerSortScore(player: {
-  ownership_pct?: number | null
-  fantasy_points?: number | null
-  actual_points?: number | null
-  projected_points?: number | null
-}) {
-  if (player.ownership_pct !== null && player.ownership_pct !== undefined) {
-    return player.ownership_pct
-  }
-  if (player.fantasy_points !== null && player.fantasy_points !== undefined) {
-    return player.fantasy_points
-  }
-  if (player.actual_points !== null && player.actual_points !== undefined) {
-    return player.actual_points
-  }
-  if (player.projected_points !== null && player.projected_points !== undefined) {
-    return player.projected_points
-  }
-  return Number.NEGATIVE_INFINITY
-}
-
-function playerPointsSignal(player: {
-  fantasy_points?: number | null
-  actual_points?: number | null
-  projected_points?: number | null
-}) {
-  if (player.fantasy_points !== null && player.fantasy_points !== undefined) {
-    return player.fantasy_points
-  }
-  if (player.actual_points !== null && player.actual_points !== undefined) {
-    return player.actual_points
-  }
-  if (player.projected_points !== null && player.projected_points !== undefined) {
-    return player.projected_points
-  }
-  return 0
-}
-
 function formatBadgeValue(value: unknown, tier: ValueTier): string {
   if (tier === 'unknown') {
     return 'N/A'
@@ -162,26 +108,6 @@ function formatBadgeValue(value: unknown, tier: ValueTier): string {
 function renderValueBadge(value: unknown) {
   const tier = classifyValueTier(value)
   return <span className={`value-badge value-badge--${tier}`}>{formatBadgeValue(value, tier)}</span>
-}
-
-function resolvePlayerRowKey(
-  player: {
-    player_id?: string
-    name: string
-    team: string
-    salary: number
-    position?: string
-    roster_positions?: string[]
-    positions?: string[]
-  },
-  index: number,
-): string {
-  if (player.player_id) {
-    return player.player_id
-  }
-  const pos = firstNonEmptyString(player.position, joinNonEmpty(player.roster_positions), joinNonEmpty(player.positions)) ?? ''
-  const composite = `${player.name}|${player.team}|${player.salary}|${pos}`
-  return composite.trim() ? composite : `player-${index}`
 }
 
 function formatSelectionReason(value: unknown): string {
@@ -286,20 +212,10 @@ function Live() {
 
   const sportKey = sport.toLowerCase()
   const sportData = snapshot?.sports[sportKey]
-  const filteredPlayers = useMemo(() => {
-    const search = playerSearch.trim().toLowerCase()
-    const players = sportData?.players ?? []
-    return [...players]
-      .filter((player) => (search ? player.name.toLowerCase().includes(search) : true))
-      .filter((player) =>
-        isRelevantPlayerRow({
-          ownershipPct: player.ownership_pct,
-          points: playerPointsSignal(player),
-          value: player.value,
-        }),
-      )
-      .sort((a, b) => playerSortScore(b) - playerSortScore(a))
-  }, [playerSearch, sportData?.players])
+  const filteredPlayers = useMemo(
+    () => buildPlayerPool(sportData?.players ?? [], playerSearch),
+    [playerSearch, sportData?.players],
+  )
 
   if (loading) {
     return <p className="page">Loading live snapshot...</p>
@@ -576,20 +492,20 @@ function Live() {
               </tr>
             </thead>
             <tbody>
-              {filteredPlayers.map((player, playerIndex) => (
+              {filteredPlayers.map((player) => (
                 <tr
-                  key={resolvePlayerRowKey(player, playerIndex)}
+                  key={player.key}
                   className={`team-accent team-accent--${resolveTeamStyleToken(sportKey, player.team)}`}
                 >
-                  <td>{firstNonEmptyString(player.position, joinNonEmpty(player.roster_positions), joinNonEmpty(player.positions)) ?? '—'}</td>
+                  <td>{player.position}</td>
                   <td>{player.name}</td>
                   <td>{player.team}</td>
-                  <td>{player.matchup || '—'}</td>
+                  <td>{player.matchup}</td>
                   <td>{formatCurrency(player.salary)}</td>
-                  <td>{formatValue(player.ownership_pct, { suffix: '%' })}</td>
-                  <td>{formatValue(player.fantasy_points ?? player.actual_points)}</td>
+                  <td>{formatOwnership(player.ownershipPct)}</td>
+                  <td>{formatPlayerPoints(player.points)}</td>
                   <td>{renderValueBadge(player.value)}</td>
-                  <td>{player.game_status ?? player.status ?? '—'}</td>
+                  <td>{player.status}</td>
                 </tr>
               ))}
             </tbody>

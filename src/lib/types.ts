@@ -246,6 +246,7 @@ export interface Contest {
 }
 
 export interface Player {
+  player_key?: string
   player_id?: string
   name: string
   team: string
