@@ -151,6 +151,103 @@ it('shows a dash for a train whose lineup has no slots', async () => {
   expect(rows).toHaveLength(1 + 17)
 })
 
+const FEED_ISSUE_URL = 'https://github.com/relomy/dk_results/issues/156'
+
+function expectFeedNotProvided(container: HTMLElement) {
+  expect(within(container).getByText(/feed does not provide this metric yet/i)).toBeInTheDocument()
+  const link = within(container).getByRole('link', { name: /relomy\/dk_results#156/i })
+  expect(link).toHaveAttribute('href', FEED_ISSUE_URL)
+}
+
+function subPanel(headingName: RegExp) {
+  const container = screen.getByRole('heading', { name: headingName }).closest('.panel-subtle')
+  if (!(container instanceof HTMLElement)) throw new Error(`No sub-panel for ${headingName}`)
+  return container
+}
+
+type MutableCfbContest = {
+  live_metrics: Record<string, unknown>
+  metrics: { threat: Record<string, unknown> } & Record<string, unknown>
+  vip_lineups: Array<Record<string, unknown>>
+}
+
+function cfbContest(snapshot: typeof producerSnapshot): MutableCfbContest {
+  return snapshot.sports.cfb.contests[0] as unknown as MutableCfbContest
+}
+
+it('titles the top-10 panel Ownership leaders with rounded points and PMR', async () => {
+  await renderLiveAgainstProducerSnapshot('cfb')
+
+  const leaders = subPanel(/^ownership leaders$/i)
+  expect(within(leaders).queryByText(/watchlist/i)).not.toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: /watchlist/i })).not.toBeInTheDocument()
+  const rows = within(within(leaders).getByRole('table')).getAllByRole('row')
+  const cells = within(rows[1])
+    .getAllByRole('cell')
+    .map((cell) => cell.textContent)
+  expect(cells).toEqual(['bruc0074', '272.07%', '231.8', '142', '113.2'])
+})
+
+it('says the feed does not provide the four metrics yet, linking dk_results#156', async () => {
+  await renderLiveAgainstProducerSnapshot('mlb')
+
+  expectFeedNotProvided(subPanel(/vip vs field leverage/i))
+  expectFeedNotProvided(subPanel(/vip ownership summary/i))
+  expectFeedNotProvided(subPanel(/users not cashing/i))
+  expectFeedNotProvided(subPanel(/avg salary per player remaining/i))
+})
+
+it('populates the four panels when the feed provides the metrics', async () => {
+  const snapshot = structuredClone(producerSnapshot)
+  const contest = cfbContest(snapshot)
+  contest.vip_lineups = [{ entry_key: 'vip-1', display_name: 'Leverage VIP', slots: [] }]
+  contest.live_metrics.avg_salary_per_player_remaining = 4321.6
+  contest.metrics.threat.field_remaining_pct = 12.345
+  contest.metrics.threat.vip_vs_field_leverage = [
+    {
+      entry_key: 'vip-1',
+      display_name: 'Leverage VIP',
+      vip_remaining_pct: 40,
+      field_remaining_pct: 30.5,
+      uniqueness_delta_pct: 9.5,
+    },
+  ]
+  contest.metrics.non_cashing = { users_not_cashing: 77, avg_pmr_remaining: 12.5, top_remaining_players: [] }
+  contest.metrics.ownership_summary = {
+    per_vip: [{ entry_key: 'vip-1', total_ownership_pct: 55.5, ownership_in_play_pct: 20, is_partial: false }],
+  }
+
+  await renderLiveAgainstProducerSnapshot('cfb', snapshot)
+
+  const leverage = subPanel(/vip vs field leverage/i)
+  expect(within(leverage).queryByText(/feed does not provide/i)).not.toBeInTheDocument()
+  expect(within(leverage).getByText('+9.5%')).toBeInTheDocument()
+  expect(within(leverage).getByText('Field remaining: 12.35%')).toBeInTheDocument()
+  expect(within(leverage).queryByText(/watchlist/i)).not.toBeInTheDocument()
+
+  const summary = subPanel(/vip ownership summary/i)
+  expect(within(summary).queryByText(/feed does not provide/i)).not.toBeInTheDocument()
+  expect(within(summary).getByText('55.5%')).toBeInTheDocument()
+
+  const nonCashing = panel(/non-cashing info/i)
+  expect(within(nonCashing).queryByText(/feed does not provide/i)).not.toBeInTheDocument()
+  expect(within(nonCashing).getByText(/users not cashing: 77/i)).toBeInTheDocument()
+
+  const avg = subPanel(/avg salary per player remaining/i)
+  expect(within(avg).getByText('$4,322')).toBeInTheDocument()
+  expect(within(avg).queryByText(/feed does not provide/i)).not.toBeInTheDocument()
+})
+
+it('labels the show-all button for trains, not clusters', async () => {
+  const snapshot = structuredClone(producerSnapshot)
+  const contest = mlbContest(snapshot) as unknown as { metrics: unknown }
+  contest.metrics = { trains: { ranked_clusters: [{ cluster_key: 'x' }] } }
+  await renderLiveAgainstProducerSnapshot('mlb', snapshot)
+  const trains = panel(/train finder/i)
+  expect(within(trains).queryByRole('button', { name: /clusters/i })).not.toBeInTheDocument()
+  expect(within(trains).getByRole('button', { name: /show all trains/i })).toBeInTheDocument()
+})
+
 it('omits Train finder header values the snapshot does not carry', async () => {
   const snapshot = structuredClone(producerSnapshot)
   const contest = mlbContest(snapshot)

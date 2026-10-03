@@ -379,7 +379,7 @@ it('renders ownership watchlist total and respects top_n_default', async () => {
   if (!(ownershipPanel instanceof HTMLElement)) {
     throw new Error('Ownership panel not found')
   }
-  const watchlistPanel = within(ownershipPanel).getByRole('heading', { name: /watchlist ownership remaining/i }).closest('.panel-subtle')
+  const watchlistPanel = within(ownershipPanel).getByRole('heading', { name: /^ownership leaders$/i }).closest('.panel-subtle')
   if (!(watchlistPanel instanceof HTMLElement)) {
     throw new Error('Watchlist panel not found')
   }
@@ -427,7 +427,7 @@ it('renders ownership summary cards from metrics using stable per-vip keys', asy
 
 it('shows ownership summary unavailable state when summary metrics are missing', async () => {
   await renderLive(v3MissingMetricsFixture, 'snapshots/canonical-live-snapshot.v3-missing-metrics.json')
-  expect(screen.getByText(/ownership summary metrics unavailable for this contest/i)).toBeInTheDocument()
+  expect(screen.getAllByText(/the feed does not provide this metric yet/i).length).toBeGreaterThan(0)
 })
 
 it('shows ownership summary empty state when summary rows do not match VIP keys', async () => {
@@ -474,7 +474,7 @@ it('renders non-cashing panel with users, avg PMR, and top remaining players', a
 
 it('shows non-cashing unavailable state when metrics are missing', async () => {
   await renderLive(v3MissingMetricsFixture, 'snapshots/canonical-live-snapshot.v3-missing-metrics.json')
-  expect(screen.getByText(/non-cashing metrics unavailable for this contest/i)).toBeInTheDocument()
+  expect(screen.getAllByText(/the feed does not provide this metric yet/i).length).toBeGreaterThan(0)
 })
 
 it('renders avg salary per player remaining from live metrics', async () => {
@@ -490,8 +490,8 @@ it('renders avg salary per player remaining from live metrics', async () => {
   if (!(panel instanceof HTMLElement)) {
     throw new Error('Non-cashing panel not found')
   }
-  expect(within(panel).getByText(/avg salary per player remaining:\s*\$6,158/i)).toBeInTheDocument()
-  expect(within(panel).getByText(/non-cashing metrics unavailable for this contest/i)).toBeInTheDocument()
+  expect(within(panel).getByText('$6,158')).toBeInTheDocument()
+  expect(within(panel).getByRole('heading', { name: /avg salary per player remaining/i })).toBeInTheDocument()
 })
 
 it('shows non-cashing empty top-player state when list is present but empty', async () => {
@@ -576,7 +576,7 @@ it('uses train metrics top clusters by default and toggles full list', async () 
   }
   const trainTable = within(trainPanel).getByRole('table')
   const topRowCount = within(trainTable).getAllByRole('row').length
-  const toggleButton = within(trainPanel).getByRole('button', { name: /show all clusters/i })
+  const toggleButton = within(trainPanel).getByRole('button', { name: /show all trains/i })
   fireEvent.click(toggleButton)
   expect(within(trainTable).getAllByRole('row').length).toBeGreaterThan(topRowCount)
 })

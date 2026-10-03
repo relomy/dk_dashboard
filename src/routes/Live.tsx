@@ -89,6 +89,20 @@ function formatPercent(value: number): string {
   return `${formatTrimmedNumber(value, 2)}%`
 }
 
+const FEED_ISSUE_URL = 'https://github.com/relomy/dk_results/issues/156'
+
+function FeedNotProvided() {
+  return (
+    <p className="meta-text">
+      The feed does not provide this metric yet (
+      <a href={FEED_ISSUE_URL} target="_blank" rel="noreferrer">
+        relomy/dk_results#156
+      </a>
+      ).
+    </p>
+  )
+}
+
 function formatCurrency(value: number | null | undefined): string {
   if (value === null || value === undefined) {
     return '—'
@@ -302,9 +316,10 @@ function Live() {
   const cashLineRank = cashLine?.rank_cutoff
   const threatMetrics = primaryContest?.metrics?.threat
   const topSwingPlayers = threatMetrics?.top_swing_players ?? []
-  const vipLeverage = threatMetrics?.vip_vs_field_leverage ?? []
+  const vipLeverageRaw = threatMetrics?.vip_vs_field_leverage
+  const vipLeverage = vipLeverageRaw ?? []
   const fieldRemainingScope =
-    threatMetrics?.field_remaining_scope === 'contest_field' ? 'Contest field' : 'Watchlist'
+    threatMetrics?.field_remaining_scope === 'contest_field' ? ' (contest field)' : ''
   const nonCashingMetrics = primaryContest?.metrics?.non_cashing
   const avgSalaryPerPlayerRemaining = primaryContest?.live_metrics?.avg_salary_per_player_remaining
   const topRemainingPlayers = Array.isArray(nonCashingMetrics?.top_remaining_players)
@@ -547,12 +562,18 @@ function Live() {
                 </ul>
               )}
             </div>
-            <div className="panel-subtle page-stack-sm">
-              <h3 className="subsection-title">VIP vs field leverage</h3>
+          </div>
+        )}
+        <div className="panel-subtle page-stack-sm">
+          <h3 className="subsection-title">VIP vs field leverage</h3>
+          {!vipLeverageRaw ? (
+            <FeedNotProvided />
+          ) : (
+            <>
               <p className="meta-text">
-                Field remaining ({fieldRemainingScope}):{' '}
-                {formatValue(threatMetrics.field_remaining_pct, { suffix: '%' })}
-                {threatMetrics.field_remaining_is_partial ? ' (partial)' : ''}
+                Field remaining{fieldRemainingScope}:{' '}
+                {formatValue(threatMetrics?.field_remaining_pct, { suffix: '%' })}
+                {threatMetrics?.field_remaining_is_partial ? ' (partial)' : ''}
               </p>
               {vipLeverage.length === 0 ? (
                 <p className="meta-text">No VIP leverage data available.</p>
@@ -582,20 +603,21 @@ function Live() {
                   </tbody>
                 </table>
               )}
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       <div className="panel page-stack-sm">
         <h2 className="section-title">Ownership remaining</h2>
-        {!ownershipSummary ? (
-          <p className="meta-text">Ownership summary metrics unavailable for this contest.</p>
-        ) : ownershipSummaryRows.length === 0 ? (
-          <p className="meta-text">No ownership summary rows available for VIP lineups.</p>
-        ) : (
-          <div className="panel-subtle page-stack-sm">
-            <h3 className="subsection-title">VIP ownership summary</h3>
+        <div className="panel-subtle page-stack-sm">
+          <h3 className="subsection-title">VIP ownership summary</h3>
+          {!ownershipSummary ? (
+            <FeedNotProvided />
+          ) : ownershipSummaryRows.length === 0 ? (
+            <p className="meta-text">No ownership summary rows available for VIP lineups.</p>
+          ) : (
+            <>
             <table className="data-table">
               <thead>
                 <tr>
@@ -616,13 +638,14 @@ function Live() {
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
+            </>
+          )}
+        </div>
         {!ownershipWatchlist ? (
           <p className="meta-text">Ownership watchlist unavailable for this contest.</p>
         ) : (
           <div className="panel-subtle page-stack-sm">
-            <h3 className="subsection-title">Watchlist ownership remaining</h3>
+            <h3 className="subsection-title">Ownership leaders</h3>
             <p className="item-title">
               Ownership remaining total: {formatValue(ownershipWatchlist.ownership_remaining_total_pct, { suffix: '%' })}
             </p>
@@ -645,9 +668,9 @@ function Live() {
                     <tr key={entry.entry_key || `watch-${entryIndex}`}>
                       <td>{entry.display_name ?? entry.entry_key}</td>
                       <td>{formatValue(entry.ownership_remaining_pct, { suffix: '%' })}</td>
-                      <td>{formatValue(entry.pmr)}</td>
+                      <td>{formatPmr(entry.pmr)}</td>
                       <td>{formatValue(entry.current_rank)}</td>
-                      <td>{formatValue(entry.current_points)}</td>
+                      <td>{formatPoints(entry.current_points)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -659,9 +682,19 @@ function Live() {
 
       <div className="panel page-stack-sm">
         <h2 className="section-title">Non-cashing info</h2>
-        <p className="item-title">Avg salary per player remaining: {formatCurrency(avgSalaryPerPlayerRemaining)}</p>
+        <div className="panel-subtle page-stack-sm">
+          <h3 className="subsection-title">Avg salary per player remaining</h3>
+          {avgSalaryPerPlayerRemaining === undefined || avgSalaryPerPlayerRemaining === null ? (
+            <FeedNotProvided />
+          ) : (
+            <p className="item-title">{formatCurrency(avgSalaryPerPlayerRemaining)}</p>
+          )}
+        </div>
         {!nonCashingMetrics ? (
-          <p className="meta-text">Non-cashing metrics unavailable for this contest.</p>
+          <div className="panel-subtle page-stack-sm">
+            <h3 className="subsection-title">Users not cashing</h3>
+            <FeedNotProvided />
+          </div>
         ) : (
           <>
             <p className="item-title">Users not cashing: {formatValue(nonCashingMetrics.users_not_cashing)}</p>
@@ -708,7 +741,7 @@ function Live() {
             {trainMetrics && trainRefs.length > 0 ? (
               <div className="action-row">
                 <button type="button" onClick={() => setShowAllTrains((value) => !value)}>
-                  {showAllTrains ? `Show top ${recommendedTopN}` : 'Show all clusters'}
+                  {showAllTrains ? `Show top ${recommendedTopN}` : 'Show all trains'}
                 </button>
               </div>
             ) : null}
