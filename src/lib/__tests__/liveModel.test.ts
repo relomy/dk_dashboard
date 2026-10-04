@@ -6,6 +6,7 @@ import { formatSigned } from '../format'
 import {
   buildLiveModel,
   groupLineup,
+  largestTrains,
   lineupOwnershipHint,
   type LiveLineupPlayer,
   type LiveModel,
@@ -520,7 +521,7 @@ describe('trains', () => {
     expect(trains.rule).toBe('salary_remaining<=40000_and_same_points_pmr')
     expect(trains.rows).toHaveLength(24)
     expect(trains.rows.slice(0, 3).map((train) => train.rank)).toEqual([2, 8, 18])
-    expect(trains.rows[0]).toEqual({
+    expect(trains.rows[0]).toMatchObject({
       id: '9c5f5c8452ef',
       entries: 2,
       rank: 2,
@@ -555,6 +556,182 @@ describe('trains', () => {
     ]
 
     expect(trainsOf(snapshot).rows.map((train) => train.id)).toEqual(['ranked', 'unranked'])
+  })
+
+  describe('closeness', () => {
+    function oneTrain(snapshot: Json, extra: Json = {}) {
+      contestOf(snapshot).train_clusters = [
+        { cluster_id: 't1', user_count: 19, rank: 16, lineup_signature: 'A|B|C|D|E|F|G|H', ...extra },
+      ]
+      const [train] = trainsOf(snapshot).rows
+      if (!train) throw new Error('Expected a train')
+      return train
+    }
+
+    it('reads the optional min_shared_slots against the lineup size', () => {
+      const train = oneTrain(load(), { min_shared_slots: 6 })
+
+      expect(train.minSharedSlots).toBe(6)
+      expect(train.closeness).toEqual({ minShared: 6, slotCount: 8, identical: false })
+    })
+
+    it('is identical when every slot is shared', () => {
+      expect(oneTrain(load(), { min_shared_slots: 8 }).closeness).toEqual({ minShared: 8, slotCount: 8, identical: true })
+    })
+
+    it('has no closeness when the producer omits min_shared_slots', () => {
+      const train = oneTrain(load())
+
+      expect(train.minSharedSlots).toBeNull()
+      expect(train.closeness).toBeNull()
+    })
+
+    it('ignores a min_shared_slots that is not a whole number, or that has no lineup to compare with', () => {
+      expect(oneTrain(load(), { min_shared_slots: 'six' }).closeness).toBeNull()
+      expect(oneTrain(load(), { min_shared_slots: 5.5 }).closeness).toBeNull()
+      expect(oneTrain(load(), { min_shared_slots: 6, lineup_signature: '' }).closeness).toBeNull()
+    })
+  })
+
+  describe('lineup players', () => {
+    function lineupOf(signature: string, players: Json[]) {
+      const snapshot = load()
+      snapshot.sports.cfb.players = players
+      contestOf(snapshot).train_clusters = [{ cluster_id: 't1', user_count: 3, rank: 1, lineup_signature: signature }]
+      const [train] = trainsOf(snapshot).rows
+      return train?.players ?? []
+    }
+
+    it('takes each player game status, points and ownership from the pool, matched by name', () => {
+      const [live, later, done] = lineupOf('Live Guy|Later Guy|Done Guy', [
+        { name: 'Live Guy', team: 'FSU', position: 'QB', salary: 1, game_status: 'In-Progress', fantasy_points: 12.5, ownership_pct: 31.5, value: 4.5 },
+        { name: 'Later Guy', team: 'MIZZ', position: 'RB', salary: 1, game_status: 'FSU@MIZZ 07:30PM ET', fantasy_points: 0, ownership_pct: 12 },
+        { name: 'Done Guy', team: 'FSU', position: 'WR', salary: 1, game_status: 'Final', fantasy_points: 30, ownership_pct: 55, value: 6.5 },
+      ])
+
+      expect(live).toMatchObject({ slot: 'QB', name: 'Live Guy', gameStatus: 'in-progress', points: 12.5, ownershipPct: 31.5, value: 4.5, clock: 'In-Progress' })
+      expect(later).toMatchObject({ slot: 'RB', gameStatus: 'pre-game', points: 0, ownershipPct: 12 })
+      expect(done).toMatchObject({ slot: 'WR', gameStatus: 'final', points: 30 })
+    })
+
+    it('keeps a player missing from the pool as a name with no live details', () => {
+      const [stranger] = lineupOf('Stranger', [])
+
+      expect(stranger).toMatchObject({ name: 'Stranger', slot: '', gameStatus: null, points: null, ownershipPct: null, clock: null })
+    })
+
+    it('keeps locked slots in position, with no live details', () => {
+      const players = lineupOf('LOCKED 🔒|Live Guy', [{ name: 'Live Guy', team: 'FSU', position: 'QB', salary: 1 }])
+
+      expect(players.map((player) => player.name)).toEqual(['Locked 🔒', 'Live Guy'])
+      expect(players[0]).toMatchObject({ gameStatus: null, points: null })
+    })
+
+    it('has no players for a train without a lineup', () => {
+      expect(lineupOf('', [])).toEqual([])
+    })
+  })
+
+  describe('riding entries', () => {
+    it('joins entry_keys to standings rows for display names, in entry_keys order', () => {
+      const snapshot = load()
+      contestOf(snapshot).standings = [
+        { entry_key: 'k2', username: 'second', rank: 2 },
+        { entry_key: 'k1', username: 'first', rank: 1 },
+      ]
+      contestOf(snapshot).train_clusters = [{ cluster_id: 't1', user_count: 4, rank: 1, entry_keys: ['k1', 'missing', 'k2'] }]
+
+      const [train] = trainsOf(snapshot).rows
+      expect(train?.ridingNames).toEqual(['first', 'second'])
+    })
+
+    it('has no names when the contest has no standings', () => {
+      const snapshot = load()
+      delete contestOf(snapshot).standings
+      contestOf(snapshot).train_clusters = [{ cluster_id: 't1', user_count: 4, rank: 1, entry_keys: ['k1'] }]
+
+      expect(trainsOf(snapshot).rows[0]?.ridingNames).toEqual([])
+    })
+  })
+
+  describe('overlap with VIP lineups', () => {
+    function overlapSnapshot() {
+      const snapshot = load()
+      contestOf(snapshot).vip_lineups = [
+        { entry_key: 'v1', display_name: 'VIP One', slots: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((player_name) => ({ slot: 'X', player_name })), payout_cents: null },
+        { entry_key: 'v2', display_name: 'VIP Two', slots: ['A', 'Z1', 'Z2', 'Z3'].map((player_name) => ({ slot: 'X', player_name })), payout_cents: null },
+      ]
+      contestOf(snapshot).train_clusters = [
+        { cluster_id: 'big', user_count: 14, rank: 36, lineup_signature: 'A|B|C|D|X1|X2|X3|X4' },
+        { cluster_id: 'small', user_count: 2, rank: 4, lineup_signature: 'A|B|C|D|E|F|Q1|Q2' },
+      ]
+      return snapshot
+    }
+
+    it('counts the players each VIP shares with the train, by name', () => {
+      const trains = trainsOf(overlapSnapshot()).rows
+      const big = trains.find((train) => train.id === 'big')
+      const small = trains.find((train) => train.id === 'small')
+
+      expect(big?.vipOverlaps).toEqual([
+        { key: 'v1', name: 'VIP One', shared: 4 },
+        { key: 'v2', name: 'VIP Two', shared: 1 },
+      ])
+      expect(small?.vipOverlaps.map((overlap) => overlap.shared)).toEqual([6, 1])
+    })
+
+    it('never counts a locked slot as shared', () => {
+      const snapshot = overlapSnapshot()
+      contestOf(snapshot).train_clusters = [{ cluster_id: 'locked', user_count: 3, rank: 1, lineup_signature: 'LOCKED 🔒|LOCKED 🔒|A' }]
+      contestOf(snapshot).vip_lineups[0].slots.push({ slot: 'X', player_name: 'Locked 🔒' })
+
+      expect(trainsOf(snapshot).rows[0]?.vipOverlaps.map((overlap) => overlap.shared)).toEqual([1, 1])
+    })
+
+    it('points each VIP at the train it shares the most players with, with the VIP lineup size', () => {
+      const [one, two] = modelOf(overlapSnapshot()).vips
+
+      expect(one?.trainOverlap).toEqual({ trainId: 'small', entries: 2, rank: 4, shared: 6, slotCount: 8 })
+      expect(two?.trainOverlap).toBeNull()
+    })
+
+    it('breaks ties by the larger train', () => {
+      const snapshot = overlapSnapshot()
+      contestOf(snapshot).train_clusters = [
+        { cluster_id: 'small', user_count: 2, rank: 4, lineup_signature: 'A|B|C|D|E|F|Q1|Q2' },
+        { cluster_id: 'big', user_count: 14, rank: 36, lineup_signature: 'A|B|C|D|E|F|Q3|Q4' },
+      ]
+
+      expect(modelOf(snapshot).vips[0]?.trainOverlap?.trainId).toBe('big')
+    })
+
+    it('has no overlap when a VIP shares fewer than 4 players with every train', () => {
+      const snapshot = overlapSnapshot()
+      contestOf(snapshot).train_clusters = [{ cluster_id: 'far', user_count: 9, rank: 1, lineup_signature: 'A|B|C|Y1|Y2|Y3|Y4|Y5' }]
+
+      expect(modelOf(snapshot).vips[0]?.trainOverlap).toBeNull()
+    })
+
+    it('has no overlap when trains are unavailable', () => {
+      const snapshot = overlapSnapshot()
+      delete contestOf(snapshot).train_clusters
+
+      expect(modelOf(snapshot).vips[0]?.trainOverlap).toBeNull()
+    })
+  })
+
+  describe('largest trains', () => {
+    it('orders by entries, then best rank', () => {
+      const snapshot = load()
+      contestOf(snapshot).train_clusters = [
+        { cluster_id: 'a', user_count: 3, rank: 1 },
+        { cluster_id: 'b', user_count: 9, rank: 50 },
+        { cluster_id: 'c', user_count: 9, rank: 20 },
+        { cluster_id: 'd', user_count: 4 },
+      ]
+
+      expect(largestTrains(trainsOf(snapshot).rows, 3).map((train) => train.id)).toEqual(['c', 'b', 'd'])
+    })
   })
 
   it('is unavailable when the contest has no train_clusters', () => {
