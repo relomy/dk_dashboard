@@ -1,6 +1,6 @@
 import { parseLineupSignature, type LineupSlot } from './lineup'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from './perVipKeys'
-import { buildPlayerPool, readValueIcon, type PlayerPoolRow } from './playerPool'
+import { buildPlayerPool, numberOrNull, readValueIcon, type PlayerPoolRow } from './playerPool'
 import type {
   Contest,
   ContestMetricsDistanceToCash,
@@ -248,10 +248,6 @@ export interface LiveModel {
 export type LiveModelResult =
   | { kind: 'ready'; model: LiveModel }
   | { kind: 'not-renderable'; reason: LiveNotRenderableReason }
-
-function numberOrNull(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
 
 function notRenderable(reason: LiveNotRenderableReason): LiveModelResult {
   return { kind: 'not-renderable', reason }

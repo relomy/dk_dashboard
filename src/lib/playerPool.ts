@@ -34,7 +34,8 @@ export function readValueIcon(value: unknown): ValueIcon | null {
   return value === 'fire' || value === 'ice' ? value : null
 }
 
-function finiteOrNull(value: number | null | undefined): number | null {
+/** A feed value as a finite number; anything else (absent, null, NaN, a string) is null. */
+export function numberOrNull(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
@@ -51,9 +52,9 @@ function toRow(player: Player, index: number): PlayerPoolRow {
     position,
     matchup: player.matchup || DASH,
     salary: player.salary,
-    ownershipPct: finiteOrNull(player.ownership_pct),
-    points: finiteOrNull(player.fantasy_points),
-    value: finiteOrNull(player.value),
+    ownershipPct: numberOrNull(player.ownership_pct),
+    points: numberOrNull(player.fantasy_points),
+    value: numberOrNull(player.value),
     status: player.game_status ?? DASH,
     valueIcon: readValueIcon(player.value_icon),
   }
