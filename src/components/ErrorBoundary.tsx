@@ -23,8 +23,8 @@ class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.error) {
       return (
-        <section className="page page-stack" role="alert">
-          <h1 className="page-title">{this.props.label}</h1>
+        <section className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 text-sm" role="alert">
+          <h1 className="text-lg font-semibold tracking-tight">{this.props.label}</h1>
           <p>This page could not be displayed because the snapshot data was not in the expected format.</p>
         </section>
       )

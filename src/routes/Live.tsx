@@ -8,7 +8,7 @@ import { buildLiveModel, type LiveNotRenderableReason } from '../lib/liveModel'
 /** A centered message on the dark Live surface, for loading, errors and snapshots with nothing to render. */
 function LiveMessage({ title, tone, children }: { title?: string; tone?: 'error'; children: ReactNode }) {
   return (
-    <div className="app-ui grid min-h-64 place-items-center p-4">
+    <div className="grid min-h-64 place-items-center p-4">
       {title ? <h1 className="sr-only">{title}</h1> : null}
       <div
         role={tone === 'error' ? 'alert' : 'status'}

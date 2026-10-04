@@ -23,8 +23,8 @@ function AppShell() {
   const currentSport = sportFromPath(pathname)
 
   return (
-    <div className="app-shell flex flex-col">
-      <header className="app-ui sticky top-0 z-30 border-b bg-background/90 backdrop-blur">
+    <div className="flex min-h-screen flex-col">
+      <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur">
         <div className="flex items-center gap-3 px-4 py-2 text-xs">
           <Link to="/" className="shrink-0 font-mono font-bold text-cashing">
             DK/LIVE
@@ -37,7 +37,7 @@ function AppShell() {
         </div>
       </header>
       <TopBarSlotContext.Provider value={slot}>
-        <main className="legacy-surface flex-1">
+        <main className="flex-1">
           <Outlet />
         </main>
       </TopBarSlotContext.Provider>
