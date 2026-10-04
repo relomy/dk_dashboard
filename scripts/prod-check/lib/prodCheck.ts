@@ -1,5 +1,5 @@
 import { INVARIANTS, contractCasesOf } from '../../../src/lib/liveInvariants'
-import { buildLiveModel, type LiveModel, type LiveNotRenderableReason } from '../../../src/lib/liveModel'
+import { buildLiveModel, type LiveModel, type LiveNotRenderableReason, type LiveVip } from '../../../src/lib/liveModel'
 import { LIVE_UNREAD_ALLOWLIST, liveUnreadPaths } from '../../../src/lib/liveUnreadPaths'
 import type { Snapshot } from '../../../src/lib/types'
 import { unallowlistedPaths } from '../../../src/lib/unreadPaths'
@@ -102,8 +102,15 @@ function vipLines(model: LiveModel): string[] {
   return model.vips.map(
     (vip) =>
       `  ${vip.name}: rank ${show(vip.rank)}, points ${show(vip.points)}, pmr ${show(vip.pmr)}, ` +
-      `${vip.cashing ? 'cashing' : 'not cashing'}, leverage ${vip.leverage.availability}`,
+      `${vip.cashing ? 'cashing' : 'not cashing'}, own rem ${show(vip.ownershipRemainingPct)}, ${leverageFigure(vip)}`,
   )
+}
+
+/** The VIP's uniqueness delta, marked when partial; or that the feed has no leverage row for them. */
+function leverageFigure(vip: LiveVip): string {
+  if (vip.leverage.availability !== 'available') return 'leverage unavailable'
+  const { uniquenessDeltaPct, partial } = vip.leverage.data
+  return `leverage delta ${show(uniquenessDeltaPct)}${partial ? ' (partial)' : ''}`
 }
 
 function invariantLines({ name, violations }: { name: string; violations: string[] }): string[] {

@@ -43,6 +43,8 @@ describe('runProdCheck', () => {
     expect(result.output).toContain('cglenn91')
     expect(result.output).toMatch(/rank 879\b/)
     expect(result.output).toMatch(/pmr 390\b/)
+    // Every NFL leverage row is partial; cglenn91's says 262.59% remaining, 15.7 less unique than the field.
+    expect(result.output).toMatch(/cglenn91: .*own rem 262\.59, leverage delta -15\.7 \(partial\)$/m)
     expect(result.output).toContain('PASS')
     expect(result.output.split('\n').length).toBeLessThan(60)
     expect(result.output).not.toContain('{')
