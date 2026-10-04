@@ -1,5 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import AuthLayout, { AuthLoading } from '../components/AuthLayout'
 import { AuthApiError } from '../lib/authApi'
 import { useAuth } from '../hooks/useAuth'
 
@@ -13,7 +17,7 @@ function Login() {
   const [saving, setSaving] = useState(false)
 
   if (status === 'loading') {
-    return <p className="page">Loading session...</p>
+    return <AuthLoading />
   }
 
   if (status === 'authenticated' && user) {
@@ -47,13 +51,11 @@ function Login() {
   }
 
   return (
-    <section className="page page-centered">
-      <div className="key-gate panel">
-        <h1 className="page-title">Sign in</h1>
-        <p className="page-meta">Use your dashboard username and password.</p>
-        <form onSubmit={submit} className="form-grid">
-          <label htmlFor="auth-username">Username</label>
-          <input
+    <AuthLayout title="Sign in" description="Use your dashboard username and password.">
+      <form onSubmit={submit} className="grid gap-4">
+        <div className="grid gap-1.5">
+          <Label htmlFor="auth-username">Username</Label>
+          <Input
             id="auth-username"
             type="text"
             value={username}
@@ -61,8 +63,10 @@ function Login() {
             autoComplete="username"
             required
           />
-          <label htmlFor="auth-password">Password</label>
-          <input
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="auth-password">Password</Label>
+          <Input
             id="auth-password"
             type="password"
             value={password}
@@ -70,13 +74,17 @@ function Login() {
             autoComplete="current-password"
             required
           />
-          {error ? <p className="error-text">{error}</p> : null}
-          <button type="submit" disabled={saving}>
-            {saving ? 'Signing in...' : 'Sign in'}
-          </button>
-        </form>
-      </div>
-    </section>
+        </div>
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+        <Button type="submit" size="lg" disabled={saving}>
+          {saving ? 'Signing in...' : 'Sign in'}
+        </Button>
+      </form>
+    </AuthLayout>
   )
 }
 
