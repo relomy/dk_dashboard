@@ -1,101 +1,28 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useParams } from 'react-router-dom'
-import StatusBadge from '../components/StatusBadge'
+import { Link, useParams } from 'react-router-dom'
+import { Input } from '@/components/ui/input'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import ContestCard from '../components/ContestCard'
+import DataPage from '../components/DataPage'
+import SelectField from '../components/SelectField'
+import StatusPill from '../components/StatusPill'
 import { useProfiles } from '../context/ProfileContext'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
+import { contestStates, groupContestsByState } from '../lib/contestDisplay'
 import { formatPoints } from '../lib/format'
 import type { ProfileMatchRules } from '../lib/profiles'
 import { buildPlayerPool, formatOwnership } from '../lib/playerPool'
-import type { Contest, ContestState, Player, SportSnapshot } from '../lib/types'
+import type { Player, SportSnapshot } from '../lib/types'
 import { filterVipLineups } from '../lib/vipMatcher'
 
-const contestStates: ContestState[] = ['live', 'upcoming', 'completed', 'cancelled', 'unknown']
-
-function formatMoney(cents: number, currency: string): string {
-  const safeCents = Number.isFinite(cents) ? cents : 0
-  const safeCurrency = currency || 'USD'
-
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: safeCurrency,
-    }).format(safeCents / 100)
-  } catch {
-    return `$${(safeCents / 100).toFixed(0)}`
-  }
-}
-
-function formatBadgeMoney(cents: number, currency: string): string {
-  const safeCents = Number.isFinite(cents) ? cents : 0
-  const safeCurrency = currency || 'USD'
-
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: safeCurrency,
-      maximumFractionDigits: 0,
-    }).format(safeCents / 100)
-  } catch {
-    return `$${(safeCents / 100).toFixed(0)}`
-  }
-}
-
-function groupContestsByState(contests: Contest[]): Record<ContestState, Contest[]> {
-  const grouped: Record<ContestState, Contest[]> = {
-    upcoming: [],
-    live: [],
-    completed: [],
-    cancelled: [],
-    unknown: [],
-  }
-
-  for (const contest of contests) {
-    const state = contest.state && contest.state in grouped ? contest.state : 'unknown'
-    grouped[state as ContestState].push(contest)
-  }
-
-  return grouped
-}
-
-function formatContestState(state: ContestState): string {
-  return state.charAt(0).toUpperCase() + state.slice(1)
-}
-
-function normalizeContestState(state: Contest['state'] | null | undefined): ContestState {
-  return state && contestStates.includes(state) ? state : 'unknown'
-}
-
-function getVipCashingStatus(
-  contestState: ContestState,
-  lineup: Contest['vip_lineups'][number],
-  currency: string,
-): { label: string; positive: boolean } | null {
-  if (contestState !== 'completed' && contestState !== 'live') {
-    return null
-  }
-
-  const payoutCents = lineup.payout_cents ?? lineup.live?.payout_cents
-  const isCashing = typeof payoutCents === 'number' && payoutCents > 0
-
-  if (contestState === 'completed') {
-    if (isCashing) {
-      return {
-        label: `Cashed ${formatBadgeMoney(payoutCents, currency)}`,
-        positive: true,
-      }
-    }
-    return {
-      label: 'Not cashing',
-      positive: false,
-    }
-  }
-
-  return {
-    label: isCashing ? 'Cashing' : 'Outside cash',
-    positive: isCashing,
-  }
-}
+const numericCell = 'text-right font-mono tabular-nums'
 
 function PlayerPoolTable({ players }: { players: Player[] }) {
   const [search, setSearch] = useState('')
@@ -105,40 +32,49 @@ function PlayerPoolTable({ players }: { players: Player[] }) {
   }, [players, search])
 
   return (
-    <section className="panel page-stack">
-      <h2 className="section-title">Player pool</h2>
-      <div className="field-inline sport-player-search">
-        <label htmlFor="player-search">Search players</label>
-        <input
-          id="player-search"
-          type="text"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search by name"
-        />
+    <section aria-labelledby="player-pool-heading" className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+        <h2 id="player-pool-heading" className="text-base font-semibold">
+          Player pool
+        </h2>
+        <div className="flex w-full flex-col gap-1 sm:w-64">
+          <label htmlFor="player-search" className="text-xs text-muted-foreground">
+            Search players
+          </label>
+          <Input
+            id="player-search"
+            type="text"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by name"
+            className="h-8"
+          />
+        </div>
       </div>
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Team</th>
-            <th>Positions</th>
-            <th>Actual</th>
-            <th>Ownership</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((player) => (
-            <tr key={player.key}>
-              <td>{player.name}</td>
-              <td>{player.team}</td>
-              <td>{player.position}</td>
-              <td>{formatPoints(player.points)}</td>
-              <td>{formatOwnership(player.ownershipPct)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="h-8 text-xs text-muted-foreground">Name</TableHead>
+              <TableHead className="h-8 text-xs text-muted-foreground">Team</TableHead>
+              <TableHead className="h-8 text-xs text-muted-foreground">Positions</TableHead>
+              <TableHead className={`h-8 text-xs text-muted-foreground ${numericCell}`}>Actual</TableHead>
+              <TableHead className={`h-8 text-xs text-muted-foreground ${numericCell}`}>Ownership</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.map((player) => (
+              <TableRow key={player.key}>
+                <TableCell className="font-medium">{player.name}</TableCell>
+                <TableCell className="font-mono text-muted-foreground">{player.team}</TableCell>
+                <TableCell className="font-mono text-muted-foreground">{player.position}</TableCell>
+                <TableCell className={numericCell}>{formatPoints(player.points)}</TableCell>
+                <TableCell className={numericCell}>{formatOwnership(player.ownershipPct)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </section>
   )
 }
@@ -157,72 +93,18 @@ function ContestSection({
   return (
     <>
       {contestStates.map((state) => (
-        <section key={state} className="panel page-stack">
-          <h2 className="section-title">
+        <section key={state} className="flex flex-col gap-3">
+          <h2 className="text-base font-semibold capitalize">
             {state} ({grouped[state].length})
           </h2>
-          {grouped[state].length === 0 ? <p className="meta-text">No contests in this state.</p> : null}
-          {grouped[state].map((contest, contestIndex) => {
-            const lineups = filterVipLineups(contest.vip_lineups, activeProfileRules, vipFilterMode)
-            const entryFeeCents = contest.entry_fee_cents
-            const prizePoolCents = contest.prize_pool_cents
-            const contestState = normalizeContestState(contest.state)
-
-            return (
-              <article key={contest.contest_key || `${state}-${contestIndex}`} className="item-card page-stack-sm">
-                <div className="sport-contest-headline">
-                  <h3 className="subsection-title">{contest.name}</h3>
-                  <p className="meta-text">{formatMoney(entryFeeCents, contest.currency)}</p>
-                  <span className={`contest-state-badge contest-state-${contestState}`}>
-                    {formatContestState(contestState)}
-                  </span>
-                </div>
-                <div className="sport-contest-meta">
-                  <p className="meta-text">Field size: {contest.max_entries}</p>
-                  {typeof contest.max_entries_per_user === 'number' ? (
-                    <p className="meta-text">Max per user: {contest.max_entries_per_user}</p>
-                  ) : null}
-                  <p className="meta-text">Prize pool: {formatMoney(prizePoolCents, contest.currency)}</p>
-                </div>
-                <h4 className="subsection-title">VIP lineups</h4>
-                {lineups.length === 0 ? (
-                  <p className="muted-text">No matching VIP lineups.</p>
-                ) : (
-                  <div className="sport-lineup-grid">
-                    {lineups.map((lineup, lineupIndex) => {
-                      const cashingStatus = getVipCashingStatus(contestState, lineup, contest.currency)
-                      return (
-                        <div
-                          key={lineup.entry_key || lineup.vip_entry_key || `${lineup.display_name}-${lineupIndex}`}
-                          className="panel-subtle"
-                        >
-                          <div className="sport-vip-head">
-                            <p className="item-title">{lineup.display_name}</p>
-                            {cashingStatus ? (
-                              <span className={`status ${cashingStatus.positive ? 'status-ok' : 'status-error'}`}>
-                                {cashingStatus.label}
-                              </span>
-                            ) : null}
-                          </div>
-                          <ol className="sport-lineup-slots">
-                            {lineup.slots.map((slot, index) => {
-                              const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
-                              return (
-                                <li key={`${lineup.entry_key || lineup.vip_entry_key || lineup.display_name}-${index}`}>
-                                  {slot.slot}: {slot.player_name}
-                                  {multiplier}
-                                </li>
-                              )
-                            })}
-                          </ol>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </article>
-            )
-          })}
+          {grouped[state].length === 0 ? <p className="text-muted-foreground">No contests in this state.</p> : null}
+          {grouped[state].map((contest, contestIndex) => (
+            <ContestCard
+              key={contest.contest_key || `${state}-${contestIndex}`}
+              contest={contest}
+              lineups={filterVipLineups(contest.vip_lineups, activeProfileRules, vipFilterMode)}
+            />
+          ))}
         </section>
       ))}
       <PlayerPoolTable players={sportData.players} />
@@ -238,21 +120,28 @@ function Sport() {
   const { snapshot, loading, error } = useSportSnapshot()
 
   if (!sport) {
-    return <p className="page">Sport not specified.</p>
+    return (
+      <DataPage>
+        <p className="text-muted-foreground">Sport not specified.</p>
+      </DataPage>
+    )
   }
 
   const sportKey = sport.toLowerCase()
 
   if (loading) {
-    return <p className="page">Loading sport snapshot...</p>
+    return (
+      <DataPage>
+        <p className="text-muted-foreground">Loading sport snapshot...</p>
+      </DataPage>
+    )
   }
 
   if (error instanceof Error) {
     return (
-      <section className="page page-stack">
-        <h1 className="page-title">Sport: {sport.toUpperCase()}</h1>
-        <p className="error-text">{error.message}</p>
-      </section>
+      <DataPage title={`Sport: ${sport.toUpperCase()}`}>
+        <p className="rounded-lg bg-non-cashing-muted px-3 py-2 text-non-cashing-foreground">{error.message}</p>
+      </DataPage>
     )
   }
 
@@ -260,46 +149,51 @@ function Sport() {
 
   if (!sportData) {
     return (
-      <section className="page page-stack">
-        <h1 className="page-title">Sport: {sport.toUpperCase()}</h1>
-        <p>Sport not found in snapshot.</p>
-      </section>
+      <DataPage title={`Sport: ${sport.toUpperCase()}`}>
+        <p className="text-muted-foreground">Sport not found in snapshot.</p>
+      </DataPage>
     )
   }
 
   return (
-    <section className="page page-stack">
-      <div className="panel sport-header page-stack-sm">
-        <div className="sport-header-top">
-          <h1 className="page-title">Sport: {sport.toUpperCase()}</h1>
-          <StatusBadge status={sportData.status} />
-        </div>
-        <p className="meta-text">
-          <Link to={`/live/${sportKey}`}>Open live sweat view</Link>
-        </p>
-        <p className="page-meta">Snapshot at: {new Date(snapshot.snapshot_at).toLocaleString()}</p>
-        <p className="meta-text">Sport updated: {new Date(sportData.updated_at).toLocaleString()}</p>
-        {sportData.error ? <p className="error-text">Sport error: {sportData.error}</p> : null}
-      </div>
-      <div className="panel action-row">
-        <div className="field-inline">
-          <label htmlFor="sport-vip-filter">VIP filter</label>
-          <select
-            id="sport-vip-filter"
-            value={vipFilterMode}
-            onChange={(event) => setVipFilterMode(event.target.value as 'all' | 'active')}
+    <DataPage
+      title={`Sport: ${sport.toUpperCase()}`}
+      actions={
+        <>
+          <StatusPill status={sportData.status} />
+          <Link
+            to={`/live/${sportKey}`}
+            className="inline-flex h-7 items-center rounded-lg border border-border px-2.5 text-[0.8rem] font-medium hover:bg-muted"
           >
-            <option value="all">All VIPs</option>
-            <option value="active">Active profile only</option>
-          </select>
-        </div>
+            Open live sweat view
+          </Link>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-1 font-mono text-xs text-muted-foreground tabular-nums">
+        <p>Snapshot at: {new Date(snapshot.snapshot_at).toLocaleString()}</p>
+        <p>Sport updated: {new Date(sportData.updated_at).toLocaleString()}</p>
+        {sportData.error ? (
+          <p className="mt-1 rounded-lg bg-non-cashing-muted px-3 py-2 font-sans text-sm text-non-cashing-foreground">
+            Sport error: {sportData.error}
+          </p>
+        ) : null}
       </div>
+      <SelectField
+        id="sport-vip-filter"
+        label="VIP filter"
+        value={vipFilterMode}
+        onChange={(event) => setVipFilterMode(event.target.value as 'all' | 'active')}
+      >
+        <option value="all">All VIPs</option>
+        <option value="active">Active profile only</option>
+      </SelectField>
       <ContestSection
         sportData={sportData}
         vipFilterMode={vipFilterMode}
         activeProfileRules={activeProfile.rules}
       />
-    </section>
+    </DataPage>
   )
 }
 
