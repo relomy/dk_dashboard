@@ -18,7 +18,7 @@ export interface RefreshResult {
 }
 
 export const LOGIN_COMMAND = 'npx wrangler login'
-const SNAPSHOT_KEY = /^snapshots\/live-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z\.json$/
+export const SNAPSHOT_KEY =/^snapshots\/live-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z\.json$/
 
 export function refreshFixture(key: string, deps: RefreshDeps): RefreshResult {
   if (deps.env.CI) {
