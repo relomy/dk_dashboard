@@ -1,4 +1,4 @@
-import { parseLineupSignature, type LineupSlot } from './lineup'
+import { LOCKED_LABEL, parseLineupSignature, type LineupSlot } from './lineup'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from './perVipKeys'
 import { buildPlayerPool, numberOrNull, readValueIcon, type PlayerPoolRow } from './playerPool'
 import type {
@@ -116,6 +116,8 @@ export interface LiveLineupPlayer {
   name: string
   /** The player's `player_key`: the row's own on a VIP lineup, the matched pool player's on a train; null when neither has one. */
   playerKey: string | null
+  /** A locked slot: the player is hidden, so the card shows only the slot and nothing from the pool. */
+  locked: boolean
   gameStatus: GameStatus | null
   points: number | null
   projection: number | null
@@ -342,11 +344,10 @@ interface PoolIndex {
 }
 
 /**
- * The pool player behind a `players_live` row. A locked row has none. A row with a `player_key` matches by key
- * alone: a key the pool lacks is a miss, not a reason to guess by name. Only a keyless row matches by name.
+ * The pool player behind an unlocked `players_live` row. A row with a `player_key` matches by key alone: a key
+ * the pool lacks is a miss, not a reason to guess by name. Only a keyless row matches by name.
  */
 function poolPlayerOf(row: VipLineupPlayerLive, pool: PoolIndex): Player | undefined {
-  if (row.is_locked) return undefined
   if (row.player_key) return pool.byKey.get(row.player_key)
   return pool.byName.get(row.player_name)
 }
@@ -361,10 +362,31 @@ function matchupOf(player: Player | undefined): string | null {
   return matchup.trim().toLowerCase() === player?.game_status?.trim().toLowerCase() ? null : matchup
 }
 
-/** Fields on the row itself come first; the pool player fills in what the row lacks. */
+/** A locked slot's card: its slot and the locked label, with every player detail empty. */
+function lockedPlayer(key: string, slot: string): LiveLineupPlayer {
+  return {
+    key,
+    slot,
+    name: LOCKED_LABEL,
+    playerKey: null,
+    locked: true,
+    gameStatus: null,
+    points: null,
+    projection: null,
+    clock: null,
+    matchup: null,
+    ownershipPct: null,
+    value: null,
+    valueIcon: null,
+    stats: null,
+  }
+}
+
+/** Fields on the row itself come first; the pool player fills in what the row lacks. A locked row is a locked slot. */
 function buildLineupPlayers(lineup: VipLineup, pool: PoolIndex): LiveLineupPlayer[] {
   if (Array.isArray(lineup.players_live)) {
     return lineup.players_live.map((player, index) => {
+      if (player.is_locked) return lockedPlayer(`${player.slot ?? 'row'}-${index}`, player.slot ?? '')
       const pooled = poolPlayerOf(player, pool)
       const gameStatus = player.game_status ?? pooled?.game_status
       return {
@@ -372,6 +394,7 @@ function buildLineupPlayers(lineup: VipLineup, pool: PoolIndex): LiveLineupPlaye
         slot: player.slot ?? '',
         name: player.player_name,
         playerKey: player.player_key ?? null,
+        locked: false,
         gameStatus: classifyGameStatus(gameStatus),
         points: numberOrNull(player.points) ?? numberOrNull(pooled?.fantasy_points),
         projection: numberOrNull(player.rt_projection),
@@ -389,6 +412,7 @@ function buildLineupPlayers(lineup: VipLineup, pool: PoolIndex): LiveLineupPlaye
     slot: slot.slot,
     name: slot.player_name,
     playerKey: null,
+    locked: false,
     gameStatus: null,
     points: null,
     projection: null,
@@ -509,6 +533,7 @@ function buildTrainPlayers(lineup: LineupSlot[], poolByName: Map<string, Player>
       slot: player ? (player.position ?? player.roster_positions?.join('/') ?? '') : '',
       name: slot.label,
       playerKey: player?.player_key ?? null,
+      locked: slot.locked,
       gameStatus: classifyGameStatus(player?.game_status),
       points: numberOrNull(player?.fantasy_points),
       projection: null,

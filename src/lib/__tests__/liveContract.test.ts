@@ -128,7 +128,29 @@ const poolPlayersListTheirVips: Invariant = (model, { contest }) => {
   return violations
 }
 
+/** A locked VIP slot renders as locked, with nothing taken from the player pool. */
+const lockedSlotsRenderLocked: Invariant = (model, { contest }) => {
+  const violations: string[] = []
+  contest?.vip_lineups.forEach((lineup, index) => {
+    ;(lineup.players_live ?? []).forEach((row, slotIndex) => {
+      if (!row.is_locked) return
+      const player = model.vips[index]?.players[slotIndex]
+      const where = `VIP ${lineup.display_name} slot ${slotIndex} (${String(row.slot)})`
+      if (player?.locked !== true) {
+        violations.push(`${where}: locked is ${String(player?.locked)}`)
+        return
+      }
+      const pooled = { playerKey: player.playerKey, matchup: player.matchup, gameStatus: player.gameStatus, ownershipPct: player.ownershipPct, value: player.value, points: player.points }
+      for (const [field, value] of Object.entries(pooled)) {
+        if (value !== null) violations.push(`${where}: ${field} is ${String(value)}`)
+      }
+    })
+  })
+  return violations
+}
+
 const INVARIANTS: Record<string, Invariant> = {
+  'locked VIP slots render as locked, with no pool lookup': lockedSlotsRenderLocked,
   'every pool player a VIP rosters lists that VIP': poolPlayersListTheirVips,
   'a VIP rostering a swing player is marked HAVE for it': rosteredSwingPlayersAreHave,
   'every VIP card has a numeric rank, points and PMR': vipCardHasFigures,
