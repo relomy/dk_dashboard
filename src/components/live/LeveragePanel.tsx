@@ -1,7 +1,8 @@
 import { useId, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { DASH, formatPmr, formatPoints, formatRank } from '../../lib/format'
-import { haveOrFade, type LiveLineupPlayer, type LiveModel } from '../../lib/liveModel'
+import type { LiveLineupPlayer, LiveModel } from '../../lib/liveModel'
+import { haveOrFade } from '../../lib/livePresentation'
 import { formatOwnership } from '../../lib/playerPool'
 import { vipColorClass } from './presentation'
 

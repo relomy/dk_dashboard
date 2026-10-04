@@ -1,5 +1,6 @@
 import { formatPmr, formatPoints, formatRank } from '../../lib/format'
-import { trainClosenessLabel, type LiveModel, type LiveTrain } from '../../lib/liveModel'
+import type { LiveModel, LiveTrain } from '../../lib/liveModel'
+import { trainClosenessLabel } from '../../lib/livePresentation'
 import LineupGroups from './LineupGroups'
 import { Stat, VipAvatar } from './atoms'
 import ViewLink from './ViewLink'

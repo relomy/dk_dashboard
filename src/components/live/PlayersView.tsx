@@ -3,16 +3,9 @@ import { Link } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { DASH, formatPoints } from '../../lib/format'
-import {
-  defaultSortDir,
-  queryPool,
-  visibleValue,
-  type LiveModel,
-  type LivePoolPlayer,
-  type PoolFilter,
-  type PoolSort,
-  type PoolSortKey,
-} from '../../lib/liveModel'
+import type { LiveModel, LivePoolPlayer } from '../../lib/liveModel'
+import { defaultSortDir, queryPool, type PoolFilter, type PoolSort, type PoolSortKey } from '../../lib/livePlayersQuery'
+import { visibleValue } from '../../lib/livePresentation'
 import { GameStatusDot, OwnCell, TeamChip, ValueIconMark, ValuePill, VipAvatars, type AvatarVip } from './atoms'
 import { GAME_STATUS_LABEL } from './presentation'
 import TotalOwnershipBar from './TotalOwnershipBar'

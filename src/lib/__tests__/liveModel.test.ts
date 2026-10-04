@@ -3,15 +3,7 @@ import { describe, expect, it } from 'vitest'
 // cfb carries `metrics.threat`; mlb carries no `metrics` at all (the missing-metrics variant).
 import producerSnapshot from '../../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import { formatSigned } from '../format'
-import {
-  buildLiveModel,
-  groupLineup,
-  haveOrFade,
-  largestTrains,
-  lineupOwnershipHint,
-  type LiveLineupPlayer,
-  type LiveModel,
-} from '../liveModel'
+import { buildLiveModel, largestTrains, type LiveModel } from '../liveModel'
 import type { Snapshot } from '../types'
 
 const VIP_KEY = '5067365318'
@@ -450,59 +442,6 @@ describe('signed distance to cash', () => {
 
   it('is a dash when the distance is missing', () => {
     expect(formatSigned(null)).toBe('—')
-  })
-})
-
-describe('lineup ownership hint', () => {
-  it('calls an average of 50% a slot or more chalky, 20% or less contrarian, otherwise balanced', () => {
-    expect(lineupOwnershipHint(400, 8)).toBe('chalky')
-    expect(lineupOwnershipHint(445.6, 8)).toBe('chalky')
-    expect(lineupOwnershipHint(160, 8)).toBe('contrarian')
-    expect(lineupOwnershipHint(100, 8)).toBe('contrarian')
-    expect(lineupOwnershipHint(240, 8)).toBe('balanced')
-  })
-
-  it('has no hint without ownership or slots', () => {
-    expect(lineupOwnershipHint(null, 8)).toBeNull()
-    expect(lineupOwnershipHint(200, 0)).toBeNull()
-  })
-})
-
-describe('lineup grouping', () => {
-  const player = (name: string, gameStatus: LiveLineupPlayer['gameStatus']): LiveLineupPlayer => ({
-    key: name,
-    slot: 'FLEX',
-    name,
-    gameStatus,
-    points: null,
-    projection: null,
-    clock: null,
-    matchup: null,
-    ownershipPct: null,
-    value: null,
-    valueIcon: null,
-    stats: null,
-  })
-
-  it('groups by game status, keeping lineup order, with no game status counting as yet to play', () => {
-    const groups = groupLineup([
-      player('a', 'final'),
-      player('b', 'pre-game'),
-      player('c', 'in-progress'),
-      player('d', null),
-      player('e', 'in-progress'),
-    ])
-
-    expect(groups.map((group) => [group.label, group.players.map((p) => p.name)])).toEqual([
-      ['Playing now', ['c', 'e']],
-      ['Yet to play', ['b', 'd']],
-      ['Done', ['a']],
-    ])
-  })
-
-  it('drops empty groups', () => {
-    expect(groupLineup([player('a', 'final')]).map((group) => group.label)).toEqual(['Done'])
-    expect(groupLineup([])).toEqual([])
   })
 })
 
@@ -952,35 +891,6 @@ describe('field ownership remaining', () => {
     delete contestOf(snapshot, 'mlb').ownership_watchlist
 
     expect(modelOf(snapshot, 'mlb').fieldOwnershipRemainingPct).toBeNull()
-  })
-})
-
-describe('HAVE or FADE', () => {
-  const lineup = (...names: string[]): LiveLineupPlayer[] =>
-    names.map((name) => ({
-      key: name,
-      slot: 'FLEX',
-      name,
-      gameStatus: null,
-      points: null,
-      projection: null,
-      clock: null,
-      matchup: null,
-      ownershipPct: null,
-      value: null,
-      valueIcon: null,
-      stats: null,
-    }))
-
-  it('is HAVE when the focused lineup rosters the player and FADE when it does not', () => {
-    const focused = lineup('Ousmane Kromah', 'Cayden Lee')
-
-    expect(haveOrFade(focused, 'Ousmane Kromah')).toBe('have')
-    expect(haveOrFade(focused, 'Duce Robinson')).toBe('fade')
-  })
-
-  it('is neither without a focused lineup', () => {
-    expect(haveOrFade(null, 'Ousmane Kromah')).toBeNull()
   })
 })
 

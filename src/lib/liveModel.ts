@@ -502,12 +502,6 @@ function buildTrains(
   return available({ updatedAt: contest.live_metrics?.updated_at || null, rule, rows })
 }
 
-/** "identical" when every slot is shared, else "share N of M"; null when the producer gave no `min_shared_slots`. */
-export function trainClosenessLabel(closeness: LiveTrainCloseness | null): string | null {
-  if (!closeness) return null
-  return closeness.identical ? 'identical' : `share ${closeness.minShared} of ${closeness.slotCount}`
-}
-
 /** The `count` largest trains: most entries first, then best rank (unranked last). */
 export function largestTrains(rows: LiveTrain[], count: number): LiveTrain[] {
   return [...rows]
@@ -637,110 +631,6 @@ function buildTotalOwnership(players: Player[]): LiveTotalOwnership {
     inPlayShare: share(sums.inPlay),
     preGameShare: share(sums.preGame),
   }
-}
-
-export type LineupOwnershipHint = 'chalky' | 'balanced' | 'contrarian'
-
-/**
- * How chalky a lineup is, from its summed ownership over its slot count (the prototype's thresholds):
- * an average of 50% a slot or more is chalky, 20% or less is contrarian. Null without ownership or slots.
- */
-export function lineupOwnershipHint(lineupOwnershipPct: number | null, slotCount: number): LineupOwnershipHint | null {
-  if (lineupOwnershipPct === null || slotCount <= 0) return null
-  const average = lineupOwnershipPct / slotCount
-  if (average >= 50) return 'chalky'
-  if (average <= 20) return 'contrarian'
-  return 'balanced'
-}
-
-export interface LineupGroup {
-  gameStatus: GameStatus
-  label: 'Playing now' | 'Yet to play' | 'Done'
-  players: LiveLineupPlayer[]
-}
-
-/**
- * A lineup grouped for display: Playing now (in progress), Yet to play (pre-game, or no game status)
- * and Done (final), in that order and each in lineup order. Empty groups are left out.
- */
-export function groupLineup(players: LiveLineupPlayer[]): LineupGroup[] {
-  const groups: LineupGroup[] = [
-    { gameStatus: 'in-progress', label: 'Playing now', players: [] },
-    { gameStatus: 'pre-game', label: 'Yet to play', players: [] },
-    { gameStatus: 'final', label: 'Done', players: [] },
-  ]
-  for (const player of players) {
-    const status = player.gameStatus ?? 'pre-game'
-    groups.find((group) => group.gameStatus === status)?.players.push(player)
-  }
-  return groups.filter((group) => group.players.length > 0)
-}
-
-/**
- * A swing player against the lineup in focus (a VIP, or a Train on the Trains view): HAVE when the
- * lineup rosters them, FADE when it does not, matched by name; null without a focused lineup.
- */
-export function haveOrFade(lineup: LiveLineupPlayer[] | null, playerName: string): 'have' | 'fade' | null {
-  if (!lineup) return null
-  return lineup.some((player) => player.name === playerName) ? 'have' : 'fade'
-}
-
-export type PoolSortKey = 'own' | 'points' | 'value' | 'salary' | 'name'
-export type PoolFilter = 'all' | 'still-to-play' | 'on-a-vip'
-export interface PoolSort {
-  key: PoolSortKey
-  dir: 'asc' | 'desc'
-}
-
-/** Name sorts A to Z first; the numbers sort highest first. */
-export function defaultSortDir(key: PoolSortKey): PoolSort['dir'] {
-  return key === 'name' ? 'asc' : 'desc'
-}
-
-/** Value is hidden for pre-game players (a zero is not a bust), so it never shows or ranks them. */
-export function visibleValue(player: Pick<LivePoolPlayer, 'gameStatus' | 'value'>): number | null {
-  return player.gameStatus === 'pre-game' ? null : player.value
-}
-
-function sortValue(player: LivePoolPlayer, key: PoolSortKey): number | string | null {
-  switch (key) {
-    case 'own':
-      return player.ownershipPct
-    case 'points':
-      return player.points
-    case 'value':
-      return visibleValue(player)
-    case 'salary':
-      return player.salary
-    case 'name':
-      return player.name
-  }
-}
-
-/**
- * The Players view's rows: search by player or team, the "Still to play" (game not final)
- * and "On a VIP" filters, then the chosen sort. Missing values sort last in either direction.
- */
-export function queryPool(
-  pool: LivePoolPlayer[],
-  { search, filter, sort }: { search: string; filter: PoolFilter; sort: PoolSort },
-): LivePoolPlayer[] {
-  const needle = search.trim().toLowerCase()
-  const sign = sort.dir === 'asc' ? 1 : -1
-  return pool
-    .filter((player) => !needle || player.name.toLowerCase().includes(needle) || player.team.toLowerCase().includes(needle))
-    .filter((player) => {
-      if (filter === 'still-to-play') return player.gameStatus === 'pre-game' || player.gameStatus === 'in-progress'
-      if (filter === 'on-a-vip') return player.vipIndexes.length > 0
-      return true
-    })
-    .sort((a, b) => {
-      const av = sortValue(a, sort.key)
-      const bv = sortValue(b, sort.key)
-      if (av === null || bv === null) return (av === null ? 1 : 0) - (bv === null ? 1 : 0)
-      if (typeof av === 'string' || typeof bv === 'string') return String(av).localeCompare(String(bv)) * sign
-      return (av - bv) * sign
-    })
 }
 
 /** The only snapshot schema the dashboard reads (ADR 0002). */

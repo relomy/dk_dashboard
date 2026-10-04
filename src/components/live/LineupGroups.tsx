@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import { formatPoints } from '../../lib/format'
-import { groupLineup, visibleValue, type LiveLineupPlayer } from '../../lib/liveModel'
+import type { LiveLineupPlayer } from '../../lib/liveModel'
+import { groupLineup, visibleValue } from '../../lib/livePresentation'
 import { formatOwnership } from '../../lib/playerPool'
 import { GameStatusDot, ValueIconMark, ValuePill } from './atoms'
 
