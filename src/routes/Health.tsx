@@ -12,8 +12,7 @@ import { cn } from '@/lib/utils'
 import DataPage from '../components/DataPage'
 import StatusPill from '../components/StatusPill'
 import { useHealth } from '../hooks/useHealth'
-import { statusLabel } from '../lib/sportStatus'
-import type { SportStatus } from '../lib/types'
+import { statusLabel, statusTone } from '../lib/sportStatus'
 
 function formatAgeValue(snapshotAgeSeconds: number | null): string {
   if (snapshotAgeSeconds === null) {
@@ -35,21 +34,6 @@ function truncateText(value: string, max = 80): string {
   }
 
   return `${value.slice(0, max).trimEnd()}...`
-}
-
-const countTone: Record<SportStatus, { active: string; idle: string }> = {
-  ok: { active: 'border-cashing/40 bg-cashing-muted text-cashing-foreground', idle: 'text-muted-foreground' },
-  stale: { active: 'border-cash-line/40 bg-cash-line-muted text-cash-line', idle: 'text-muted-foreground' },
-  error: {
-    active: 'border-non-cashing/40 bg-non-cashing-muted text-non-cashing-foreground',
-    idle: 'text-muted-foreground',
-  },
-}
-
-const attentionBorder: Record<SportStatus, string> = {
-  ok: 'border-l-cashing',
-  stale: 'border-l-cash-line',
-  error: 'border-l-non-cashing',
 }
 
 const panel = 'rounded-xl bg-card ring-1 ring-foreground/10'
@@ -132,7 +116,9 @@ function Health() {
                 key={status}
                 className={cn(
                   'flex flex-col gap-0.5 rounded-lg border px-3 py-2',
-                  statusCounts[status] > 0 ? countTone[status].active : countTone[status].idle,
+                  statusCounts[status] > 0
+                    ? `${statusTone[status].border} ${statusTone[status].badge}`
+                    : 'text-muted-foreground',
                 )}
               >
                 <p className="text-xs">{statusLabel[status]}</p>
@@ -156,7 +142,7 @@ function Health() {
                 key={`flagged-${item.sport}`}
                 className={cn(
                   'flex flex-col gap-1 rounded-lg border border-l-4 bg-background/40 px-3 py-2',
-                  attentionBorder[item.status],
+                  statusTone[item.status].accentBorder,
                 )}
               >
                 <div className="flex items-center justify-between gap-2">

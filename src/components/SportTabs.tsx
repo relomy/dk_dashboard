@@ -1,13 +1,7 @@
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import type { SportStatus } from '../lib/types'
-import { statusLabel } from '../lib/sportStatus'
-
-const dotClass: Record<SportStatus, string> = {
-  ok: 'bg-cashing',
-  stale: 'bg-cash-line',
-  error: 'bg-non-cashing',
-}
+import { statusLabel, statusTone } from '../lib/sportStatus'
 
 export interface SportTab {
   sport: string
@@ -33,7 +27,7 @@ function SportTabs({ tabs, currentSport }: { tabs: SportTab[]; currentSport: str
             )}
           >
             {sport}
-            <span aria-hidden="true" className={cn('inline-block size-1.5 rounded-full', dotClass[status])} />
+            <span aria-hidden="true" className={cn('inline-block size-1.5 rounded-full', statusTone[status].dot)} />
             <span className="sr-only">{statusLabel[status]}</span>
           </Link>
         )
