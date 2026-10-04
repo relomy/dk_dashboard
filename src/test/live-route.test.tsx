@@ -84,10 +84,10 @@ describe('hot and cold markers', () => {
     return within(playersTable()).getByRole('row', { name: new RegExp(name) })
   }
 
-  /** A lineup player card: the list item holding the player's name. */
+  /** A lineup player card: the list item naming the player. */
   function lineupCard(name: string) {
-    const card = screen.getByText(name, { selector: 'li *' }).closest('li')
-    if (!(card instanceof HTMLElement)) throw new Error(`No lineup card for ${name}`)
+    const card = screen.getAllByRole('listitem').find((item) => within(item).queryByText(name))
+    if (!card) throw new Error(`No lineup card for ${name}`)
     return within(card)
   }
 
@@ -161,8 +161,10 @@ describe('Leverage panel', () => {
   }
 
   function swingRow(name: string) {
-    const row = section('Swing players').getByText(name).closest('li')
-    if (!(row instanceof HTMLElement)) throw new Error(`No swing row for ${name}`)
+    const row = section('Swing players')
+      .getAllByRole('listitem')
+      .find((item) => within(item).queryByText(name))
+    if (!row) throw new Error(`No swing row for ${name}`)
     return row
   }
 

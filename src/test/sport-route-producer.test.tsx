@@ -55,10 +55,7 @@ async function renderRoute(path: string, headingName: RegExp) {
 }
 
 function playerPool() {
-  const heading = screen.getByRole('heading', { name: /^player pool$/i })
-  const container = heading.closest('section, .panel')
-  if (!(container instanceof HTMLElement)) throw new Error('No player pool section')
-  return container
+  return screen.getByRole('region', { name: /^player pool$/i })
 }
 
 /** Reads the player pool table as {header: cell text} records, ignoring column order. */

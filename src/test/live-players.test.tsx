@@ -176,9 +176,12 @@ describe('Total ownership', () => {
 
     const bar = screen.getByRole('region', { name: /total ownership/i })
     expect(within(bar).getByText('200%')).toBeInTheDocument()
-    expect(within(bar).getByText('Final').parentElement).toHaveTextContent('Final 50%')
-    expect(within(bar).getByText('In play').parentElement).toHaveTextContent('In play 30%')
-    expect(within(bar).getByText('Pre-game').parentElement).toHaveTextContent('Pre-game 20%')
+    const shares = within(bar).getByRole('list', { name: /game status shares/i })
+    expect(within(shares).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      'Final 50%',
+      'In play 30%',
+      'Pre-game 20%',
+    ])
     expect(bar).toHaveAttribute('title', 'Total ownership 200% — Final 100% · In play 60% · Pre-game 40%')
     expect(bar).not.toHaveTextContent(/locked/i)
   })

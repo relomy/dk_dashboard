@@ -160,7 +160,7 @@ function History() {
         {filteredSnapshots.length === 0 ? (
           <p className="text-muted-foreground">No snapshots match these filters.</p>
         ) : (
-          <ul className="divide-y overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+          <ul aria-label="Snapshots" className="divide-y overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
             {filteredSnapshots.map((item) => (
               <li
                 key={item.snapshot_at}
@@ -175,16 +175,16 @@ function History() {
                 <p className="font-mono text-xs text-muted-foreground">
                   Sports: {item.sports_present.join(', ') || '-'}
                 </p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                <ul aria-label="Sport status" className="flex flex-wrap gap-x-4 gap-y-1">
                   {Object.entries(item.sports_status ?? {}).map(([sport, details]) => (
-                    <span
+                    <li
                       key={`${item.snapshot_at}-${sport}`}
                       className="inline-flex items-center gap-1.5 font-mono text-xs"
                     >
                       {sport}: <StatusPill status={details.status} />
-                    </span>
+                    </li>
                   ))}
-                </div>
+                </ul>
                 <p className="font-mono text-xs text-muted-foreground tabular-nums">
                   Contest counts:{' '}
                   {Object.entries(item.contest_counts_by_sport ?? {})
