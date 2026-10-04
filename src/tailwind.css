@@ -1,0 +1,299 @@
+/*
+ * Design system entry point (ADR 0003).
+ *
+ * Tailwind CSS v4 + shadcn/ui (Radix, Nova preset) with a dark-first token set.
+ * The hand-written legacy stylesheet (./index.css) still styles every page that
+ * has not been migrated yet. The two coexist through CSS cascade layers:
+ *
+ *   theme      Tailwind theme variables
+ *   base       Tailwind preflight (the reset)
+ *   legacy     ./index.css                  <- legacy pages keep their look
+ *   app-reset  scoped reset for the new UI  <- neutralises legacy element rules
+ *   components Tailwind components
+ *   utilities  Tailwind utilities           <- new UI classes always win
+ *
+ * Later layers beat earlier ones regardless of selector specificity, so legacy
+ * rules (button, input, a, nav, main ...) override preflight for old pages, and
+ * the app-reset layer plus utilities override legacy rules for the new UI.
+ *
+ * This layering is temporary. It is deleted together with ./index.css once the
+ * last page migrates (see docs/adr/0003-adopt-tailwind-and-shadcn-ui-with-a-dark-first-design-system.md).
+ */
+@layer theme, base, legacy, app-reset, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "./index.css" layer(legacy);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Legacy compatibility. Tailwind's preflight (layer: base) removes a few browser
+ * defaults that the legacy stylesheet silently relied on. Because legacy pages
+ * must look unchanged, restore exactly those defaults here, inside the legacy
+ * layer (so the new UI, which sits in later layers, is unaffected).
+ * Found by diffing computed styles of every element on every page before and
+ * after this change; delete with ./index.css.
+ */
+@layer legacy {
+  html {
+    line-height: normal;
+  }
+  a {
+    text-decoration: underline;
+  }
+  option {
+    padding: 0 2px 1px;
+  }
+  ::placeholder {
+    color: revert;
+    opacity: revert;
+  }
+}
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Geist Variable', sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+
+    /*
+     * Meaning colors. Each token becomes a Tailwind color, e.g. `text-cashing`,
+     * `bg-cashing/15`, `border-cash-line`, `bg-own-3`, `bg-value-great-bg`, `bg-vip-2`.
+     * The values live in the `.dark` block below.
+     */
+    --color-cashing: var(--cashing);
+    --color-cashing-foreground: var(--cashing-foreground);
+    --color-cashing-muted: var(--cashing-muted);
+    --color-non-cashing: var(--non-cashing);
+    --color-non-cashing-foreground: var(--non-cashing-foreground);
+    --color-non-cashing-muted: var(--non-cashing-muted);
+    --color-cash-line: var(--cash-line);
+    --color-cash-line-muted: var(--cash-line-muted);
+    --color-own-1: var(--own-1);
+    --color-own-2: var(--own-2);
+    --color-own-3: var(--own-3);
+    --color-own-4: var(--own-4);
+    --color-own-5: var(--own-5);
+    --color-value-great: var(--value-great);
+    --color-value-great-bg: var(--value-great-bg);
+    --color-value-good: var(--value-good);
+    --color-value-good-bg: var(--value-good-bg);
+    --color-value-mid: var(--value-mid);
+    --color-value-mid-bg: var(--value-mid-bg);
+    --color-value-poor: var(--value-poor);
+    --color-value-poor-bg: var(--value-poor-bg);
+    --color-vip-1: var(--vip-1);
+    --color-vip-2: var(--vip-2);
+    --color-vip-3: var(--vip-3);
+    --color-vip-4: var(--vip-4);
+    --color-vip-5: var(--vip-5);
+    --color-vip-6: var(--vip-6);
+}
+
+/*
+ * Dark-first tokens. The app sets class="dark" on <html> (index.html), so these
+ * apply to the whole document, including portaled overlays (sheets, menus).
+ * There is no light palette: dark is the only theme (ADR 0003).
+ *
+ * Only the tokens a legacy page also uses are a collision risk. The legacy
+ * stylesheet's own card variable was renamed to --legacy-card so this block can
+ * own --card.
+ */
+.dark {
+    /* shadcn surfaces and text (neutral base color) */
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+
+    /*
+     * Meaning colors. Color carries meaning only: never use these decoratively,
+     * and never use the neutral tokens above to say "good" or "bad".
+     * Values match Tailwind's palette (lime/rose/amber/sky/emerald/zinc) so the
+     * prototype's look is preserved.
+     */
+
+    /* Cashing / positive: lime-green. */
+    --cashing: oklch(0.841 0.238 128.85); /* lime-400 */
+    --cashing-foreground: oklch(0.897 0.196 126.665); /* lime-300, text on cashing-muted */
+    --cashing-muted: oklch(0.841 0.238 128.85 / 15%); /* tinted background */
+
+    /* Non-cashing / negative: rose. */
+    --non-cashing: oklch(0.712 0.194 13.428); /* rose-400 */
+    --non-cashing-foreground: oklch(0.81 0.117 11.638); /* rose-300 */
+    --non-cashing-muted: oklch(0.712 0.194 13.428 / 15%);
+
+    /* Cash line: amber. Marks the rank or points where cashing starts. */
+    --cash-line: oklch(0.879 0.169 91.605); /* amber-300 */
+    --cash-line-muted: oklch(0.879 0.169 91.605 / 15%);
+
+    /*
+     * Ownership intensity: an amber scale, 1 (low) to 5 (chalky), as translucent
+     * amber-400 so it sits on any surface. For a continuous scale compute the
+     * alpha from the ownership value instead of picking a step.
+     */
+    --own-1: oklch(0.828 0.189 84.429 / 12%);
+    --own-2: oklch(0.828 0.189 84.429 / 24%);
+    --own-3: oklch(0.828 0.189 84.429 / 36%);
+    --own-4: oklch(0.828 0.189 84.429 / 48%);
+    --own-5: oklch(0.828 0.189 84.429 / 60%);
+
+    /*
+     * Value tiers, best to worst: great = blue, good = green, mid = neutral,
+     * poor = rose. The plain token is the text color, -bg the tinted pill fill.
+     */
+    --value-great: oklch(0.901 0.058 230.902); /* sky-200 */
+    --value-great-bg: oklch(0.685 0.169 237.323 / 25%); /* sky-500 */
+    --value-good: oklch(0.905 0.093 164.15); /* emerald-200 */
+    --value-good-bg: oklch(0.696 0.17 162.48 / 20%); /* emerald-500 */
+    --value-mid: oklch(0.871 0.006 286.286); /* zinc-300 */
+    --value-mid-bg: oklch(0.442 0.017 285.786 / 60%); /* zinc-600 */
+    --value-poor: oklch(0.892 0.058 10.001); /* rose-200 */
+    --value-poor-bg: oklch(0.645 0.246 16.439 / 20%); /* rose-500 */
+
+    /*
+     * Per-VIP identity, assigned by VIP order and stable for a given VIP.
+     * Deliberately avoids lime, rose, amber and sky so a VIP color is never
+     * mistaken for cashing, non-cashing, the cash line or a value tier.
+     */
+    --vip-1: oklch(0.606 0.25 292.717); /* violet-500 */
+    --vip-2: oklch(0.715 0.143 215.221); /* cyan-500 */
+    --vip-3: oklch(0.667 0.295 322.15); /* fuchsia-500 */
+    --vip-4: oklch(0.585 0.233 277.117); /* indigo-500 */
+    --vip-5: oklch(0.704 0.14 182.503); /* teal-500 */
+    --vip-6: oklch(0.714 0.203 305.504); /* purple-400 */
+}
+
+/*
+ * Scoped base styles. Preflight and shadcn's usual `* { border-border }` /
+ * `body { bg-background }` are NOT applied globally, because that would restyle
+ * legacy pages. They apply only to the new UI:
+ *   .app-ui                  wrap the root of every redesigned surface in this class
+ *   [data-slot$="-content"]  portaled shadcn overlays (sheet, dropdown, dialog, tooltip ...)
+ *                            render under <body>, outside .app-ui
+ */
+@layer base {
+  :where(.app-ui, [data-slot$="-content"]),
+  :where(.app-ui, [data-slot$="-content"]) * {
+    @apply border-border outline-ring/50;
+  }
+  :where(.app-ui) {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+/*
+ * Scoped reset. Sits above the legacy layer, so these rules beat legacy global
+ * element rules (button, input, select, nav, main, a) inside the new UI and
+ * inside portaled overlays. All selectors use :where() (zero specificity) so
+ * Tailwind utilities and component classes override them freely.
+ */
+@layer app-reset {
+  :where(.app-ui, [data-slot$="-content"]) :where(button, input, select) {
+    min-height: 0;
+    border: 0 solid;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font-weight: inherit;
+    padding: 0;
+  }
+  :where(.app-ui, [data-slot$="-content"]) :where(button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible, summary:focus-visible) {
+    box-shadow: none;
+    outline: revert;
+  }
+  :where(.app-ui, [data-slot$="-content"]) :where(nav) {
+    display: revert;
+    gap: 0;
+  }
+  :where(.app-ui, [data-slot$="-content"]) :where(nav a) {
+    color: inherit;
+    font-size: inherit;
+    padding: 0;
+    border-radius: 0;
+    font-weight: inherit;
+  }
+  :where(.app-ui, [data-slot$="-content"]) :where(main) {
+    padding: 0;
+  }
+  :where(.app-ui, [data-slot$="-content"]) :where(a) {
+    color: inherit;
+    text-decoration: none;
+  }
+  :where(.app-ui, [data-slot$="-content"]) {
+    font-family: var(--font-sans);
+    /* The legacy :root also defines --radius-sm/--radius-md (0.5rem/0.75rem).
+       Restore shadcn's values for the new UI so var(--radius-md) in primitives
+       resolves as designed. */
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+  }
+}

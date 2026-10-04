@@ -2,7 +2,7 @@
   --bg: #eff3fa;
   --ink: #11203a;
   --muted-ink: #455470;
-  --card: #ffffff;
+  --legacy-card: #ffffff;
   --line: #d5dfef;
   --line-strong: #c3d1e8;
   --brand: #0f5bd5;
@@ -121,7 +121,7 @@ p {
 .sport-card,
 .latest-sport-card,
 .key-gate {
-  background: var(--card);
+  background: var(--legacy-card);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-1);
@@ -573,7 +573,7 @@ summary:focus-visible {
   padding: 0 var(--space-2);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-pill);
-  background: var(--card);
+  background: var(--legacy-card);
   white-space: nowrap;
 }
 
