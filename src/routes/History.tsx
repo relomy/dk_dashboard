@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import DataPage from '../components/DataPage'
-import SelectField from '../components/SelectField'
 import SnapshotOverview from '../components/SnapshotOverview'
 import StatusPill from '../components/StatusPill'
 import { useProfiles } from '../context/ProfileContext'
@@ -129,32 +130,40 @@ function History() {
         }
       >
         <div className="flex flex-wrap gap-3">
-          <SelectField
-            id="history-sport-filter"
-            label="Sport filter"
-            value={sportFilter}
-            onChange={(event) => setSportFilter(event.target.value)}
-          >
-            <option value="all">All sports</option>
-            {availableSports.map((sport) => (
-              <option key={sport} value={sport}>
-                {sport}
-              </option>
-            ))}
-          </SelectField>
-          <SelectField
-            id="history-state-filter"
-            label="State filter"
-            value={stateFilter}
-            onChange={(event) => setStateFilter(event.target.value)}
-          >
-            <option value="all">All states</option>
-            {availableStates.map((state) => (
-              <option key={state} value={state}>
-                {state}
-              </option>
-            ))}
-          </SelectField>
+          <div className="grid w-fit min-w-36 gap-1">
+            <Label htmlFor="history-sport-filter" className="text-xs font-normal text-muted-foreground">
+              Sport filter
+            </Label>
+            <NativeSelect
+              id="history-sport-filter"
+              value={sportFilter}
+              onChange={(event) => setSportFilter(event.target.value)}
+            >
+              <option value="all">All sports</option>
+              {availableSports.map((sport) => (
+                <option key={sport} value={sport}>
+                  {sport}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="grid w-fit min-w-36 gap-1">
+            <Label htmlFor="history-state-filter" className="text-xs font-normal text-muted-foreground">
+              State filter
+            </Label>
+            <NativeSelect
+              id="history-state-filter"
+              value={stateFilter}
+              onChange={(event) => setStateFilter(event.target.value)}
+            >
+              <option value="all">All states</option>
+              {availableStates.map((state) => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
         </div>
 
         {filteredSnapshots.length === 0 ? (

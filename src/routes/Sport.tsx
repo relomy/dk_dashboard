@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import {
   Table,
   TableBody,
@@ -11,7 +13,6 @@ import {
 } from '@/components/ui/table'
 import ContestCard from '../components/ContestCard'
 import DataPage from '../components/DataPage'
-import SelectField from '../components/SelectField'
 import StatusPill from '../components/StatusPill'
 import { useProfiles } from '../context/ProfileContext'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
@@ -179,15 +180,19 @@ function Sport() {
           </p>
         ) : null}
       </div>
-      <SelectField
-        id="sport-vip-filter"
-        label="VIP filter"
-        value={vipFilterMode}
-        onChange={(event) => setVipFilterMode(event.target.value as 'all' | 'active')}
-      >
-        <option value="all">All VIPs</option>
-        <option value="active">Active profile only</option>
-      </SelectField>
+      <div className="grid w-fit min-w-36 gap-1">
+        <Label htmlFor="sport-vip-filter" className="text-xs font-normal text-muted-foreground">
+          VIP filter
+        </Label>
+        <NativeSelect
+          id="sport-vip-filter"
+          value={vipFilterMode}
+          onChange={(event) => setVipFilterMode(event.target.value as 'all' | 'active')}
+        >
+          <option value="all">All VIPs</option>
+          <option value="active">Active profile only</option>
+        </NativeSelect>
+      </div>
       <ContestSection
         sportData={sportData}
         vipFilterMode={vipFilterMode}
