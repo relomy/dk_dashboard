@@ -13,7 +13,7 @@ A point-in-time capture of DraftKings data across all sports at a single moment.
 _Avoid_: dump, export
 
 **Latest**:
-The most recent snapshot; the app's default landing view.
+The most recent snapshot. It is a snapshot, not a page; the Live view is the app's landing view.
 
 **Manifest**:
 A per-day index of the snapshots captured on a given UTC day.

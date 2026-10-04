@@ -142,7 +142,7 @@ Before release:
    - login and logout
    - forced password change flow
    - owner admin user operations and owner-safety constraints
-   - `/latest` load
+   - `/` landing redirect to a Live view
    - `/live/:sport` load (primary contest resolution + VIP/ownership/train/standings section states)
    - `/history` list + timestamp route
    - `/health` status visibility
@@ -157,13 +157,13 @@ Release gate:
 1. `GET /api/latest` returns a `latest_snapshot_path` under `snapshots/`
 2. `GET /api/snapshot?path=<latest_snapshot_path>` returns a valid v3 envelope
 3. manifest entry path(s) resolve through `/api/snapshot?path=...`
-4. `/latest`, `/live/:sport`, `/sport/:sport`, `/history`, and `/health` all load against the published artifact set
+4. `/`, `/live/:sport`, `/sport/:sport`, `/history`, and `/health` all load against the published artifact set
 
 ## Rollback triggers
 Rollback immediately if:
 - `/api/latest` points to a missing snapshot path
 - `/api/snapshot?path=...` returns `404` for current latest or manifest path
-- `/latest` or `/live/:sport` fails to render against the latest published snapshot
+- `/` or `/live/:sport` fails to render against the latest published snapshot
 - history timestamp resolution fails because manifest pathing is wrong
 - a published snapshot is not a valid v3 envelope
 
@@ -176,7 +176,7 @@ Dashboard rollback is data-first:
    - `/api/latest`
    - `/api/snapshot?path=manifest/YYYY-MM-DD.json`
    - `/api/snapshot?path=snapshots/<latest>.json`
-4. Verify `/latest` and `/live/:sport` in the deployed app.
+4. Verify `/` and `/live/:sport` in the deployed app.
 
 If the regression is code, revert the dashboard cutover commit(s), redeploy Pages, and repeat the API/UI smoke checks.
 

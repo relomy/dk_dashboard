@@ -26,7 +26,7 @@ function AppShell() {
     <div className="app-shell flex flex-col">
       <header className="app-ui sticky top-0 z-30 border-b bg-background/90 backdrop-blur">
         <div className="flex items-center gap-3 px-4 py-2 text-xs">
-          <Link to="/latest" className="shrink-0 font-mono font-bold text-cashing">
+          <Link to="/" className="shrink-0 font-mono font-bold text-cashing">
             DK/LIVE
           </Link>
           <SportTabs tabs={tabs} currentSport={currentSport} />
