@@ -17,7 +17,6 @@ export interface VipLineupPlayerLive {
   /** Matches `Player.player_key`; absent on locked rows. */
   player_key?: string
   player_name: string
-  is_live?: boolean
   is_locked?: boolean
   game_status?: string
   ownership_pct?: number

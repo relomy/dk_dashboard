@@ -301,22 +301,14 @@ function lineupOwnershipOf(row: ContestMetricsOwnershipSummary['per_vip'][number
   return numberOrNull(row?.lineup_ownership_pct) ?? numberOrNull(row?.total_ownership_pct)
 }
 
-/** The player pool by name; the first row wins when a name repeats. */
-function indexPoolByName(players: Player[]): Map<string, Player> {
-  const poolByName = new Map<string, Player>()
+/** The player pool keyed by `keyOf`; the first row wins when a key repeats. */
+function indexPool(players: Player[], keyOf: (player: Player) => string | undefined): Map<string, Player> {
+  const index = new Map<string, Player>()
   for (const player of players) {
-    if (!poolByName.has(player.name)) poolByName.set(player.name, player)
+    const key = keyOf(player)
+    if (key && !index.has(key)) index.set(key, player)
   }
-  return poolByName
-}
-
-/** The player pool by `player_key`; the first row wins when a key repeats. */
-function indexPoolByKey(players: Player[]): Map<string, Player> {
-  const poolByKey = new Map<string, Player>()
-  for (const player of players) {
-    if (player.player_key && !poolByKey.has(player.player_key)) poolByKey.set(player.player_key, player)
-  }
-  return poolByKey
+  return index
 }
 
 interface PoolIndex {
@@ -702,9 +694,11 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
   }
   const cashLine = contest.live_metrics?.cash_line
   const standings = buildStandings(contest)
-  const poolByName = indexPoolByName(sportData.players)
-  const pool = { byName: poolByName, byKey: indexPoolByKey(sportData.players) }
-  const trains = buildTrains(contest, poolByName, standings)
+  const pool = {
+    byName: indexPool(sportData.players, (player) => player.name),
+    byKey: indexPool(sportData.players, (player) => player.player_key),
+  }
+  const trains = buildTrains(contest, pool.byName, standings)
   return {
     kind: 'ready',
     model: {
