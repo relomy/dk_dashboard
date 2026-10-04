@@ -260,6 +260,7 @@ describe('VIP lineup players', () => {
         clock: '38.02',
         ownershipPct: 84.67,
         value: 2.07,
+        valueIcon: null,
         stats: '1 TD',
       },
     ])
@@ -300,6 +301,7 @@ describe('VIP lineup players', () => {
         clock: null,
         ownershipPct: null,
         value: null,
+        valueIcon: null,
         stats: null,
       },
     ])
@@ -494,6 +496,7 @@ describe('lineup grouping', () => {
     clock: null,
     ownershipPct: null,
     value: null,
+    valueIcon: null,
     stats: null,
   })
 
@@ -1101,6 +1104,71 @@ describe('player pool', () => {
       points: 18.16,
       status: 'In-Progress',
     })
+  })
+})
+
+describe('value icon', () => {
+  // DraftKings' hot/cold marker (relomy/dk_results#165) is optional; the model passes it through and never invents one.
+  function snapshotWith(players: Json[]): Json {
+    const snapshot = load()
+    snapshot.sports.cfb.players = players.map((row, index) => ({
+      player_key: `test:${index}`,
+      team: 'FSU',
+      position: 'QB',
+      salary: 5000,
+      ownership_pct: 10,
+      fantasy_points: 10,
+      game_status: 'In-Progress',
+      ...row,
+    }))
+    return snapshot
+  }
+
+  it('passes fire and ice through to pool players and leaves it empty when absent or unrecognised', () => {
+    const snapshot = snapshotWith([
+      { name: 'Hot Guy', value_icon: 'fire' },
+      { name: 'Cold Guy', value_icon: 'ice' },
+      { name: 'Plain Guy' },
+      { name: 'Null Guy', value_icon: null },
+      { name: 'Odd Guy', value_icon: 'lava' },
+    ])
+
+    const icons = Object.fromEntries(modelOf(snapshot).pool.map((player) => [player.name, player.valueIcon]))
+    expect(icons).toEqual({ 'Hot Guy': 'fire', 'Cold Guy': 'ice', 'Plain Guy': null, 'Null Guy': null, 'Odd Guy': null })
+  })
+
+  it('has no icons for the canonical fixture, which carries none', () => {
+    expect(modelOf(load()).pool.every((player) => player.valueIcon === null)).toBe(true)
+  })
+
+  it('passes the icon through to VIP lineup players from players_live', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', {
+      players_live: [
+        { slot: 'QB', player_name: 'Hot Guy', value_icon: 'fire' },
+        { slot: 'RB', player_name: 'Plain Guy' },
+      ],
+    })
+
+    expect(modelOf(snapshot).vips[0].players.map((player) => player.valueIcon)).toEqual(['fire', null])
+  })
+
+  it('has no icon on name-only VIP slots', () => {
+    const snapshot = load()
+    addVip(snapshot)
+
+    expect(modelOf(snapshot).vips[0].players.map((player) => player.valueIcon)).toEqual([null])
+  })
+
+  it('takes a train lineup player icon from the pool', () => {
+    const snapshot = snapshotWith([{ name: 'Hot Guy', value_icon: 'fire' }, { name: 'Plain Guy' }])
+    contestOf(snapshot).train_clusters = [
+      { cluster_id: 't1', user_count: 3, rank: 1, lineup_signature: 'Hot Guy|Plain Guy|LOCKED 🔒' },
+    ]
+    const trains = modelOf(snapshot).trains
+    if (trains.status !== 'available') throw new Error('Expected trains')
+
+    expect(trains.data.rows[0].players.map((player) => player.valueIcon)).toEqual(['fire', null, null])
   })
 })
 

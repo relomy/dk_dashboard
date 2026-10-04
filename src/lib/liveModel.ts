@@ -1,6 +1,6 @@
 import { parseLineupSignature, type LineupSlot } from './lineup'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from './perVipKeys'
-import { buildPlayerPool, type PlayerPoolRow } from './playerPool'
+import { buildPlayerPool, readValueIcon, type PlayerPoolRow } from './playerPool'
 import type {
   Contest,
   ContestMetricsDistanceToCash,
@@ -8,6 +8,7 @@ import type {
   Player,
   Snapshot,
   SportSnapshot,
+  ValueIcon,
   VipLineup,
 } from './types'
 
@@ -100,6 +101,8 @@ export interface LiveLineupPlayer {
   clock: string | null
   ownershipPct: number | null
   value: number | null
+  /** DraftKings' hot/cold marker; null when the feed sends none. */
+  valueIcon: ValueIcon | null
   stats: string | null
 }
 
@@ -349,6 +352,7 @@ function buildLineupPlayers(lineup: VipLineup): LiveLineupPlayer[] {
       clock: nonEmptyString(player.time_remaining_display) ?? nonEmptyString(player.game_status),
       ownershipPct: numberOrNull(player.ownership_pct),
       value: numberOrNull(player.value),
+      valueIcon: readValueIcon(player.value_icon),
       stats: nonEmptyString(player.stats_text),
     }))
   }
@@ -362,6 +366,7 @@ function buildLineupPlayers(lineup: VipLineup): LiveLineupPlayer[] {
     clock: null,
     ownershipPct: null,
     value: null,
+    valueIcon: null,
     stats: null,
   }))
 }
@@ -433,6 +438,7 @@ function buildTrainPlayers(lineup: LineupSlot[], poolByName: Map<string, Player>
       clock: nonEmptyString(player?.game_status),
       ownershipPct: numberOrNull(player?.ownership_pct),
       value: numberOrNull(player?.value),
+      valueIcon: readValueIcon(player?.value_icon),
       stats: null,
     }
   })

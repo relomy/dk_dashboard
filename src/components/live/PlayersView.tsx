@@ -13,7 +13,7 @@ import {
   type PoolSort,
   type PoolSortKey,
 } from '../../lib/liveModel'
-import { GameStatusDot, OwnCell, TeamChip, ValuePill, VipAvatars, type AvatarVip } from './atoms'
+import { GameStatusDot, OwnCell, TeamChip, ValueIconMark, ValuePill, VipAvatars, type AvatarVip } from './atoms'
 import { GAME_STATUS_LABEL } from './presentation'
 import TotalOwnershipBar from './TotalOwnershipBar'
 
@@ -165,6 +165,7 @@ function PlayersTable({ rows, sort, onSort, vipsOf, avatarHref }: RowsProps) {
                   <span className={cn('whitespace-nowrap', player.gameStatus === 'final' && 'text-muted-foreground')}>
                     {player.name}
                   </span>
+                  <ValueIconMark icon={player.valueIcon} />
                 </div>
               </td>
               <td className="px-3 py-1.5 text-xs whitespace-nowrap text-muted-foreground" title={player.matchup}>
@@ -249,9 +250,10 @@ function PhoneList({ rows, sort, onSort, vipsOf, avatarHref }: RowsProps) {
             >
               <span className="min-w-0">
                 <span
-                  className={cn('block truncate text-sm', player.gameStatus === 'final' && 'text-muted-foreground')}
+                  className={cn('flex min-w-0 items-center gap-1 text-sm', player.gameStatus === 'final' && 'text-muted-foreground')}
                 >
-                  {player.name}
+                  <span className="truncate">{player.name}</span>
+                  <ValueIconMark icon={player.valueIcon} className="text-xs" />
                 </span>
                 <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                   <GameStatusDot status={player.gameStatus} />

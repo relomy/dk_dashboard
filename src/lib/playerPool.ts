@@ -1,6 +1,6 @@
 import { DASH } from './format'
 import { isRelevantPlayerRow } from './playerPresentation'
-import type { Player } from './types'
+import type { Player, ValueIcon } from './types'
 
 /** One player-pool row as shown on both Live and Sport, read from the v3 player fields. */
 export interface PlayerPoolRow {
@@ -15,6 +15,8 @@ export interface PlayerPoolRow {
   points: number | null
   value: number | null
   status: string
+  /** DraftKings' hot/cold marker; null when the feed sends none (no dashboard-side thresholds). */
+  valueIcon: ValueIcon | null
 }
 
 function firstNonBlank(...values: Array<string | undefined>): string | undefined {
@@ -25,6 +27,11 @@ function joinRosterPositions(values?: string[]): string | undefined {
   if (!Array.isArray(values)) return undefined
   const joined = values.filter(Boolean).join('/')
   return joined.trim() ? joined : undefined
+}
+
+/** `fire` or `ice` as the feed sends it; anything else (absent, null, unknown) is no marker. */
+export function readValueIcon(value: unknown): ValueIcon | null {
+  return value === 'fire' || value === 'ice' ? value : null
 }
 
 function finiteOrNull(value: number | null | undefined): number | null {
@@ -48,6 +55,7 @@ function toRow(player: Player, index: number): PlayerPoolRow {
     points: finiteOrNull(player.fantasy_points),
     value: finiteOrNull(player.value),
     status: player.game_status ?? DASH,
+    valueIcon: readValueIcon(player.value_icon),
   }
 }
 

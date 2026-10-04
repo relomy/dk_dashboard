@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils'
 import { formatPoints } from '../../lib/format'
 import { groupLineup, type LiveLineupPlayer } from '../../lib/liveModel'
 import { formatOwnership } from '../../lib/playerPool'
-import { GameStatusDot, ValuePill } from './atoms'
+import { GameStatusDot, ValueIconMark, ValuePill } from './atoms'
 
 function PlayerCard({ player }: { player: LiveLineupPlayer }) {
   const final = player.gameStatus === 'final'
@@ -11,7 +11,10 @@ function PlayerCard({ player }: { player: LiveLineupPlayer }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="font-mono text-[10px] text-muted-foreground">{player.slot}</div>
-          <div className="truncate font-medium">{player.name}</div>
+          <div className="flex min-w-0 items-center gap-1 font-medium">
+            <span className="truncate">{player.name}</span>
+            <ValueIconMark icon={player.valueIcon} className="text-sm" />
+          </div>
         </div>
         <div className="text-right">
           <div className="font-mono text-lg font-semibold tabular-nums">{formatPoints(player.points)}</div>

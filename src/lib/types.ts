@@ -2,6 +2,9 @@ export type SportStatus = 'ok' | 'stale' | 'error'
 
 export type ContestState = 'upcoming' | 'live' | 'completed' | 'cancelled' | 'unknown'
 
+/** DraftKings' hot (`fire`) or cold (`ice`) value marker; optional until relomy/dk_results#165 ships. */
+export type ValueIcon = 'fire' | 'ice'
+
 export interface VipLineupSlot {
   slot: string
   player_name: string
@@ -20,6 +23,7 @@ export interface VipLineupPlayerLive {
   time_remaining_display?: string
   time_remaining_minutes?: number
   stats_text?: string
+  value_icon?: ValueIcon | null
 }
 
 export interface VipLineup {
@@ -190,6 +194,7 @@ export interface Player {
   fantasy_points?: number | null
   value?: number | null
   ownership_pct?: number | null
+  value_icon?: ValueIcon | null
 }
 
 export interface SportSnapshot {
