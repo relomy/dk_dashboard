@@ -247,6 +247,7 @@ describe('VIP lineup players', () => {
         points: 7.25,
         projection: 21.11,
         clock: '38.02',
+        matchup: 'In-Progress',
         ownershipPct: 84.67,
         value: 2.07,
         valueIcon: null,
@@ -288,6 +289,7 @@ describe('VIP lineup players', () => {
         points: null,
         projection: null,
         clock: null,
+        matchup: null,
         ownershipPct: null,
         value: null,
         valueIcon: null,
@@ -474,6 +476,7 @@ describe('lineup grouping', () => {
     points: null,
     projection: null,
     clock: null,
+    matchup: null,
     ownershipPct: null,
     value: null,
     valueIcon: null,
@@ -599,12 +602,12 @@ describe('trains', () => {
 
     it('takes each player game status, points and ownership from the pool, matched by name', () => {
       const [live, later, done] = lineupOf('Live Guy|Later Guy|Done Guy', [
-        { name: 'Live Guy', team: 'FSU', position: 'QB', salary: 1, game_status: 'In-Progress', fantasy_points: 12.5, ownership_pct: 31.5, value: 4.5 },
+        { name: 'Live Guy', team: 'FSU', position: 'QB', matchup: 'FSU@MIZZ', salary: 1, game_status: 'In-Progress', fantasy_points: 12.5, ownership_pct: 31.5, value: 4.5 },
         { name: 'Later Guy', team: 'MIZZ', position: 'RB', salary: 1, game_status: 'FSU@MIZZ 07:30PM ET', fantasy_points: 0, ownership_pct: 12 },
         { name: 'Done Guy', team: 'FSU', position: 'WR', salary: 1, game_status: 'Final', fantasy_points: 30, ownership_pct: 55, value: 6.5 },
       ])
 
-      expect(live).toMatchObject({ slot: 'QB', name: 'Live Guy', gameStatus: 'in-progress', points: 12.5, ownershipPct: 31.5, value: 4.5, clock: 'In-Progress' })
+      expect(live).toMatchObject({ slot: 'QB', name: 'Live Guy', gameStatus: 'in-progress', points: 12.5, ownershipPct: 31.5, value: 4.5, clock: 'In-Progress', matchup: 'FSU@MIZZ' })
       expect(later).toMatchObject({ slot: 'RB', gameStatus: 'pre-game', points: 0, ownershipPct: 12 })
       expect(done).toMatchObject({ slot: 'WR', gameStatus: 'final', points: 30 })
     })
@@ -612,7 +615,7 @@ describe('trains', () => {
     it('keeps a player missing from the pool as a name with no live details', () => {
       const [stranger] = lineupOf('Stranger', [])
 
-      expect(stranger).toMatchObject({ name: 'Stranger', slot: '', gameStatus: null, points: null, ownershipPct: null, clock: null })
+      expect(stranger).toMatchObject({ name: 'Stranger', slot: '', gameStatus: null, points: null, ownershipPct: null, clock: null, matchup: null })
     })
 
     it('keeps locked slots in position, with no live details', () => {
@@ -953,6 +956,7 @@ describe('HAVE or FADE', () => {
       points: null,
       projection: null,
       clock: null,
+      matchup: null,
       ownershipPct: null,
       value: null,
       valueIcon: null,

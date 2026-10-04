@@ -35,9 +35,9 @@ function setTrains(snapshot: Json, trains: Json[]) {
 /** The pool behind the first three players of `LINEUP`. */
 function setLineupPool(snapshot: Json) {
   setPlayers(snapshot, [
-    { name: 'Live Guy', team: 'FSU', position: 'QB', game_status: 'In-Progress', fantasy_points: 12.5, ownership_pct: 31.5, value: 4.5 },
+    { name: 'Live Guy', team: 'FSU', position: 'QB', matchup: 'FSU@MIZZ', game_status: 'In-Progress', fantasy_points: 12.5, ownership_pct: 31.5, value: 4.5 },
     { name: 'Later Guy', team: 'MIZZ', position: 'RB', game_status: 'FSU@MIZZ 07:30PM ET', fantasy_points: 0, ownership_pct: 12, value: null },
-    { name: 'Finished Guy', team: 'FSU', position: 'WR', game_status: 'Final', fantasy_points: 30, ownership_pct: 55, value: 6.5 },
+    { name: 'Finished Guy', team: 'FSU', position: 'WR', matchup: 'ISU@ARIZ', game_status: 'Final', fantasy_points: 30, ownership_pct: 55, value: 6.5 },
   ])
 }
 
@@ -275,6 +275,25 @@ describe('lineup', () => {
     expect(within(yet).getByText('Later Guy')).toBeInTheDocument()
     // Players the pool does not carry have no status, so they wait with the pre-game players.
     expect(within(yet).getByText('Fourth Guy')).toBeInTheDocument()
+  })
+
+  it("shows each player's matchup from the player pool", async () => {
+    const snapshot = load()
+    setTrains(snapshot, [BIG])
+    setLineupPool(snapshot)
+    await renderLive(snapshot, TRAINS)
+
+    expect(within(screen.getByRole('region', { name: /^playing now/i })).getByText('FSU@MIZZ')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: /^done/i })).getByText('ISU@ARIZ')).toBeInTheDocument()
+  })
+
+  it('leaves the matchup out when the feed sends only the game status in it', async () => {
+    const snapshot = load()
+    setTrains(snapshot, [BIG])
+    setPlayers(snapshot, [{ name: 'Live Guy', game_status: 'In-Progress', matchup: 'In-Progress' }])
+    await renderLive(snapshot, TRAINS)
+
+    expect(within(screen.getByRole('region', { name: /^playing now/i })).getAllByText('In-Progress')).toHaveLength(1)
   })
 
   it('shows locked slots as locked, not as a pipe-joined signature', async () => {

@@ -95,6 +95,8 @@ export interface LiveLineupPlayer {
   projection: number | null
   /** Game clock: the time remaining display, then the raw game status. */
   clock: string | null
+  /** The player's game ("MIL@OKC"), from the player pool by name; null when the pool lacks the player or a matchup. */
+  matchup: string | null
   ownershipPct: number | null
   value: number | null
   /** DraftKings' hot/cold marker; null when the feed sends none. */
@@ -293,7 +295,20 @@ function lineupOwnershipOf(row: ContestMetricsOwnershipSummary['per_vip'][number
   return numberOrNull(row?.lineup_ownership_pct) ?? numberOrNull(row?.total_ownership_pct)
 }
 
-function buildLineupPlayers(lineup: VipLineup): LiveLineupPlayer[] {
+/** The player pool by name; the first row wins when a name repeats. */
+function indexPoolByName(players: Player[]): Map<string, Player> {
+  const poolByName = new Map<string, Player>()
+  for (const player of players) {
+    if (!poolByName.has(player.name)) poolByName.set(player.name, player)
+  }
+  return poolByName
+}
+
+function matchupOf(name: string, poolByName: Map<string, Player>): string | null {
+  return nonEmptyString(poolByName.get(name)?.matchup)
+}
+
+function buildLineupPlayers(lineup: VipLineup, poolByName: Map<string, Player>): LiveLineupPlayer[] {
   if (Array.isArray(lineup.players_live)) {
     return lineup.players_live.map((player, index) => ({
       key: `${player.slot}-${index}`,
@@ -303,6 +318,7 @@ function buildLineupPlayers(lineup: VipLineup): LiveLineupPlayer[] {
       points: numberOrNull(player.points),
       projection: numberOrNull(player.rt_projection),
       clock: nonEmptyString(player.time_remaining_display) ?? nonEmptyString(player.game_status),
+      matchup: matchupOf(player.player_name, poolByName),
       ownershipPct: numberOrNull(player.ownership_pct),
       value: numberOrNull(player.value),
       valueIcon: readValueIcon(player.value_icon),
@@ -317,6 +333,7 @@ function buildLineupPlayers(lineup: VipLineup): LiveLineupPlayer[] {
     points: null,
     projection: null,
     clock: null,
+    matchup: matchupOf(slot.player_name, poolByName),
     ownershipPct: null,
     value: null,
     valueIcon: null,
@@ -335,7 +352,7 @@ function projectLineup(lineup: VipLineup): number | null {
   }, 0)
 }
 
-function buildVips(contest: Contest, trains: Section<LiveTrains>): LiveVip[] {
+function buildVips(contest: Contest, trains: Section<LiveTrains>, poolByName: Map<string, Player>): LiveVip[] {
   const distanceByKey = buildPerVipIndex(contest.metrics?.distance_to_cash?.per_vip ?? [])
   const summaryByKey = buildPerVipIndex(contest.metrics?.ownership_summary?.per_vip ?? [])
   return contest.vip_lineups.map((lineup, vipIndex) => {
@@ -353,14 +370,14 @@ function buildVips(contest: Contest, trains: Section<LiveTrains>): LiveVip[] {
       pmr: numberOrNull(lineup.live?.pmr),
       ownershipRemainingPct: numberOrNull(lineup.live?.ownership_remaining_pct),
       lineupOwnershipPct: lineupOwnershipOf(metricKey ? summaryByKey.get(metricKey) : undefined),
-      players: buildLineupPlayers(lineup),
+      players: buildLineupPlayers(lineup, poolByName),
       trainOverlap: closestTrain(trains, vipIndex, lineupSlotCount(lineup)),
     }
   })
 }
 
 function lineupSlotCount(lineup: VipLineup): number {
-  return buildLineupPlayers(lineup).length
+  return buildLineupPlayers(lineup, new Map()).length
 }
 
 /** The train a VIP shares the most players with (ties: the larger train), if that reaches the notice threshold. */
@@ -389,6 +406,7 @@ function buildTrainPlayers(lineup: LineupSlot[], poolByName: Map<string, Player>
       points: numberOrNull(player?.fantasy_points),
       projection: null,
       clock: nonEmptyString(player?.game_status),
+      matchup: nonEmptyString(player?.matchup),
       ownershipPct: numberOrNull(player?.ownership_pct),
       value: numberOrNull(player?.value),
       valueIcon: readValueIcon(player?.value_icon),
@@ -408,7 +426,7 @@ function buildTrainCloseness(minShared: number | null, slotCount: number): LiveT
  */
 function buildTrains(
   contest: Contest,
-  sportData: SportSnapshot,
+  poolByName: Map<string, Player>,
   standings: Section<LiveStandingsRow[]>,
 ): Section<LiveTrains> {
   const raw: unknown = contest.train_clusters
@@ -416,10 +434,6 @@ function buildTrains(
     return UNAVAILABLE
   }
 
-  const poolByName = new Map<string, Player>()
-  for (const player of sportData.players) {
-    if (!poolByName.has(player.name)) poolByName.set(player.name, player)
-  }
   const namesByEntryKey = new Map<string, string>()
   if (standings.status === 'available') {
     for (const row of standings.data) {
@@ -746,7 +760,8 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
   }
   const cashLine = contest.live_metrics?.cash_line
   const standings = buildStandings(contest)
-  const trains = buildTrains(contest, sportData, standings)
+  const poolByName = indexPoolByName(sportData.players)
+  const trains = buildTrains(contest, poolByName, standings)
   return {
     kind: 'ready',
     model: {
@@ -755,7 +770,7 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
       contest: { name: contest.name },
       fieldSize: numberOrNull(contest.entries_count) ?? numberOrNull(contest.max_entries),
       cashLine: { points: numberOrNull(cashLine?.points_cutoff), rank: numberOrNull(cashLine?.rank_cutoff) },
-      vips: buildVips(contest, trains),
+      vips: buildVips(contest, trains, poolByName),
       pool: buildPool(sportData, contest),
       totalOwnership: buildTotalOwnership(sportData.players),
       fieldOwnershipRemainingPct:

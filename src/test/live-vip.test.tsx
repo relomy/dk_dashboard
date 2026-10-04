@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { contestOf, load, location, rail, renderLive, setVips, stubPhone, type VipSpec } from './liveHarness'
+import { contestOf, load, location, rail, renderLive, setPlayers, setVips, stubPhone, type VipSpec } from './liveHarness'
 
 // The Live VIP view: rail rows, the focused VIP's stats, cash-line meter and grouped lineup.
 // The producer fixture has no VIP lineups (cfb: field of 229, cash line at rank 98), so tests inject them.
@@ -314,6 +314,22 @@ describe('lineup', () => {
     expect(live.getByText('31.5% own')).toBeInTheDocument()
     expect(live.getByText('4.5')).toBeInTheDocument()
     expect(live.getByText('2 TD')).toBeInTheDocument()
+  })
+
+  it("shows each player's matchup from the player pool", async () => {
+    const snapshot = load()
+    setPlayers(snapshot, [
+      { name: 'Live Guy', matchup: 'FSU@MIZZ' },
+      { name: 'Finished Guy', matchup: 'ISU@ARIZ' },
+    ])
+    setVips(snapshot, [{ ...FIRST, liveRows: LINEUP }])
+    await renderLive(snapshot, VIPS)
+
+    expect(within(within(group(/^playing now/i)).getByRole('listitem')).getByText('FSU@MIZZ')).toBeInTheDocument()
+    expect(within(within(group(/^done/i)).getByRole('listitem')).getByText('ISU@ARIZ')).toBeInTheDocument()
+    // Later Guy is not in the pool, so his card has no matchup line.
+    const later = within(within(group(/^yet to play/i)).getByRole('listitem'))
+    expect(later.getAllByText(/@/).map((line) => line.textContent)).toEqual(['FSU@MIZZ 07:30PM ET'])
   })
 
   it('trims ownership to two decimals', async () => {
