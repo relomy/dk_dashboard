@@ -149,6 +149,10 @@ function OwnershipLeaders({ model }: { model: LiveModel }) {
                 <span className="sr-only">Rank</span>#
               </th>
               <th className="py-1 text-left font-normal">Entry</th>
+              <th className="py-1 text-right font-normal">
+                <span className="sr-only">Ownership remaining</span>
+                <span aria-hidden="true">Own left</span>
+              </th>
               <th className="py-1 text-right font-normal">PMR</th>
               <th className="py-1 text-right font-normal">Pts</th>
             </tr>
@@ -158,6 +162,7 @@ function OwnershipLeaders({ model }: { model: LiveModel }) {
               <tr key={entry.key} className="border-b border-border/50">
                 <td className="py-1 text-muted-foreground">{entry.rank === null ? DASH : `#${entry.rank}`}</td>
                 <td className="max-w-28 truncate py-1">{entry.name ?? DASH}</td>
+                <td className="py-1 text-right">{formatOwnership(entry.ownershipRemainingPct)}</td>
                 <td className="py-1 text-right text-muted-foreground">{formatPmr(entry.pmr)}</td>
                 <td className="py-1 text-right">{formatPoints(entry.points)}</td>
               </tr>

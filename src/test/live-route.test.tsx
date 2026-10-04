@@ -326,20 +326,30 @@ describe('Leverage panel', () => {
       return section('Ownership leaders').getAllByRole('row').slice(1)
     }
 
-    it('lists the leaders with rank, PMR and rounded points', async () => {
+    it('lists the leaders with rank, ownership remaining, PMR and rounded points', async () => {
       await renderLive(load())
 
       const leaders = section('Ownership leaders')
-      for (const name of [/rank/i, /entry/i, /pmr/i, /pts/i]) {
+      for (const name of [/rank/i, /entry/i, /ownership remaining/i, /pmr/i, /pts/i]) {
         expect(leaders.getByRole('columnheader', { name })).toBeInTheDocument()
       }
       expect(leaderRows()).toHaveLength(10)
       expect(within(leaderRows()[0]).getAllByRole('cell').map((cell) => cell.textContent)).toEqual([
         '#142',
         'bruc0074',
+        '272.07%',
         '231.8',
         '113.18',
       ])
+      expect(within(leaderRows()[1]).getAllByRole('cell')[2]).toHaveTextContent('255.05%')
+    })
+
+    it('shows a dash for an entry whose ownership remaining the feed omits', async () => {
+      const snapshot = load()
+      delete contestOf(snapshot).ownership_watchlist.entries[0].ownership_remaining_pct
+      await renderLive(snapshot)
+
+      expect(within(leaderRows()[0]).getAllByRole('cell')[2]).toHaveTextContent('—')
     })
 
     it("respects the producer's top_n_default", async () => {
