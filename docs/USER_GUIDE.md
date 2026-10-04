@@ -31,12 +31,13 @@
   hot/cold markers (only when the feed sends `value_icon`) and the VIPs rostering each player.
 - VIPs: rank, points, distance to cash, PMR, ownership remaining, lineup ownership and the grouped lineup.
 - Trains: size and closeness, best rank, points, PMR, VIP overlap and the grouped lineup.
+- Lineup cards show each player's matchup from the player pool, unless the pool only repeats the game status there.
 - Leverage panel (desktop column, tablet below, phone tab):
   - swing players from `metrics.threat.top_swing_players`, marked HAVE/FADE against the focused VIP
     (or the focused Train on the Trains view)
   - leverage vs field: each VIP's ownership remaining against the field average
     (`ownership_watchlist.ownership_remaining_total_pct`)
-  - ownership leaders from `ownership_watchlist`
+  - ownership leaders from `ownership_watchlist`: rank, ownership remaining, PMR and points
 - A snapshot whose `schema_version` is not 3 shows an unsupported-format message (ADR 0002).
 
 ## Profiles and VIP filtering
