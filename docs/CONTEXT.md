@@ -90,6 +90,11 @@ _Avoid_: account, preset
 A single paid submission to a contest, with its own rank, payout, and lineup.
 _Avoid_: ticket
 
+**Standings**:
+A contest's ranked list of entries, each with its rank, points, PMR, and whether
+it is cashing. The authority for a VIP's header figures when its lineup row
+carries none.
+
 **Lineup**:
 The roster of player slots that makes up an entry. An entry has exactly one
 lineup.
@@ -99,11 +104,16 @@ _Avoid_: team, roster
 One position within a lineup, holding a player and an optional scoring
 multiplier.
 
+**Locked slot**:
+A slot whose player DraftKings hides until their game locks. It shows only the
+slot and "Locked", with no player details.
+_Avoid_: hidden player
+
 ### Players
 
 **Player**:
-An athlete available in a sport's pool, carrying a salary, projected and actual
-points, and ownership.
+An athlete available in a sport's pool, carrying a salary, actual points, and
+ownership.
 _Avoid_: VIP
 
 **Player pool**:
@@ -185,6 +195,14 @@ player ownership.
 A player with high remaining ownership whose performance will move many entries
 at once.
 
+**Partial leverage**:
+A VIP's leverage figures when their lineup has a locked or unresolved slot, so
+their ownership remaining is undercounted.
+
+**Field remaining scope**:
+What the field's average ownership remaining was averaged over: the whole
+contest field, or only the watchlist.
+
 **Uniqueness delta**:
 The gap between a VIP's remaining ownership and the field's; positive means the
 VIP is more unique than the field.
@@ -198,3 +216,21 @@ parts of total ownership).
 **Ownership in play**:
 The share of a VIP's ownership coming from players whose games are currently
 underway.
+
+### Verification
+
+**Live contract**:
+The checks that the Live view reads real producer snapshots correctly: its
+invariants and its unread paths, run by the contract test on captured fixtures
+and by the prod check on a prod snapshot.
+
+**Invariant**:
+A hand-written rule about what the Live view shows for a snapshot, such as
+"every VIP card has a numeric rank".
+
+**Unread path**:
+A field the snapshot emits that the Live model never reads.
+
+**Allowlist**:
+The reviewed list of unread paths the Live view leaves unread on purpose, each
+with its reason. Any other unread path fails the Live contract.

@@ -5,7 +5,7 @@ Current snapshot format uses `schema_version: 3`.
 This document describes what the producer emits (dk_results `snapshot_feed.py`, checked against
 commit `a04055d`, `src/dk_results/services/snapshot_v3/`). The producer is the source of truth; when
 this document and the emitted snapshot disagree, the emitted snapshot wins. A real emitted snapshot
-is committed at `public/mock/snapshots/live-2026-10-03T20-48-31Z.json` (provenance in
+is committed at `public/mock/snapshots/live-2026-10-04T18-41-34Z.json` (provenance in
 `public/mock/PRODUCER_FIXTURE.md`).
 
 ## Conventions
@@ -206,10 +206,16 @@ Notes:
 Manifest naming uses UTC dates: `manifest/YYYY-MM-DD.json`. Snapshot rows are sorted newest first.
 
 ## Test fixture baseline
-- Producer fixture: `public/mock/snapshots/live-2026-10-03T20-48-31Z.json` and
-  `public/mock/manifest/2026-10-03.json`, pulled from R2 and trimmed only by dropping array
-  elements. Provenance and trimming are recorded in `public/mock/PRODUCER_FIXTURE.md`.
-- It is the only committed snapshot fixture; there are no hand-written fixtures.
+- Producer fixtures: `public/mock/snapshots/live-2026-10-04T18-41-34Z.json` (NFL mid-slate with
+  VIPs below the standings cut, plus golf), and the older
+  `public/mock/snapshots/live-2026-10-03T20-48-31Z.json` with `public/mock/manifest/2026-10-03.json`.
+  They are pulled from R2 and trimmed only by dropping array elements
+  (`npm run fixture:refresh -- <snapshot key>`). Provenance and trimming are recorded in
+  `public/mock/PRODUCER_FIXTURE.md`.
+- These are the only committed snapshot fixtures; there are no hand-written fixtures. The Live route
+  tests run on the 2026-10-04 capture; the 2026-10-03 one stays for the mock bundle (cfb and mlb for
+  the landing, history and sport tests) and the Live model unit tests.
 - Targeted behavior variants are derived in-test from the producer fixture (missing sections, empty
-  standings, missing primary contest, injected VIP lineups and metrics).
+  standings, missing primary contest). Hand-built VIP lineups are injected only for cases the capture
+  lacks, such as a cashing VIP.
 - `db_main --snapshot-out` legacy/raw shape is excluded from dashboard fixture-shape gating.

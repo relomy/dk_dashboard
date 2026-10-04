@@ -4,17 +4,20 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { useState, type ReactNode } from 'react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, vi } from 'vitest'
-// Exported by the dk_results producer; provenance in public/mock/PRODUCER_FIXTURE.md.
-// cfb carries `metrics.threat` (field of 229, cash line at rank 98); mlb carries no `metrics` at all.
-// The fixture has no VIP lineups, so tests that need them inject minimal ones with `setVips`.
-import producerSnapshot from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
+// Captured from prod; provenance in public/mock/PRODUCER_FIXTURE.md. NFL mid-slate: six VIPs ranked
+// 511-1014 below a 500-row standings cut (field of 1,136), locked slots, padded DST names and full
+// `metrics` including `threat`. Golf: two VIPs with standings rows, `metrics` without `threat`, no
+// ownership watchlist.
+import producerSnapshot from '../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
 import { TopBarSlotContext } from '../context/TopBarSlotContext'
 import Live from '../routes/Live'
 
-// The shared harness for the Live route tests: the producer fixture, helpers that inject
-// players, VIPs and trains into it, and a render of the route behind a stubbed API.
+// The shared harness for the Live route tests: the captured prod fixture (the default input), helpers
+// that inject hand-built players and VIPs for edge cases the fixture lacks, and a render of the route
+// behind a stubbed API.
 
-const SNAPSHOT_PATH = 'snapshots/live-2026-10-03T20-48-31Z.json'
+const SNAPSHOT_PATH = 'snapshots/live-2026-10-04T18-41-34Z.json'
+export const SPORT = 'nfl'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export type Json = any
@@ -23,12 +26,12 @@ export function load(): Json {
   return structuredClone(producerSnapshot)
 }
 
-export function contestOf(snapshot: Json, sport = 'cfb'): Json {
+export function contestOf(snapshot: Json, sport = SPORT): Json {
   return snapshot.sports[sport].contests[0]
 }
 
 /** Replaces the sport's player pool; each row gets plain defaults unless it overrides them. */
-export function setPlayers(snapshot: Json, players: Json[], sport = 'cfb') {
+export function setPlayers(snapshot: Json, players: Json[], sport = SPORT) {
   snapshot.sports[sport].players = players.map((row, index) => ({
     player_key: `test:${index}`,
     team: 'FSU',
@@ -44,17 +47,22 @@ export function setPlayers(snapshot: Json, players: Json[], sport = 'cfb') {
   }))
 }
 
+/**
+ * A hand-built VIP, for edge cases the captured fixture lacks (a cashing VIP, a VIP without a figure,
+ * a lineup of known players). Each use says why in its own test; whatever the fixture already shows,
+ * a test asserts against the real VIPs instead.
+ */
 export interface VipSpec {
   key: string
   name: string
-  /** Lineup player names: the name-only slots, and in-progress `players_live` rows unless `liveRows` is given. */
+  /** Lineup player names; each row takes the pool player's `player_key` when the pool has the name, as the producer's rows do. */
   players?: string[]
-  /** `players_live` rows as the feed sends them; null leaves `players_live` out. */
+  /** `players_live` rows to use instead of the ones built from `players`; null sends name-only `slots`, the legacy shape. */
   liveRows?: Json[] | null
+  /** Sent as the producer sends them: rank and PMR as strings, points as `pts`. */
   rank?: number
   points?: number
   pmr?: number
-  ownLeft?: number
   /** Points distance to cash (the per-VIP metric). */
   delta?: number
   /** Lineup ownership, under either field name. */
@@ -62,29 +70,33 @@ export interface VipSpec {
   lineupOwnField?: 'lineup_ownership_pct' | 'total_ownership_pct'
 }
 
-export function setVips(snapshot: Json, vips: VipSpec[], sport = 'cfb') {
+/** Replaces the sport's VIP lineups (and their per-VIP metrics) with hand-built ones shaped as the producer sends them. */
+export function setVips(snapshot: Json, vips: VipSpec[], sport = SPORT) {
   const contest = contestOf(snapshot, sport)
+  const pool: Json[] = snapshot.sports[sport].players
+  const keyOf = (name: string): string | undefined => pool.find((row) => String(row.name).trim() === name.trim())?.player_key
   contest.vip_lineups = vips.map((vip) => {
     const names = vip.players ?? []
     const liveRows =
       vip.liveRows === undefined
-        ? names.map((player_name) => ({ slot: 'FLEX', player_name, game_status: 'In-Progress' }))
+        ? names.map((player_name) => {
+            const player_key = keyOf(player_name)
+            return { is_live: true, ...(player_key ? { player_key } : {}), player_name, slot: 'FLEX' }
+          })
         : vip.liveRows
     return {
       entry_key: vip.key,
+      vip_entry_key: vip.key,
       display_name: vip.name,
-      slots: names.map((player_name) => ({ slot: 'FLEX', player_name })),
-      ...(liveRows === null ? {} : { players_live: liveRows }),
-      payout_cents: null,
-      live: {
-        updated_at: '2026-10-03T20:48:00Z',
-        current_rank: vip.rank,
-        current_points: vip.points,
-        pmr: vip.pmr,
-        ownership_remaining_pct: vip.ownLeft,
-      },
+      ...(liveRows === null
+        ? { slots: names.map((player_name) => ({ slot: 'FLEX', player_name })) }
+        : { players_live: liveRows }),
+      ...(vip.rank === undefined ? {} : { rank: String(vip.rank) }),
+      ...(vip.points === undefined ? {} : { pts: vip.points }),
+      ...(vip.pmr === undefined ? {} : { pmr: String(vip.pmr) }),
     }
   })
+  contest.metrics ??= {}
   const withDelta = vips.filter((vip) => vip.delta !== undefined)
   if (withDelta.length > 0) {
     contest.metrics.distance_to_cash = {
@@ -103,6 +115,14 @@ export function setVips(snapshot: Json, vips: VipSpec[], sport = 'cfb') {
     }
   }
 }
+
+/** The captured VIP's feed lineup, by display name. */
+export function vipOf(snapshot: Json, displayName: string, sport = SPORT): Json {
+  const vip = contestOf(snapshot, sport).vip_lineups.find((row: Json) => row.display_name === displayName)
+  if (!vip) throw new Error(`No VIP ${displayName} in the ${sport} fixture`)
+  return vip
+}
+
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 /** Makes `useIsPhone` report a phone-width screen. */
@@ -144,7 +164,7 @@ function LocationProbe() {
 }
 
 /** Renders the Live route at `path` over `snapshot` and waits for its heading. */
-export async function renderLive(snapshot: unknown, path = '/live/cfb') {
+export async function renderLive(snapshot: unknown, path = `/live/${SPORT}`) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -153,10 +173,10 @@ export async function renderLive(snapshot: unknown, path = '/live/cfb') {
         return new Response(
           JSON.stringify({
             latest_snapshot_path: SNAPSHOT_PATH,
-            snapshot_at: '2026-10-03T20:48:31Z',
-            generated_at: '2026-10-03T20:48:31Z',
-            available_sports: ['cfb', 'golf', 'mlb'],
-            manifest_today_path: 'manifest/2026-10-03.json',
+            snapshot_at: '2026-10-04T18:41:34Z',
+            generated_at: '2026-10-04T18:41:34Z',
+            available_sports: ['golf', 'nfl'],
+            manifest_today_path: 'manifest/2026-10-04.json',
           }),
           { status: 200 },
         )

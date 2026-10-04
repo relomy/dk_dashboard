@@ -1,4 +1,11 @@
-import type { GameStatus, LiveLineupPlayer, LivePoolPlayer, LiveTrainCloseness } from './liveModel'
+import {
+  isSamePlayer,
+  type GameStatus,
+  type LiveLineupPlayer,
+  type LivePoolPlayer,
+  type LiveSwingPlayer,
+  type LiveTrainCloseness,
+} from './liveModel'
 
 // How the Live views label and show what the view model holds: train closeness, the lineup
 // ownership hint, lineup groups, HAVE/FADE and hidden values.
@@ -48,11 +55,14 @@ export function groupLineup(players: LiveLineupPlayer[]): LineupGroup[] {
 
 /**
  * A swing player against the lineup in focus (a VIP, or a Train on the Trains view): HAVE when the
- * lineup rosters them, FADE when it does not, matched by name; null without a focused lineup.
+ * lineup rosters them (`isSamePlayer`), FADE when it does not; null without a focused lineup.
  */
-export function haveOrFade(lineup: LiveLineupPlayer[] | null, playerName: string): 'have' | 'fade' | null {
+export function haveOrFade(
+  lineup: LiveLineupPlayer[] | null,
+  swing: Pick<LiveSwingPlayer, 'name' | 'playerKey'>,
+): 'have' | 'fade' | null {
   if (!lineup) return null
-  return lineup.some((player) => player.name === playerName) ? 'have' : 'fade'
+  return lineup.some((player) => isSamePlayer(player, swing)) ? 'have' : 'fade'
 }
 
 /** Value is hidden for pre-game players (a zero is not a bust), so it never shows or ranks them. */
