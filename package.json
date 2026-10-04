@@ -13,6 +13,7 @@
     "auth:bootstrap-owner": "WRANGLER_LOG_PATH=.wrangler/logs node --import tsx scripts/auth/bootstrap-owner.ts",
     "auth:reset-owner-password": "WRANGLER_LOG_PATH=.wrangler/logs node --import tsx scripts/auth/reset-owner-password.ts",
     "auth:reset-local": "node --import tsx scripts/auth/reset-local.ts",
+    "fixture:refresh": "node --import tsx scripts/fixtures/refresh-fixture.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
