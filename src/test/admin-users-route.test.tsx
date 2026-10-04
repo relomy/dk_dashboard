@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
+import snapshotFixture from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import App from '../App'
 
 afterEach(() => {
@@ -51,15 +52,7 @@ it('blocks friend users from /admin/users', async () => {
         )
       }
       if (url.includes('/api/snapshot')) {
-        return new Response(
-          JSON.stringify({
-            schema_version: 3,
-            snapshot_at: '2026-10-03T20:48:31Z',
-            generated_at: '2026-10-03T20:48:31Z',
-            sports: {},
-          }),
-          { status: 200 },
-        )
+        return new Response(JSON.stringify(snapshotFixture), { status: 200 })
       }
 
       return new Response(JSON.stringify({ error: { code: 'not_found', message: 'Not found' } }), { status: 404 })
@@ -67,7 +60,7 @@ it('blocks friend users from /admin/users', async () => {
   )
 
   renderApp('/admin/users')
-  expect(await screen.findByRole('heading', { name: /latest/i })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: /live: cfb/i })).toBeInTheDocument()
 })
 
 it('allows owner users to view and create users from /admin/users', async () => {

@@ -36,7 +36,7 @@ it('redirects unauthenticated users to /login', async () => {
     }),
   )
 
-  renderApp('/latest')
+  renderApp('/')
   expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
 })
 
@@ -62,7 +62,7 @@ it('redirects authenticated users with must_change_password to /change-password'
     }),
   )
 
-  renderApp('/latest')
+  renderApp('/')
   expect(await screen.findByRole('heading', { name: /change password/i })).toBeInTheDocument()
 })
 
@@ -101,8 +101,8 @@ it('allows authenticated friend to reach dashboard routes', async () => {
     }),
   )
 
-  renderApp('/latest')
-  expect(await screen.findByRole('heading', { name: /latest/i })).toBeInTheDocument()
+  renderApp('/')
+  expect(await screen.findByRole('heading', { name: /live: cfb/i })).toBeInTheDocument()
 })
 
 it('clears local auth state when logout request fails', async () => {
@@ -149,8 +149,8 @@ it('clears local auth state when logout request fails', async () => {
     }),
   )
 
-  renderApp('/latest')
-  expect(await screen.findByRole('heading', { name: /latest/i })).toBeInTheDocument()
+  renderApp('/')
+  expect(await screen.findByRole('heading', { name: /live: cfb/i })).toBeInTheDocument()
 
   fireEvent.pointerDown(screen.getByRole('button', { name: /user menu/i }), { button: 0, ctrlKey: false })
   fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: /sign out/i }))

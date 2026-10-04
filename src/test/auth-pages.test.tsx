@@ -119,7 +119,7 @@ it('validates the new password and signs out from the forced change-password pag
     }),
   )
 
-  renderApp('/latest')
+  renderApp('/')
   expect(await screen.findByRole('heading', { name: /change password/i })).toBeInTheDocument()
   expect(screen.queryByLabelText('Current password')).not.toBeInTheDocument()
   expect(screen.getByText(/temporary password must be changed/i)).toBeInTheDocument()

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import CommandCenter from '../components/live/CommandCenter'
+import { useRememberSport } from '../hooks/useRememberSport'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { buildLiveModel, type LiveNotRenderableReason } from '../lib/liveModel'
 
@@ -32,6 +33,7 @@ function Live() {
   const { snapshot, loading, error } = useSportSnapshot()
 
   const sportKey = sport?.toLowerCase()
+  useRememberSport(sportKey)
   const result = useMemo(
     () => (snapshot && sportKey ? buildLiveModel(snapshot, sportKey) : null),
     [snapshot, sportKey],
