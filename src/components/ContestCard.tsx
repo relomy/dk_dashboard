@@ -68,7 +68,7 @@ function ContestCard({
                     ) : null}
                   </div>
                   <ol className="flex flex-col gap-0.5 text-xs">
-                    {lineup.slots.map((slot, index) => (
+                    {(lineup.slots ?? []).map((slot, index) => (
                       <li key={`${lineupKey}-${index}`} className="flex gap-2">
                         <span className="w-9 shrink-0 font-mono text-muted-foreground">{slot.slot}</span>
                         <span className="min-w-0 break-words">

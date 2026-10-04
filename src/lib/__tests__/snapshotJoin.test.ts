@@ -13,8 +13,9 @@ test('parses v6 vip slot names and preserves slot order', () => {
   for (const sport of Object.values(snapshot.sports)) {
     for (const contest of sport.contests) {
       for (const lineup of contest.vip_lineups) {
-        const slotNames = lineup.slots.map((slot) => slot.player_name)
-        expect(slotNames.length).toBe(lineup.slots.length)
+        const slots = lineup.slots ?? []
+        const slotNames = slots.map((slot) => slot.player_name)
+        expect(slotNames.length).toBe(slots.length)
         expect(slotNames.every((name) => typeof name === 'string' && name.length > 0)).toBe(true)
       }
     }

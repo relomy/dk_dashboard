@@ -255,7 +255,7 @@ describe('VIP lineup players', () => {
       players_live: [
         { ...PLAYERS_LIVE_ROW, slot: 'RB', game_status: 'Final' },
         { ...PLAYERS_LIVE_ROW, slot: 'WR', game_status: 'FSU@MIZZ 07:30PM ET' },
-        { ...PLAYERS_LIVE_ROW, slot: 'TE', game_status: undefined },
+        { ...PLAYERS_LIVE_ROW, slot: 'TE', player_name: 'Not In The Pool', game_status: undefined },
       ],
     })
 
@@ -409,6 +409,187 @@ describe('VIP standing and ownership', () => {
     expect(vipOf(snapshot, 'mlb').lineupOwnershipPct).toBeNull()
   })
 
+})
+
+describe('VIP card from a minimal producer lineup', () => {
+  // The producer's lineup row: string rank/pmr, `pts`, no `live` block, no `slots`, minimal players_live rows.
+  const MINIMAL_LINEUP = {
+    rank: '74',
+    pts: 433,
+    pmr: '82',
+    players_live: [{ player_key: 'cfb:ashton-daniels:fsu:6500:qb', player_name: 'Ashton Daniels', salary: 6500, is_live: true }],
+    slots: undefined,
+  }
+  const STANDINGS_ROW = {
+    entry_key: VIP_KEY,
+    username: VIP_NAME,
+    rank: 77,
+    points: 424.5,
+    pmr: 82,
+    ownership_remaining_total_pct: 143.5,
+    is_cashing: true,
+    payout_cents: null,
+  }
+
+  function setStandings(snapshot: Json, rows: Json[]) {
+    contestOf(snapshot).standings = rows
+  }
+
+  function vipOf(snapshot: unknown) {
+    const [vip] = modelOf(snapshot).vips
+    if (!vip) throw new Error('Expected a VIP')
+    return vip
+  }
+
+  it('takes rank, points, PMR and ownership remaining from the standings row, ignoring the lineup strings and pts', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', MINIMAL_LINEUP)
+    setStandings(snapshot, [STANDINGS_ROW])
+
+    expect(vipOf(snapshot)).toMatchObject({ rank: 77, points: 424.5, pmr: 82, ownershipRemainingPct: 143.5 })
+  })
+
+  it('lets the lineup live block and numeric rank and points win over the standings row', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', { live: { updated_at: '2026-10-03T20:40:00Z', current_rank: 12, pmr: 88.5 }, points: 91.25 })
+    setStandings(snapshot, [STANDINGS_ROW])
+
+    expect(vipOf(snapshot)).toMatchObject({ rank: 12, points: 91.25, pmr: 88.5, ownershipRemainingPct: 143.5 })
+  })
+
+  it('matches the standings row on vip_entry_key before entry_key', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', { ...MINIMAL_LINEUP, entry_key: 'someone-else', vip_entry_key: VIP_KEY })
+    setStandings(snapshot, [{ ...STANDINGS_ROW, entry_key: 'someone-else', rank: 1 }, STANDINGS_ROW])
+
+    expect(vipOf(snapshot).rank).toBe(77)
+  })
+
+  it('shows no standing values when the VIP has no standings row or the contest has no standings', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', MINIMAL_LINEUP)
+    setStandings(snapshot, [{ ...STANDINGS_ROW, entry_key: 'someone-else' }])
+    expect(vipOf(snapshot)).toMatchObject({ rank: null, points: null, pmr: null, ownershipRemainingPct: null })
+
+    delete contestOf(snapshot).standings
+    expect(vipOf(snapshot)).toMatchObject({ rank: null, points: null, pmr: null, ownershipRemainingPct: null })
+  })
+
+  it('leaves ownership remaining empty when the standings row omits it, as golf does', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', MINIMAL_LINEUP)
+    setStandings(snapshot, [{ ...STANDINGS_ROW, ownership_remaining_total_pct: undefined }])
+
+    expect(vipOf(snapshot)).toMatchObject({ rank: 77, ownershipRemainingPct: null })
+  })
+
+  describe('player rows', () => {
+    // Pool entry in the fixture: ownership 24.02, 18.16 points, In-Progress, value 2.793846153846154.
+    const KEYED_ROW = MINIMAL_LINEUP.players_live[0]
+
+    function playersOf(snapshot: unknown) {
+      return vipOf(snapshot).players
+    }
+
+    it('fills ownership, points, game status and value from the pool player with the same player_key', () => {
+      const snapshot = load()
+      addVip(snapshot, 'cfb', MINIMAL_LINEUP)
+
+      expect(playersOf(snapshot)).toEqual([
+        expect.objectContaining({
+          name: 'Ashton Daniels',
+          ownershipPct: 24.02,
+          points: 18.16,
+          gameStatus: 'in-progress',
+          value: 2.793846153846154,
+        }),
+      ])
+    })
+
+    it('lets values on the row itself win over the pool player', () => {
+      const snapshot = load()
+      addVip(snapshot, 'cfb', { players_live: [{ ...KEYED_ROW, ownership_pct: 50, points: 3, game_status: 'Final', value: 1 }] })
+
+      expect(playersOf(snapshot)).toEqual([
+        expect.objectContaining({ ownershipPct: 50, points: 3, gameStatus: 'final', value: 1 }),
+      ])
+    })
+
+    it('takes nothing from a same-name pool player when the row has a player_key the pool lacks', () => {
+      const snapshot = load()
+      addVip(snapshot, 'cfb', { players_live: [{ ...KEYED_ROW, player_key: 'cfb:ashton-daniels:other:1:qb' }] })
+
+      expect(playersOf(snapshot)).toEqual([
+        expect.objectContaining({ name: 'Ashton Daniels', ownershipPct: null, points: null, gameStatus: null, value: null }),
+      ])
+    })
+
+    it('matches a row with no player_key by name', () => {
+      const snapshot = load()
+      addVip(snapshot, 'cfb', { players_live: [{ player_name: 'Ashton Daniels', salary: 6500 }] })
+
+      expect(playersOf(snapshot)).toEqual([expect.objectContaining({ ownershipPct: 24.02, points: 18.16 })])
+    })
+
+    it('does not match a locked row against the pool', () => {
+      const snapshot = load()
+      addVip(snapshot, 'cfb', { players_live: [{ player_name: 'Ashton Daniels', is_locked: true }] })
+
+      expect(playersOf(snapshot)).toEqual([
+        expect.objectContaining({ ownershipPct: null, points: null, gameStatus: null, value: null, matchup: null }),
+      ])
+    })
+
+    it('lists a row with no slot under a stable key and no slot label', () => {
+      const snapshot = load()
+      addVip(snapshot, 'cfb', {
+        players_live: [KEYED_ROW, { ...KEYED_ROW, player_key: 'cfb:austin-simmons:mizz:6700:qb', player_name: 'Austin Simmons' }],
+      })
+
+      expect(playersOf(snapshot).map((player) => [player.key, player.slot])).toEqual([
+        ['row-0', ''],
+        ['row-1', ''],
+      ])
+    })
+  })
+
+  it('has no projection when no player row carries a real-time projection, rather than summing to zero', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', MINIMAL_LINEUP)
+
+    expect(vipOf(snapshot).projectedPoints).toBeNull()
+  })
+
+  it('projects from the pool-enriched points when some rows carry a real-time projection', () => {
+    const snapshot = load()
+    const [keyed] = MINIMAL_LINEUP.players_live
+    addVip(snapshot, 'cfb', {
+      players_live: [
+        // Final, so its points count: 3 on the row, not the pool's 18.16.
+        { ...keyed, game_status: 'Final', points: 3 },
+        // In progress with a projection; the points so far are pool-only.
+        { ...keyed, player_key: 'cfb:austin-simmons:mizz:6700:qb', player_name: 'Austin Simmons', rt_projection: 20 },
+        // In progress with no projection: the pool's 4.5 points so far count.
+        { ...keyed, player_key: 'cfb:beau-pribula:uva:7600:qb', player_name: 'Beau Pribula' },
+      ],
+    })
+
+    expect(vipOf(snapshot).projectedPoints).toBe(27.5)
+  })
+
+  it('takes cashing from the standings row only when distance to cash and payout say nothing', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', MINIMAL_LINEUP)
+    setStandings(snapshot, [{ ...STANDINGS_ROW, is_cashing: true }])
+    expect(vipOf(snapshot).cashing).toBe(true)
+
+    // A matched distance-to-cash row still decides first.
+    contestOf(snapshot).metrics.distance_to_cash = {
+      cutoff_points: 500,
+      per_vip: [{ entry_key: VIP_KEY, points_delta: -75.5 }],
+    }
+    expect(vipOf(snapshot).cashing).toBe(false)
+  })
 })
 
 describe('field size', () => {
