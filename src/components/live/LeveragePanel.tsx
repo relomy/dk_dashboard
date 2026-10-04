@@ -1,6 +1,6 @@
 import { useId, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
-import { DASH, formatPmr, formatPoints } from '../../lib/format'
+import { DASH, formatPmr, formatPoints, formatRank } from '../../lib/format'
 import { haveOrFade, type LiveLineupPlayer, type LiveModel } from '../../lib/liveModel'
 import { formatOwnership } from '../../lib/playerPool'
 import { vipColorClass } from './presentation'
@@ -160,7 +160,7 @@ function OwnershipLeaders({ model }: { model: LiveModel }) {
           <tbody>
             {leaders.data.entries.map((entry) => (
               <tr key={entry.key} className="border-b border-border/50">
-                <td className="py-1 text-muted-foreground">{entry.rank === null ? DASH : `#${entry.rank}`}</td>
+                <td className="py-1 text-muted-foreground">{formatRank(entry.rank)}</td>
                 <td className="max-w-28 truncate py-1">{entry.name ?? DASH}</td>
                 <td className="py-1 text-right">{formatOwnership(entry.ownershipRemainingPct)}</td>
                 <td className="py-1 text-right text-muted-foreground">{formatPmr(entry.pmr)}</td>

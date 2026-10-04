@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { DASH, formatPmr, formatPoints, formatSigned } from '../../lib/format'
+import { formatPmr, formatPoints, formatRank, formatSigned } from '../../lib/format'
 import { lineupOwnershipHint, type LiveModel, type LiveVip, type LiveVipTrainOverlap } from '../../lib/liveModel'
 import { formatOwnership } from '../../lib/playerPool'
 import CashMeter from './CashMeter'
@@ -39,7 +39,7 @@ export function VipRailRows({
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium">{vip.name}</span>
             <span className="block font-mono text-[11px] text-muted-foreground">
-              {vip.rank === null ? DASH : `#${vip.rank}`} · {formatPmr(vip.pmr)} PMR
+              {formatRank(vip.rank)} · {formatPmr(vip.pmr)} PMR
             </span>
           </span>
           <span className={cn('font-mono text-xs tabular-nums', distanceTone(vip))}>
@@ -75,7 +75,7 @@ export function VipChips({
         >
           <VipAvatar name={vip.name} index={index} className="size-5 rounded-full text-[9px]" />
           {vip.name}
-          <span className={cn('font-mono', distanceTone(vip))}>{vip.rank === null ? DASH : `#${vip.rank}`}</span>
+          <span className={cn('font-mono', distanceTone(vip))}>{formatRank(vip.rank)}</span>
         </Link>
       ))}
     </nav>
@@ -103,7 +103,7 @@ export function VipView({
         </div>
         <Stat
           label="Rank"
-          value={vip.rank === null ? DASH : `#${vip.rank}`}
+          value={formatRank(vip.rank)}
           sub={model.fieldSize === null ? undefined : `of ${model.fieldSize}`}
         />
         <Stat

@@ -1,13 +1,9 @@
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { DASH, formatPmr, formatPoints } from '../../lib/format'
+import { formatPmr, formatPoints, formatRank } from '../../lib/format'
 import { trainClosenessLabel, type LiveModel, type LiveTrain } from '../../lib/liveModel'
 import LineupGroups from './LineupGroups'
 import { Stat, VipAvatar } from './atoms'
-
-function rankText(rank: number | null): string {
-  return rank === null ? DASH : `#${rank}`
-}
 
 /** The rail's Train rows: size badge, closeness label, best rank and PMR, each linking to that Train. */
 export function TrainRailRows({
@@ -39,7 +35,7 @@ export function TrainRailRows({
             <span className="min-w-0 flex-1">
               {closeness ? <span className="block truncate text-sm font-medium">{closeness}</span> : null}
               <span className="block font-mono text-[11px] text-muted-foreground">
-                {`best ${rankText(train.rank)} · ${formatPmr(train.pmr)} PMR`}
+                {`best ${formatRank(train.rank)} · ${formatPmr(train.pmr)} PMR`}
               </span>
             </span>
           </Link>
@@ -111,7 +107,7 @@ export function TrainView({ model, train }: { model: LiveModel; train: LiveTrain
         </div>
         <Stat
           label="Best rank"
-          value={rankText(train.rank)}
+          value={formatRank(train.rank)}
           sub={model.fieldSize === null ? undefined : `of ${model.fieldSize}`}
         />
         <Stat label="Points" value={formatPoints(train.points)} />
