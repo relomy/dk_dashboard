@@ -443,7 +443,7 @@ function projectLineup(players: LiveLineupPlayer[]): number | null {
  * A figure on the VIP's lineup row: a finite number, or a numeric string as the producer sends
  * `rank` and `pmr` (`"879"`). Anything else (blank, junk, absent) is null.
  */
-function lineupFigure(value: unknown): number | null {
+function parseLineupNumber(value: unknown): number | null {
   if (typeof value === 'string' && /^\s*-?\d+(\.\d+)?\s*$/.test(value)) return Number(value)
   return numberOrNull(value)
 }
@@ -471,14 +471,14 @@ function buildVips(contest: Contest, trains: Section<LiveTrains>, pool: PoolInde
       cashing: resolveVipCashing(lineup, distance, standing),
       distanceToCash: { points: numberOrNull(distance?.points_delta), rank: numberOrNull(distance?.rank_delta) },
       updatedAt: lineup.live?.updated_at || null,
-      rank: numberOrNull(lineup.live?.current_rank) ?? lineupFigure(lineup.rank) ?? numberOrNull(standing?.rank),
+      rank: numberOrNull(lineup.live?.current_rank) ?? parseLineupNumber(lineup.rank) ?? numberOrNull(standing?.rank),
       points:
         numberOrNull(lineup.live?.current_points) ??
-        lineupFigure(lineup.points) ??
-        lineupFigure(lineup.pts) ??
+        parseLineupNumber(lineup.points) ??
+        parseLineupNumber(lineup.pts) ??
         numberOrNull(standing?.points),
       projectedPoints: projectLineup(players),
-      pmr: numberOrNull(lineup.live?.pmr) ?? lineupFigure(lineup.pmr) ?? numberOrNull(standing?.pmr),
+      pmr: numberOrNull(lineup.live?.pmr) ?? parseLineupNumber(lineup.pmr) ?? numberOrNull(standing?.pmr),
       ownershipRemainingPct:
         numberOrNull(lineup.live?.ownership_remaining_pct) ??
         numberOrNull(standing?.ownership_remaining_total_pct) ??

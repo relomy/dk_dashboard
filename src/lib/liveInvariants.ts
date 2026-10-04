@@ -12,6 +12,7 @@ import type { Contest, Snapshot, VipLineup } from './types'
  */
 
 export interface ContractCase {
+  /** The fixture file or snapshot key the snapshot came from. */
   input: string
   sport: string
   snapshot: Snapshot
@@ -179,10 +180,10 @@ export const INVARIANTS: Record<string, Invariant> = {
   'locked VIP slots render as locked, with no pool lookup': lockedSlotsRenderLocked,
 }
 
-/** The contract cases of one snapshot: one per sport it carries. */
-export function contractCasesOf(input: string, snapshot: Snapshot): ContractCase[] {
+/** The contract cases of one snapshot, named by its fixture file or snapshot key: one per sport it carries. */
+export function contractCasesOf(sourceName: string, snapshot: Snapshot): ContractCase[] {
   return Object.entries(snapshot.sports).map(([sport, sportSnapshot]) => ({
-    input,
+    input: sourceName,
     sport,
     snapshot,
     contest: sportSnapshot.primary_contest
