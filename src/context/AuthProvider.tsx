@@ -1,20 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { changePassword, fetchCurrentUser, login as loginRequest, logout as logoutRequest } from '../lib/authApi'
 import type { AuthUser } from '../lib/types'
-
-type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
-
-interface AuthContextValue {
-  status: AuthStatus
-  user: AuthUser | null
-  error: string | null
-  login: (username: string, password: string) => Promise<void>
-  logout: () => Promise<void>
-  changePassword: (currentPassword: string | undefined, nextPassword: string) => Promise<void>
-  refresh: () => Promise<void>
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null)
+import { AuthContext, type AuthContextValue, type AuthStatus } from './AuthContext'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading')
@@ -89,10 +76,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export function useAuthContext(): AuthContextValue {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuthContext must be used within AuthProvider')
-  }
-  return context
-}

@@ -10,6 +10,8 @@ export function useHealth() {
     }
 
     const generatedAtMs = new Date(snapshotQuery.data.generated_at).getTime()
+    // The age is intentionally sampled once per snapshot (and on mount), not on every render.
+    // eslint-disable-next-line react-hooks/purity
     const nowMs = Date.now()
 
     if (Number.isNaN(generatedAtMs)) {
