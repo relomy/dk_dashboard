@@ -72,7 +72,7 @@ export interface ContestMetricsDistanceToCash {
 export interface ContestMetricsThreat {
   leverage_semantics: 'positive=unique'
   field_remaining_scope: 'watchlist' | 'contest_field'
-  field_remaining_source: 'ownership_watchlist_total' | 'watchlist_entries_sum'
+  field_remaining_source: 'ownership_watchlist_total' | 'watchlist_entries_sum' | 'contest_standings_mean'
   field_remaining_is_partial?: boolean
   field_remaining_pct?: number | null
   top_swing_players?: Array<{
@@ -89,6 +89,8 @@ export interface ContestMetricsThreat {
     vip_remaining_pct?: number | null
     field_remaining_pct?: number | null
     uniqueness_delta_pct?: number | null
+    /** Set when the VIP's lineup has a locked or unresolved slot, which undercounts their remaining ownership. */
+    is_partial?: boolean
   }>
 }
 

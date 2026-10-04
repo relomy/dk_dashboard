@@ -1134,23 +1134,25 @@ describe('swing players', () => {
 })
 
 describe('field ownership remaining', () => {
-  it("reads the field's average ownership remaining from the ownership leaders total", () => {
-    expect(modelOf(load()).fieldOwnershipRemainingPct).toBeCloseTo(146.4668, 4)
+  it("reads the field's average ownership remaining from the ownership leaders total, with no scope", () => {
+    const field = modelOf(load()).fieldOwnershipRemaining
+    expect(field?.pct).toBeCloseTo(146.4668, 4)
+    expect(field?.scope).toBeNull()
   })
 
-  it('falls back to the threat field remaining figure when the leaders carry no total', () => {
+  it('prefers the threat field remaining figure over the leaders total, with its scope', () => {
     const snapshot = load()
-    delete contestOf(snapshot).ownership_watchlist.ownership_remaining_total_pct
     contestOf(snapshot).metrics.threat.field_remaining_pct = 150.5
+    contestOf(snapshot).metrics.threat.field_remaining_scope = 'contest_field'
 
-    expect(modelOf(snapshot).fieldOwnershipRemainingPct).toBe(150.5)
+    expect(modelOf(snapshot).fieldOwnershipRemaining).toEqual({ pct: 150.5, scope: 'contest_field' })
   })
 
   it('is null when the feed gives neither', () => {
     const snapshot = load()
     delete contestOf(snapshot, 'mlb').ownership_watchlist
 
-    expect(modelOf(snapshot, 'mlb').fieldOwnershipRemainingPct).toBeNull()
+    expect(modelOf(snapshot, 'mlb').fieldOwnershipRemaining).toBeNull()
   })
 })
 

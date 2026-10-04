@@ -5,6 +5,7 @@ import type {
   Contest,
   ContestMetricsDistanceToCash,
   ContestMetricsOwnershipSummary,
+  ContestMetricsThreat,
   Player,
   Snapshot,
   SportSnapshot,
@@ -73,6 +74,25 @@ export interface LiveVip {
   players: LiveLineupPlayer[]
   /** The train this VIP's lineup shares the most players with, when that is at least `TRAIN_NOTICE_MIN_SHARED`. */
   trainOverlap: LiveVipTrainOverlap | null
+  /** The VIP's `vip_vs_field_leverage` row, matched by entry key; unavailable when the feed has none for them. */
+  leverage: Section<LiveVipLeverage>
+}
+
+/** One VIP's ownership leverage against the field, as the producer computes it. */
+export interface LiveVipLeverage {
+  vipRemainingPct: number | null
+  fieldRemainingPct: number | null
+  /** Positive means the VIP is more unique than the field. */
+  uniquenessDeltaPct: number | null
+  /** The VIP's lineup has a locked or unresolved slot, so their remaining ownership is undercounted. */
+  partial: boolean
+}
+
+/** The field's average ownership remaining per entry, and what the producer averaged over. */
+export interface LiveFieldRemaining {
+  pct: number
+  /** The threat metrics' `field_remaining_scope`; null for the ownership leaders total, which states none. */
+  scope: ContestMetricsThreat['field_remaining_scope'] | null
 }
 
 /** A VIP shares this many players or more with a Train before the VIP view points at it. */
@@ -238,10 +258,10 @@ export interface LiveModel {
   /** Computed over the whole pool, before the relevance filter. */
   totalOwnership: LiveTotalOwnership
   /**
-   * The field's average ownership remaining per entry: the ownership leaders total (the producer averages
-   * every standings row), else the threat metrics' field remaining figure; null when the feed gives neither.
+   * The field's average ownership remaining per entry: the threat metrics' field remaining figure with its
+   * scope, else the ownership leaders total; null when the feed gives neither.
    */
-  fieldOwnershipRemainingPct: number | null
+  fieldOwnershipRemaining: LiveFieldRemaining | null
   trains: Section<LiveTrains>
   standings: Section<LiveStandingsRow[]>
   ownershipLeaders: Section<LiveOwnershipLeaders>
@@ -435,8 +455,25 @@ function buildVips(contest: Contest, trains: Section<LiveTrains>, pool: PoolInde
       lineupOwnershipPct: lineupOwnershipOf(metricKey ? summaryByKey.get(metricKey) : undefined),
       players,
       trainOverlap: closestTrain(trains, vipIndex, lineupSlotCount(lineup)),
+      leverage: leverage
+        ? available({
+            vipRemainingPct: numberOrNull(leverage.vip_remaining_pct),
+            fieldRemainingPct: numberOrNull(leverage.field_remaining_pct),
+            uniquenessDeltaPct: numberOrNull(leverage.uniqueness_delta_pct),
+            partial: leverage.is_partial === true,
+          })
+        : UNAVAILABLE,
     }
   })
+}
+
+/** The threat metrics' contest figure first (captioned by its scope), then the ownership leaders total. */
+function buildFieldRemaining(contest: Contest): LiveFieldRemaining | null {
+  const threat = contest.metrics?.threat
+  const threatPct = numberOrNull(threat?.field_remaining_pct)
+  if (threatPct !== null) return { pct: threatPct, scope: threat?.field_remaining_scope ?? null }
+  const leadersPct = numberOrNull(contest.ownership_watchlist?.ownership_remaining_total_pct)
+  return leadersPct === null ? null : { pct: leadersPct, scope: null }
 }
 
 /** The lineup's size, counted as `buildLineupPlayers` would list it: `players_live` when present, else the slots. */
@@ -730,9 +767,7 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
       vips: buildVips(contest, trains, pool),
       pool: buildPool(sportData, contest),
       totalOwnership: buildTotalOwnership(sportData.players),
-      fieldOwnershipRemainingPct:
-        numberOrNull(contest.ownership_watchlist?.ownership_remaining_total_pct) ??
-        numberOrNull(contest.metrics?.threat?.field_remaining_pct),
+      fieldOwnershipRemaining: buildFieldRemaining(contest),
       trains,
       standings,
       ownershipLeaders: buildOwnershipLeaders(contest),

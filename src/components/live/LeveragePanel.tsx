@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
-import { DASH, formatPmr, formatPoints, formatRank } from '../../lib/format'
-import type { LiveLineupPlayer, LiveModel } from '../../lib/liveModel'
+import { DASH, formatPmr, formatPoints, formatRank, formatSigned } from '../../lib/format'
+import type { LiveFieldRemaining, LiveLineupPlayer, LiveModel } from '../../lib/liveModel'
 import { haveOrFade } from '../../lib/livePresentation'
 import { formatOwnership } from '../../lib/playerPool'
 import { vipColorClass } from './presentation'
@@ -78,8 +78,15 @@ function SwingPlayers({ model, focus }: { model: LiveModel; focus: LeverageFocus
   )
 }
 
+/** What the field figure averages over, by the producer's scope; plain "Field" when it states none. */
+function fieldCaption(scope: LiveFieldRemaining['scope']): string {
+  if (scope === 'contest_field') return 'Contest field'
+  if (scope === 'watchlist') return 'Watchlist'
+  return 'Field'
+}
+
 function LeverageVsField({ model, focus }: { model: LiveModel; focus: LeverageFocus | null }) {
-  const field = model.fieldOwnershipRemainingPct
+  const field = model.fieldOwnershipRemaining?.pct ?? null
   const max = Math.max(field ?? 0, ...model.vips.map((vip) => vip.ownershipRemainingPct ?? 0), 1)
   return (
     <PanelSection title="Leverage vs field">
@@ -89,6 +96,7 @@ function LeverageVsField({ model, focus }: { model: LiveModel; focus: LeverageFo
         <div className="mt-3 space-y-3">
           {model.vips.map((vip, index) => {
             const own = vip.ownershipRemainingPct
+            const leverage = vip.leverage.availability === 'available' ? vip.leverage.data : null
             return (
               <div
                 key={vip.key}
@@ -98,7 +106,23 @@ function LeverageVsField({ model, focus }: { model: LiveModel; focus: LeverageFo
               >
                 <div className="mb-1 flex justify-between gap-2">
                   <span className="truncate">{vip.name}</span>
-                  <span className="font-mono tabular-nums">{own === null ? 'Unavailable' : formatOwnership(own)}</span>
+                  <span className="flex shrink-0 items-center gap-2 font-mono tabular-nums">
+                    {leverage?.partial ? (
+                      <span
+                        title="A locked or unresolved slot undercounts this VIP's remaining ownership"
+                        className="rounded bg-muted px-1 font-sans text-[10px] text-muted-foreground"
+                      >
+                        Partial
+                      </span>
+                    ) : null}
+                    <span>{own === null ? 'Unavailable' : formatOwnership(own)}</span>
+                    {leverage?.uniquenessDeltaPct == null ? null : (
+                      <span title="Uniqueness delta: positive means more unique than the field">
+                        <span className="sr-only">Uniqueness delta </span>
+                        {`${formatSigned(leverage.uniquenessDeltaPct)}%`}
+                      </span>
+                    )}
+                  </span>
                 </div>
                 <div className="relative h-2 rounded-full bg-muted">
                   {own === null ? null : (
@@ -124,7 +148,7 @@ function LeverageVsField({ model, focus }: { model: LiveModel; focus: LeverageFo
             ) : (
               <>
                 <span aria-hidden="true" className="mr-1 inline-block h-2 w-0.5 bg-cash-line" />
-                {`Field avg remaining ${formatOwnership(field)}`}
+                {`${fieldCaption(model.fieldOwnershipRemaining?.scope ?? null)} avg remaining ${formatOwnership(field)}`}
               </>
             )}
           </p>
