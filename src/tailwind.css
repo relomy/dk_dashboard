@@ -86,6 +86,9 @@
     --color-vip-4: var(--vip-4);
     --color-vip-5: var(--vip-5);
     --color-vip-6: var(--vip-6);
+    --color-game-pre-game: var(--game-pre-game);
+    --color-game-in-progress: var(--game-in-progress);
+    --color-game-final: var(--game-final);
     --color-focus: var(--focus);
 }
 
@@ -185,6 +188,15 @@
     --vip-4: oklch(0.585 0.233 277.117); /* indigo-500 */
     --vip-5: oklch(0.704 0.14 182.503); /* teal-500 */
     --vip-6: oklch(0.714 0.203 305.504); /* purple-400 */
+
+    /*
+     * Game status (where a player's game stands, distinct from data Status):
+     * pre-game = sky, in progress = emerald, final = zinc. Used for status dots
+     * and the Total ownership bar.
+     */
+    --game-pre-game: oklch(0.746 0.16 232.661); /* sky-400 */
+    --game-in-progress: oklch(0.765 0.177 163.223); /* emerald-400 */
+    --game-final: oklch(0.552 0.016 285.938); /* zinc-500 */
 
     /*
      * Keyboard focus: a light neutral ring, well over 3:1 against the background,

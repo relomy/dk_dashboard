@@ -37,6 +37,10 @@ const MEANING_SWATCHES: Array<{ label: string; className: string }> = [
   { label: 'vip 4', className: 'bg-vip-4' },
   { label: 'vip 5', className: 'bg-vip-5' },
   { label: 'vip 6', className: 'bg-vip-6' },
+  { label: 'pre-game', className: 'bg-game-pre-game text-background' },
+  { label: 'in progress', className: 'bg-game-in-progress text-background' },
+  { label: 'final', className: 'bg-game-final' },
+  { label: 'focus', className: 'bg-focus text-background' },
 ]
 
 /**

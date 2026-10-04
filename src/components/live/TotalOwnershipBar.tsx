@@ -9,9 +9,9 @@ import { formatOwnership } from '../../lib/playerPool'
  */
 function TotalOwnershipBar({ total }: { total: LiveTotalOwnership }) {
   const parts = [
-    { label: 'Final', share: total.finalShare, raw: total.final, className: 'bg-zinc-500' },
-    { label: 'In play', share: total.inPlayShare, raw: total.inPlay, className: 'bg-emerald-400' },
-    { label: 'Pre-game', share: total.preGameShare, raw: total.preGame, className: 'bg-sky-400' },
+    { label: 'Final', share: total.finalShare, raw: total.final, className: 'bg-game-final' },
+    { label: 'In play', share: total.inPlayShare, raw: total.inPlay, className: 'bg-game-in-progress' },
+    { label: 'Pre-game', share: total.preGameShare, raw: total.preGame, className: 'bg-game-pre-game' },
   ]
   const hasGameStatus = total.final + total.inPlay + total.preGame > 0 || total.total === 0
   const title = `Total ownership ${formatOwnership(total.total)} — ${parts
