@@ -1,0 +1,3 @@
+# Adopt Tailwind and shadcn/ui with a dark-first design system
+
+The hand-written stylesheet gave every element equal weight and no shared components, and the app is used mostly during evening games on phones. We adopted Tailwind CSS and shadcn/ui (Radix, Nova preset) with dark as the default theme, rather than building a design system in the existing CSS, for consistent primitives and fast iteration on data-dense views. While pages migrate, the legacy stylesheet lives in a CSS cascade layer between Tailwind's base and utilities, with a scoped reset for the new UI; this is temporary and is deleted with the legacy stylesheet.
