@@ -206,10 +206,13 @@ Notes:
 Manifest naming uses UTC dates: `manifest/YYYY-MM-DD.json`. Snapshot rows are sorted newest first.
 
 ## Test fixture baseline
-- Producer fixture: `public/mock/snapshots/live-2026-10-03T20-48-31Z.json` and
-  `public/mock/manifest/2026-10-03.json`, pulled from R2 and trimmed only by dropping array
-  elements. Provenance and trimming are recorded in `public/mock/PRODUCER_FIXTURE.md`.
-- It is the only committed snapshot fixture; there are no hand-written fixtures.
+- Producer fixtures: `public/mock/snapshots/live-2026-10-04T18-41-34Z.json` (NFL mid-slate with
+  VIPs below the standings cut, plus golf), and the older
+  `public/mock/snapshots/live-2026-10-03T20-48-31Z.json` with `public/mock/manifest/2026-10-03.json`.
+  They are pulled from R2 and trimmed only by dropping array elements
+  (`npm run fixture:refresh -- <snapshot key>`). Provenance and trimming are recorded in
+  `public/mock/PRODUCER_FIXTURE.md`.
+- These are the only committed snapshot fixtures; there are no hand-written fixtures.
 - Targeted behavior variants are derived in-test from the producer fixture (missing sections, empty
   standings, missing primary contest, injected VIP lineups and metrics).
 - `db_main --snapshot-out` legacy/raw shape is excluded from dashboard fixture-shape gating.
