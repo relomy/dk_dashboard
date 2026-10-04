@@ -2,57 +2,15 @@
  * Design system entry point (ADR 0003).
  *
  * Tailwind CSS v4 + shadcn/ui (Radix, Nova preset) with a dark-first token set.
- * The hand-written legacy stylesheet (./index.css) still styles every page that
- * has not been migrated yet. The two coexist through CSS cascade layers:
- *
- *   theme      Tailwind theme variables
- *   base       Tailwind preflight (the reset)
- *   legacy     ./index.css                  <- legacy pages keep their look
- *   app-reset  scoped reset for the new UI  <- neutralises legacy element rules
- *   components Tailwind components
- *   utilities  Tailwind utilities           <- new UI classes always win
- *
- * Later layers beat earlier ones regardless of selector specificity, so legacy
- * rules (button, input, a, nav, main ...) override preflight for old pages, and
- * the app-reset layer plus utilities override legacy rules for the new UI.
- *
- * This layering is temporary. It is deleted together with ./index.css once the
- * last page migrates (see docs/adr/0003-adopt-tailwind-and-shadcn-ui-with-a-dark-first-design-system.md).
+ * This is the only stylesheet. Tailwind's preflight and the shadcn base styles
+ * below apply to the whole document, including portaled overlays.
  */
-@layer theme, base, legacy, app-reset, components, utilities;
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/preflight.css" layer(base);
-@import "./index.css" layer(legacy);
-@import "tailwindcss/utilities.css" layer(utilities);
+@import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
-
-/*
- * Legacy compatibility. Tailwind's preflight (layer: base) removes a few browser
- * defaults that the legacy stylesheet silently relied on. Because legacy pages
- * must look unchanged, restore exactly those defaults here, inside the legacy
- * layer (so the new UI, which sits in later layers, is unaffected).
- * Found by diffing computed styles of every element on every page before and
- * after this change; delete with ./index.css.
- */
-@layer legacy {
-  html {
-    line-height: normal;
-  }
-  a {
-    text-decoration: underline;
-  }
-  option {
-    padding: 0 2px 1px;
-  }
-  ::placeholder {
-    color: revert;
-    opacity: revert;
-  }
-}
 
 @theme inline {
     --font-heading: var(--font-sans);
@@ -134,10 +92,6 @@
  * Dark-first tokens. The app sets class="dark" on <html> (index.html), so these
  * apply to the whole document, including portaled overlays (sheets, menus).
  * There is no light palette: dark is the only theme (ADR 0003).
- *
- * Only the tokens a legacy page also uses are a collision risk. The legacy
- * stylesheet's own card variable was renamed to --legacy-card so this block can
- * own --card.
  */
 .dark {
     /* shadcn surfaces and text (neutral base color) */
@@ -232,91 +186,25 @@
     --vip-6: oklch(0.714 0.203 305.504); /* purple-400 */
 }
 
-/*
- * Scoped base styles. Preflight and shadcn's usual `* { border-border }` /
- * `body { bg-background }` are NOT applied globally, because that would restyle
- * legacy pages. They apply only to the new UI:
- *   .app-ui                  wrap the root of every redesigned surface in this class
- *   [data-slot$="-content"]  portaled shadcn overlays (sheet, dropdown, dialog, tooltip ...)
- *                            render under <body>, outside .app-ui
- */
 @layer base {
-  :where(.app-ui, [data-slot$="-content"]),
-  :where(.app-ui, [data-slot$="-content"]) * {
+  * {
     @apply border-border outline-ring/50;
   }
-  :where(.app-ui) {
-    @apply bg-background text-foreground font-sans;
+  html {
+    @apply font-sans;
   }
-}
-
-/*
- * Scoped reset. Sits above the legacy layer, so these rules beat legacy global
- * element rules (button, input, select, nav, main, a) inside the new UI and
- * inside portaled overlays. All selectors use :where() (zero specificity) so
- * Tailwind utilities and component classes override them freely.
- */
-@layer app-reset {
-  :where(.app-ui, [data-slot$="-content"]) :where(button, input, select) {
-    min-height: 0;
-    border: 0 solid;
-    border-radius: 0;
-    background: transparent;
-    color: inherit;
-    font-weight: inherit;
-    padding: 0;
+  /*
+   * The UI was built and tuned at a 14px / 1.45 body, so keep that as the base
+   * size: text without an explicit size class inherits it.
+   */
+  body {
+    @apply bg-background text-foreground;
+    font-size: 0.875rem;
+    line-height: 1.45;
   }
-  :where(.app-ui, [data-slot$="-content"]) :where(button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible, summary:focus-visible) {
-    box-shadow: none;
-    outline: revert;
-  }
-  :where(.app-ui, [data-slot$="-content"]) :where(nav) {
-    display: revert;
-    gap: 0;
-  }
-  :where(.app-ui, [data-slot$="-content"]) :where(nav a) {
-    color: inherit;
-    font-size: inherit;
-    padding: 0;
-    border-radius: 0;
-    font-weight: inherit;
-  }
-  :where(.app-ui, [data-slot$="-content"]) :where(main) {
-    padding: 0;
-  }
-  :where(.app-ui, [data-slot$="-content"]) :where(a) {
-    color: inherit;
-    text-decoration: none;
-  }
-  :where(.app-ui, [data-slot$="-content"]) {
-    font-family: var(--font-sans);
-    /* The legacy :root also defines --radius-sm/--radius-md (0.5rem/0.75rem).
-       Restore shadcn's values for the new UI so var(--radius-md) in primitives
-       resolves as designed. */
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-  }
-}
-
-/*
- * App shell page surface. The shell's top bar is new UI (.app-ui), but every
- * page below it is still legacy markup that expects the light legacy look.
- *   - The page behind the shell is dark (the bar's backdrop, overscroll, any
- *     gap under a short page). Login pages have no shell and are untouched.
- *   - <main class="legacy-surface"> repaints the legacy light gradient so legacy
- *     pages look exactly as before. A migrated page owns its own .app-ui
- *     surface root (main.legacy-surface:has(> .app-ui) drops the legacy look).
- */
-@layer app-reset {
-  html:has(.app-ui) {
-    background: var(--background);
-  }
-  .legacy-surface {
-    background: radial-gradient(circle at 10% 10%, #ffffff 0%, var(--bg) 45%);
-  }
-  /* A migrated page renders an .app-ui root; main then drops the legacy look. */
-  .legacy-surface:has(> .app-ui) {
-    background: none;
-    padding: 0;
+  /* Tailwind v4 preflight leaves buttons with the default cursor. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
   }
 }
