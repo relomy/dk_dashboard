@@ -8,7 +8,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-it('supports add/edit/delete profiles and header active profile switching', async () => {
+it('supports add/edit/delete profiles and user menu active profile switching', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -46,19 +46,25 @@ it('supports add/edit/delete profiles and header active profile switching', asyn
     </QueryClientProvider>,
   )
 
-  const activeProfileSelect = await screen.findByLabelText(/active profile/i)
-  expect(within(activeProfileSelect).getByRole('option', { name: 'Me' })).toBeInTheDocument()
+  const openProfileMenu = () => {
+    fireEvent.pointerDown(screen.getByRole('button', { name: /user menu/i }), { button: 0, ctrlKey: false })
+    return screen.getByRole('menu')
+  }
+
+  await screen.findByRole('button', { name: /user menu/i })
+  const initialMenu = openProfileMenu()
+  expect(within(initialMenu).getByRole('menuitemradio', { name: 'Me' })).toBeChecked()
+  fireEvent.keyDown(initialMenu, { key: 'Escape' })
 
   fireEvent.change(screen.getByLabelText(/profile name/i), { target: { value: 'Alex' } })
   fireEvent.change(screen.getByLabelText(/match rule: contains/i), { target: { value: 'alex' } })
   fireEvent.change(screen.getByLabelText(/match rule: username/i), { target: { value: 'alex_user' } })
   fireEvent.click(screen.getByRole('button', { name: /add profile/i }))
 
-  expect(await within(activeProfileSelect).findByRole('option', { name: 'Alex' })).toBeInTheDocument()
+  const menuAfterAdd = openProfileMenu()
+  expect(await within(menuAfterAdd).findByRole('menuitemradio', { name: 'Alex' })).not.toBeChecked()
 
-  fireEvent.change(activeProfileSelect, {
-    target: { value: screen.getByRole('option', { name: 'Alex' }).getAttribute('value') },
-  })
+  fireEvent.click(within(menuAfterAdd).getByRole('menuitemradio', { name: 'Alex' }))
 
   const profilesList = screen.getByRole('list')
   const alexListItem = within(profilesList).getByText('Alex').closest('li')
@@ -81,5 +87,8 @@ it('supports add/edit/delete profiles and header active profile switching', asyn
   fireEvent.click(within(alexAfterEdit).getByRole('button', { name: /delete/i }))
 
   expect(screen.queryByText(/^Alex$/)).not.toBeInTheDocument()
-  expect(within(activeProfileSelect).queryByRole('option', { name: 'Alex' })).not.toBeInTheDocument()
+
+  const menuAfterDelete = openProfileMenu()
+  expect(within(menuAfterDelete).queryByRole('menuitemradio', { name: 'Alex' })).not.toBeInTheDocument()
+  expect(within(menuAfterDelete).getByRole('menuitemradio', { name: 'Me' })).toBeChecked()
 })

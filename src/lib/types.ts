@@ -2,6 +2,9 @@ export type SportStatus = 'ok' | 'stale' | 'error'
 
 export type ContestState = 'upcoming' | 'live' | 'completed' | 'cancelled' | 'unknown'
 
+/** DraftKings' hot (`fire`) or cold (`ice`) value marker; optional until relomy/dk_results#165 ships. */
+export type ValueIcon = 'fire' | 'ice'
+
 export interface VipLineupSlot {
   slot: string
   player_name: string
@@ -20,6 +23,7 @@ export interface VipLineupPlayerLive {
   time_remaining_display?: string
   time_remaining_minutes?: number
   stats_text?: string
+  value_icon?: ValueIcon | null
 }
 
 export interface VipLineup {
@@ -87,6 +91,8 @@ export interface ContestMetricsOwnershipSummary {
     vip_entry_key?: string | null
     entry_key?: string | null
     display_name?: string
+    /** Lineup ownership under its current name; `dk_results` is renaming it (relomy/dk_results#165). */
+    lineup_ownership_pct?: number
     total_ownership_pct?: number
     ownership_in_play_pct?: number
     is_partial?: boolean
@@ -153,6 +159,11 @@ export interface Contest {
     cluster_id: string
     cluster_rule?: string
     user_count: number
+    /**
+     * Optional (relomy/dk_results#165): the fewest lineup slots any two entries in the train share.
+     * Without it the dashboard shows the train's size only.
+     */
+    min_shared_slots?: number
     rank?: number
     points?: number
     pmr?: number
@@ -183,6 +194,7 @@ export interface Player {
   fantasy_points?: number | null
   value?: number | null
   ownership_pct?: number | null
+  value_icon?: ValueIcon | null
 }
 
 export interface SportSnapshot {

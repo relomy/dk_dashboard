@@ -1,6 +1,6 @@
 import { DASH } from './format'
 import { isRelevantPlayerRow } from './playerPresentation'
-import type { Player } from './types'
+import type { Player, ValueIcon } from './types'
 
 /** One player-pool row as shown on both Live and Sport, read from the v3 player fields. */
 export interface PlayerPoolRow {
@@ -15,6 +15,8 @@ export interface PlayerPoolRow {
   points: number | null
   value: number | null
   status: string
+  /** DraftKings' hot/cold marker; null when the feed sends none (no dashboard-side thresholds). */
+  valueIcon: ValueIcon | null
 }
 
 function firstNonBlank(...values: Array<string | undefined>): string | undefined {
@@ -27,7 +29,13 @@ function joinRosterPositions(values?: string[]): string | undefined {
   return joined.trim() ? joined : undefined
 }
 
-function finiteOrNull(value: number | null | undefined): number | null {
+/** `fire` or `ice` as the feed sends it; anything else (absent, null, unknown) is no marker. */
+export function readValueIcon(value: unknown): ValueIcon | null {
+  return value === 'fire' || value === 'ice' ? value : null
+}
+
+/** A feed value as a finite number; anything else (absent, null, NaN, a string) is null. */
+export function numberOrNull(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
@@ -44,10 +52,11 @@ function toRow(player: Player, index: number): PlayerPoolRow {
     position,
     matchup: player.matchup || DASH,
     salary: player.salary,
-    ownershipPct: finiteOrNull(player.ownership_pct),
-    points: finiteOrNull(player.fantasy_points),
-    value: finiteOrNull(player.value),
+    ownershipPct: numberOrNull(player.ownership_pct),
+    points: numberOrNull(player.fantasy_points),
+    value: numberOrNull(player.value),
     status: player.game_status ?? DASH,
+    valueIcon: readValueIcon(player.value_icon),
   }
 }
 
@@ -55,12 +64,15 @@ function sortScore(row: PlayerPoolRow): number {
   return row.ownershipPct ?? row.points ?? Number.NEGATIVE_INFINITY
 }
 
+/** Keep rows whose player name contains the search text (case-insensitive); blank keeps all. */
+export function searchPlayerPool(rows: PlayerPoolRow[], search: string): PlayerPoolRow[] {
+  const needle = search.trim().toLowerCase()
+  return needle ? rows.filter((row) => row.name.toLowerCase().includes(needle)) : rows
+}
+
 /** Search, drop irrelevant rows, and order by ownership then points. Shared by Live and Sport. */
 export function buildPlayerPool(players: Player[], search: string): PlayerPoolRow[] {
-  const needle = search.trim().toLowerCase()
-  return players
-    .map(toRow)
-    .filter((row) => (needle ? row.name.toLowerCase().includes(needle) : true))
+  return searchPlayerPool(players.map(toRow), search)
     .filter((row) => isRelevantPlayerRow({ ownershipPct: row.ownershipPct, points: row.points, value: row.value }))
     .sort((a, b) => sortScore(b) - sortScore(a))
 }

@@ -55,10 +55,7 @@ async function renderRoute(path: string, headingName: RegExp) {
 }
 
 function playerPool() {
-  const heading = screen.getByRole('heading', { name: /^player pool$/i })
-  const container = heading.closest('.panel')
-  if (!(container instanceof HTMLElement)) throw new Error('No player pool panel')
-  return container
+  return screen.getByRole('region', { name: /^player pool$/i })
 }
 
 /** Reads the player pool table as {header: cell text} records, ignoring column order. */
@@ -72,6 +69,18 @@ function poolRecords() {
       return Object.fromEntries(headers.map((h, i) => [h, cells[i]]))
     }),
   }
+}
+
+/** Reads the Live Players table as {header: cell text} records; the player cell reads "<team><name>". */
+function livePlayersRecords() {
+  const rows = within(screen.getByRole('table', { name: /players/i })).getAllByRole('row')
+  const headers = within(rows[0])
+    .getAllByRole('columnheader')
+    .map((h) => (h.textContent ?? '').replace(/[↑↓]/g, '').trim())
+  return rows.slice(1).map((row) => {
+    const cells = within(row).getAllByRole('cell').map((c) => c.textContent ?? '')
+    return Object.fromEntries(headers.map((h, i) => [h, cells[i]]))
+  })
 }
 
 it('Sport pool shows real positions, actual points and ownership with no Projected column', async () => {
@@ -91,16 +100,16 @@ it('Sport pool and Live pool agree on position, points and ownership for the sam
   cleanup()
 
   await renderRoute('/live/cfb', /live: cfb/i)
-  const live = poolRecords().records
+  const live = livePlayersRecords()
 
   expect(live.length).toBeGreaterThan(0)
-  expect(sport.map((r) => r.Name)).toEqual(live.map((r) => r.Player))
+  expect(sport.map((r) => `${r.Team}${r.Name}`)).toEqual(live.map((r) => r.Player))
   for (const row of live) {
-    const match = sport.find((r) => r.Name === row.Player)
+    const match = sport.find((r) => `${r.Team}${r.Name}` === row.Player)
     expect(match).toMatchObject({
-      Positions: row.Position,
-      Actual: row.Points,
-      Ownership: row['Own%'],
+      Positions: row.Pos,
+      Actual: row.Pts,
+      Ownership: row.Own,
     })
   }
   const daniels = sport.find((r) => r.Name === 'Ashton Daniels')

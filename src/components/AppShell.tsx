@@ -1,61 +1,46 @@
-import { Link, NavLink, Outlet } from 'react-router-dom'
-import { useProfiles } from '../context/ProfileContext'
-import { useAuth } from '../hooks/useAuth'
+import { useState } from 'react'
+import { Link, matchPath, Outlet, useLocation } from 'react-router-dom'
+import { TopBarSlotContext } from '../context/TopBarSlotContext'
+import { useLatest } from '../hooks/useLatest'
+import SportTabs, { type SportTab } from './SportTabs'
+import UserMenu from './UserMenu'
 
-const baseNavItems = [
-  { to: '/latest', label: 'Latest' },
-  { to: '/history', label: 'History' },
-  { to: '/health', label: 'Health' },
-  { to: '/settings', label: 'Settings' },
-]
+/** The sport a /live/:sport or /sport/:sport page is showing, if any. */
+function sportFromPath(pathname: string): string | null {
+  const match = matchPath('/live/:sport', pathname) ?? matchPath('/sport/:sport', pathname)
+  return match?.params.sport ?? null
+}
 
 function AppShell() {
-  const { profiles, activeProfileId, setActiveProfileId } = useProfiles()
-  const { user, logout } = useAuth()
-  const navItems = user?.role === 'owner' ? [...baseNavItems, { to: '/admin/users', label: 'Admin' }] : baseNavItems
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
+  const { pathname } = useLocation()
+  const { snapshotQuery } = useLatest()
+
+  const tabs: SportTab[] = Object.entries(snapshotQuery.data?.sports ?? {}).map(([sport, data]) => ({
+    sport,
+    status: data.status,
+  }))
+  const currentSport = sportFromPath(pathname)
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div className="topbar-brand-row">
-          <Link className="brand" to="/latest">
-            DK Dashboard
+    <div className="flex min-h-screen flex-col">
+      <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur">
+        <div className="flex items-center gap-3 px-4 py-2 text-xs">
+          <Link to="/" className="shrink-0 font-mono font-bold text-cashing">
+            DK/LIVE
           </Link>
-        </div>
-        <nav className="topbar-nav" aria-label="Primary navigation">
-          {navItems.map((item) => (
-            <NavLink key={item.to} to={item.to}>
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="field-inline topbar-profile">
-          <label htmlFor="active-profile">Active profile</label>
-          <select
-            id="active-profile"
-            value={activeProfileId}
-            onChange={(event) => setActiveProfileId(event.target.value)}
-          >
-            {profiles.map((profile) => (
-              <option key={profile.id} value={profile.id}>
-                {profile.name}
-              </option>
-            ))}
-          </select>
-          {user ? <span className="meta-text">Signed in as {user.username} ({user.role})</span> : null}
-          <button
-            type="button"
-            onClick={() => {
-              void logout()
-            }}
-          >
-            Sign out
-          </button>
+          <SportTabs tabs={tabs} currentSport={currentSport} />
+          <div className="ml-auto flex shrink-0 items-center gap-3">
+            <div ref={setSlot} className="flex items-center gap-3 empty:hidden" />
+            <UserMenu allContestsSport={currentSport ?? tabs[0]?.sport ?? null} />
+          </div>
         </div>
       </header>
-      <main>
-        <Outlet />
-      </main>
+      <TopBarSlotContext.Provider value={slot}>
+        <main className="flex-1">
+          <Outlet />
+        </main>
+      </TopBarSlotContext.Provider>
     </div>
   )
 }

@@ -26,24 +26,19 @@
 - Missing sections show unavailable placeholders; present but empty sections show empty-state messaging.
 - Runtime fixture contract is envelope-only (`schema_version` + `sports[...]` payload); legacy raw shapes are rejected in contract tests.
 
-## Live page parity panels
-- VIP board:
-  - distance to cash (points first, rank optional)
-  - detailed `players_live` table when present
-  - compact slot fallback when player detail rows are missing
-- Player pool:
-  - columns: `Position`, `Player`, `Team`, `Matchup`, `Salary`, `Own%`, `Points`, `Value`, `Status`
-- Threat & leverage:
-  - top swing players and VIP-vs-field leverage from metrics
-- Ownership remaining:
-  - VIP ownership summary cards from `metrics.ownership_summary`
-  - watchlist ownership table from `ownership_watchlist`
-- Non-cashing info:
-  - users not cashing
-  - avg PMR remaining
-  - top remaining players list with unavailable/empty states
-- Train finder:
-  - trains from the feed, sorted by entry count
+## Live page views
+- Players (default): the player ownership table with game status, ownership, points, value, DraftKings
+  hot/cold markers (only when the feed sends `value_icon`) and the VIPs rostering each player.
+- VIPs: rank, points, distance to cash, PMR, ownership remaining, lineup ownership and the grouped lineup.
+- Trains: size and closeness, best rank, points, PMR, VIP overlap and the grouped lineup.
+- Lineup cards show each player's matchup from the player pool, unless the pool only repeats the game status there.
+- Leverage panel (desktop column, tablet below, phone tab):
+  - swing players from `metrics.threat.top_swing_players`, marked HAVE/FADE against the focused VIP
+    (or the focused Train on the Trains view)
+  - leverage vs field: each VIP's ownership remaining against the field average
+    (`ownership_watchlist.ownership_remaining_total_pct`)
+  - ownership leaders from `ownership_watchlist`: rank, ownership remaining, PMR and points
+- A snapshot whose `schema_version` is not 3 shows an unsupported-format message (ADR 0002).
 
 ## Profiles and VIP filtering
 - Create multiple named profiles in `Settings`.

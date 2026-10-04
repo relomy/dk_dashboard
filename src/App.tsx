@@ -1,14 +1,16 @@
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import AppShell from './components/AppShell'
+import { AuthLoading } from './components/AuthLayout'
 import ErrorBoundary from './components/ErrorBoundary'
 import { AuthProvider } from './context/AuthProvider'
 import { ProfileProvider } from './context/ProfileProvider'
 import { useAuth } from './hooks/useAuth'
 import AdminUsers from './routes/AdminUsers'
 import ChangePassword from './routes/ChangePassword'
+import DesignSystem from './routes/DesignSystem'
 import Health from './routes/Health'
 import History from './routes/History'
-import Latest from './routes/Latest'
+import Landing from './routes/Landing'
 import Live from './routes/Live'
 import Login from './routes/Login'
 import Settings from './routes/Settings'
@@ -19,7 +21,7 @@ function RequireAuthenticatedLayout() {
   const { status, user } = useAuth()
 
   if (status === 'loading') {
-    return <p className="page">Loading session...</p>
+    return <AuthLoading />
   }
 
   if (status !== 'authenticated' || !user) {
@@ -46,7 +48,7 @@ function RequireOwner() {
   const { status, user } = useAuth()
 
   if (status === 'loading') {
-    return <p className="page">Loading session...</p>
+    return <AuthLoading />
   }
 
   if (status !== 'authenticated' || !user) {
@@ -54,7 +56,7 @@ function RequireOwner() {
   }
 
   if (user.role !== 'owner') {
-    return <Navigate to="/latest" replace />
+    return <Navigate to="/" replace />
   }
 
   return <Outlet />
@@ -69,7 +71,9 @@ function App() {
           <Route path="/change-password" element={<ChangePassword />} />
 
           <Route element={<RequireAuthenticatedLayout />}>
-            <Route path="/latest" element={<Latest />} />
+            {import.meta.env.DEV ? <Route path="/dev/ui" element={<DesignSystem />} /> : null}
+            <Route index element={<Landing />} />
+            <Route path="/latest" element={<Navigate to="/" replace />} />
             <Route path="/live/:sport" element={<LiveRoute />} />
             <Route path="/history" element={<History />} />
             <Route path="/history/:timestamp" element={<History />} />
@@ -79,7 +83,7 @@ function App() {
             <Route element={<RequireOwner />}>
               <Route path="/admin/users" element={<AdminUsers />} />
             </Route>
-            <Route path="*" element={<Navigate to="/latest" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
       </ProfileProvider>

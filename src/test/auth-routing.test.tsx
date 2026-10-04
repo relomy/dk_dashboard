@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import snapshotFixture from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
@@ -36,7 +36,7 @@ it('redirects unauthenticated users to /login', async () => {
     }),
   )
 
-  renderApp('/latest')
+  renderApp('/')
   expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
 })
 
@@ -62,7 +62,7 @@ it('redirects authenticated users with must_change_password to /change-password'
     }),
   )
 
-  renderApp('/latest')
+  renderApp('/')
   expect(await screen.findByRole('heading', { name: /change password/i })).toBeInTheDocument()
 })
 
@@ -101,8 +101,8 @@ it('allows authenticated friend to reach dashboard routes', async () => {
     }),
   )
 
-  renderApp('/latest')
-  expect(await screen.findByRole('heading', { name: /latest/i })).toBeInTheDocument()
+  renderApp('/')
+  expect(await screen.findByRole('heading', { name: /live: cfb/i })).toBeInTheDocument()
 })
 
 it('clears local auth state when logout request fails', async () => {
@@ -149,11 +149,11 @@ it('clears local auth state when logout request fails', async () => {
     }),
   )
 
-  renderApp('/latest')
-  expect(await screen.findByRole('heading', { name: /latest/i })).toBeInTheDocument()
+  renderApp('/')
+  expect(await screen.findByRole('heading', { name: /live: cfb/i })).toBeInTheDocument()
 
-  const signOutButtons = screen.getAllByRole('button', { name: /sign out/i })
-  fireEvent.click(signOutButtons.at(-1) ?? signOutButtons[0])
+  fireEvent.pointerDown(screen.getByRole('button', { name: /user menu/i }), { button: 0, ctrlKey: false })
+  fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: /sign out/i }))
 
   expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument()
 })

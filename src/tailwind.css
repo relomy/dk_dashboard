@@ -1,0 +1,250 @@
+/*
+ * Design system entry point (ADR 0003).
+ *
+ * Tailwind CSS v4 + shadcn/ui (Radix, Nova preset) with a dark-first token set.
+ * This is the only stylesheet. Tailwind's preflight and the shadcn base styles
+ * below apply to the whole document, including portaled overlays.
+ */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Geist Variable', sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+
+    /*
+     * Meaning colors. Each token becomes a Tailwind color, e.g. `text-cashing`,
+     * `bg-cashing/15`, `border-cash-line`, `bg-own-3`, `bg-value-great-bg`, `bg-vip-2`.
+     * The values live in the `.dark` block below.
+     */
+    --color-cashing: var(--cashing);
+    --color-cashing-foreground: var(--cashing-foreground);
+    --color-cashing-muted: var(--cashing-muted);
+    --color-non-cashing: var(--non-cashing);
+    --color-non-cashing-foreground: var(--non-cashing-foreground);
+    --color-non-cashing-muted: var(--non-cashing-muted);
+    --color-cash-line: var(--cash-line);
+    --color-cash-line-muted: var(--cash-line-muted);
+    --color-own-1: var(--own-1);
+    --color-own-2: var(--own-2);
+    --color-own-3: var(--own-3);
+    --color-own-4: var(--own-4);
+    --color-own-5: var(--own-5);
+    --color-value-great: var(--value-great);
+    --color-value-great-bg: var(--value-great-bg);
+    --color-value-good: var(--value-good);
+    --color-value-good-bg: var(--value-good-bg);
+    --color-value-mid: var(--value-mid);
+    --color-value-mid-bg: var(--value-mid-bg);
+    --color-value-poor: var(--value-poor);
+    --color-value-poor-bg: var(--value-poor-bg);
+    --color-vip-1: var(--vip-1);
+    --color-vip-2: var(--vip-2);
+    --color-vip-3: var(--vip-3);
+    --color-vip-4: var(--vip-4);
+    --color-vip-5: var(--vip-5);
+    --color-vip-6: var(--vip-6);
+    --color-game-pre-game: var(--game-pre-game);
+    --color-game-in-progress: var(--game-in-progress);
+    --color-game-final: var(--game-final);
+    --color-focus: var(--focus);
+}
+
+/*
+ * Dark-first tokens. The app sets class="dark" on <html> (index.html), so these
+ * apply to the whole document, including portaled overlays (sheets, menus).
+ * There is no light palette: dark is the only theme (ADR 0003).
+ */
+.dark {
+    /* shadcn surfaces and text (neutral base color) */
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+
+    /*
+     * Meaning colors. Color carries meaning only: never use these decoratively,
+     * and never use the neutral tokens above to say "good" or "bad".
+     * Values match Tailwind's palette (lime/rose/amber/sky/emerald/zinc) so the
+     * prototype's look is preserved.
+     */
+
+    /* Cashing / positive: lime-green. */
+    --cashing: oklch(0.841 0.238 128.85); /* lime-400 */
+    --cashing-foreground: oklch(0.897 0.196 126.665); /* lime-300, text on cashing-muted */
+    --cashing-muted: oklch(0.841 0.238 128.85 / 15%); /* tinted background */
+
+    /* Non-cashing / negative: rose. */
+    --non-cashing: oklch(0.712 0.194 13.428); /* rose-400 */
+    --non-cashing-foreground: oklch(0.81 0.117 11.638); /* rose-300 */
+    --non-cashing-muted: oklch(0.712 0.194 13.428 / 15%);
+
+    /* Cash line: amber. Marks the rank or points where cashing starts. */
+    --cash-line: oklch(0.879 0.169 91.605); /* amber-300 */
+    --cash-line-muted: oklch(0.879 0.169 91.605 / 15%);
+
+    /*
+     * Ownership intensity: an amber scale, 1 (low) to 5 (chalky), as translucent
+     * amber-400 so it sits on any surface. For a continuous scale compute the
+     * alpha from the ownership value instead of picking a step.
+     */
+    --own-1: oklch(0.828 0.189 84.429 / 12%);
+    --own-2: oklch(0.828 0.189 84.429 / 24%);
+    --own-3: oklch(0.828 0.189 84.429 / 36%);
+    --own-4: oklch(0.828 0.189 84.429 / 48%);
+    --own-5: oklch(0.828 0.189 84.429 / 60%);
+
+    /*
+     * Value tiers, best to worst: great = blue, good = green, mid = neutral,
+     * poor = rose. The plain token is the text color, -bg the tinted pill fill.
+     */
+    --value-great: oklch(0.901 0.058 230.902); /* sky-200 */
+    --value-great-bg: oklch(0.685 0.169 237.323 / 25%); /* sky-500 */
+    --value-good: oklch(0.905 0.093 164.15); /* emerald-200 */
+    --value-good-bg: oklch(0.696 0.17 162.48 / 20%); /* emerald-500 */
+    --value-mid: oklch(0.871 0.006 286.286); /* zinc-300 */
+    --value-mid-bg: oklch(0.442 0.017 285.786 / 60%); /* zinc-600 */
+    --value-poor: oklch(0.892 0.058 10.001); /* rose-200 */
+    --value-poor-bg: oklch(0.645 0.246 16.439 / 20%); /* rose-500 */
+
+    /*
+     * Per-VIP identity, assigned by VIP order and stable for a given VIP.
+     * Deliberately avoids lime, rose, amber and sky so a VIP color is never
+     * mistaken for cashing, non-cashing, the cash line or a value tier.
+     */
+    --vip-1: oklch(0.606 0.25 292.717); /* violet-500 */
+    --vip-2: oklch(0.715 0.143 215.221); /* cyan-500 */
+    --vip-3: oklch(0.667 0.295 322.15); /* fuchsia-500 */
+    --vip-4: oklch(0.585 0.233 277.117); /* indigo-500 */
+    --vip-5: oklch(0.704 0.14 182.503); /* teal-500 */
+    --vip-6: oklch(0.714 0.203 305.504); /* purple-400 */
+
+    /*
+     * Game status (where a player's game stands, distinct from data Status):
+     * pre-game = sky, in progress = emerald, final = zinc. Used for status dots
+     * and the Total ownership bar.
+     */
+    --game-pre-game: oklch(0.746 0.16 232.661); /* sky-400 */
+    --game-in-progress: oklch(0.765 0.177 163.223); /* emerald-400 */
+    --game-final: oklch(0.552 0.016 285.938); /* zinc-500 */
+
+    /*
+     * Keyboard focus: a light neutral ring, well over 3:1 against the background,
+     * cards and the accent fill (about 13:1 on the background). Neutral, so it never
+     * reads as cashing or any other meaning color.
+     */
+    --focus: oklch(0.87 0 0); /* neutral-300 */
+}
+
+/*
+ * The raised card surface for panels, lists and tables that are not a `ui/card` Card
+ * (an <article>, <ul> or table wrapper): the same fill, radius and hairline ring.
+ */
+@utility card-surface {
+  @apply rounded-xl bg-card ring-1 ring-foreground/10;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+  /*
+   * The UI was built and tuned at a 14px / 1.45 body, so keep that as the base
+   * size: text without an explicit size class inherits it.
+   */
+  body {
+    @apply bg-background text-foreground;
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+  /* Tailwind v4 preflight leaves buttons with the default cursor. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/*
+ * Visible focus (WCAG 2.4.7, 1.4.11): every focusable element shows the same ring when
+ * focused from the keyboard. Unlayered on purpose, so it wins over the `outline-none`
+ * that shadcn primitives and some app classes carry; their softer `ring-*` halo stays.
+ * An element whose container clips its edges draws the ring inside instead, with
+ * `[--focus-offset:-2px]`.
+ */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: var(--focus-offset, 2px);
+}
