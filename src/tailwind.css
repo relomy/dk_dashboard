@@ -305,7 +305,7 @@
  *     gap under a short page). Login pages have no shell and are untouched.
  *   - <main class="legacy-surface"> repaints the legacy light gradient so legacy
  *     pages look exactly as before. A migrated page owns its own .app-ui
- *     surface and drops this class (see #27/#30).
+ *     surface root (main.legacy-surface:has(> .app-ui) drops the legacy look).
  */
 @layer app-reset {
   html:has(.app-ui) {
@@ -313,5 +313,10 @@
   }
   .legacy-surface {
     background: radial-gradient(circle at 10% 10%, #ffffff 0%, var(--bg) 45%);
+  }
+  /* A migrated page renders an .app-ui root; main then drops the legacy look. */
+  .legacy-surface:has(> .app-ui) {
+    background: none;
+    padding: 0;
   }
 }
