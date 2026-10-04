@@ -56,8 +56,8 @@ async function renderRoute(path: string, headingName: RegExp) {
 
 function playerPool() {
   const heading = screen.getByRole('heading', { name: /^player pool$/i })
-  const container = heading.closest('.panel')
-  if (!(container instanceof HTMLElement)) throw new Error('No player pool panel')
+  const container = heading.closest('section, .panel')
+  if (!(container instanceof HTMLElement)) throw new Error('No player pool section')
   return container
 }
 

@@ -257,8 +257,8 @@ it('renders timeline list from manifest metadata and navigates on item click', a
   fireEvent.click(screen.getByRole('button', { name: /load yesterday/i }))
   expect(await screen.findByText(/sports: nfl/i)).toBeInTheDocument()
 
-  const firstItemButton = within(list).getAllByRole('button')[0]
-  fireEvent.click(firstItemButton)
+  const firstItemLink = within(list).getAllByRole('link')[0]
+  fireEvent.click(firstItemLink)
 
   expect(screen.getByTestId('location')).toHaveTextContent('/history/2026-02-13T18-25-00Z')
 })

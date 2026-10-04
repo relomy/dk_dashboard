@@ -1,5 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import AuthLayout, { AuthLoading } from '../components/AuthLayout'
 import { AuthApiError } from '../lib/authApi'
 import { useAuth } from '../hooks/useAuth'
 
@@ -13,7 +17,7 @@ function ChangePassword() {
   const [saving, setSaving] = useState(false)
 
   if (status === 'loading') {
-    return <p className="page">Loading session...</p>
+    return <AuthLoading />
   }
 
   if (status !== 'authenticated' || !user) {
@@ -48,31 +52,32 @@ function ChangePassword() {
   }
 
   return (
-    <section className="page page-centered">
-      <div className="key-gate panel">
-        <h1 className="page-title">Change password</h1>
-        <p className="page-meta">
-          {user.must_change_password
-            ? 'Your temporary password must be changed before continuing.'
-            : 'Update your password for this account.'}
-        </p>
-        <form onSubmit={submit} className="form-grid">
-          {!user.must_change_password ? (
-            <>
-              <label htmlFor="current-password">Current password</label>
-              <input
-                id="current-password"
-                type="password"
-                value={currentPassword}
-                onChange={(event) => setCurrentPassword(event.target.value)}
-                autoComplete="current-password"
-                required
-              />
-            </>
-          ) : null}
+    <AuthLayout
+      title="Change password"
+      description={
+        user.must_change_password
+          ? 'Your temporary password must be changed before continuing.'
+          : 'Update your password for this account.'
+      }
+    >
+      <form onSubmit={submit} className="grid gap-4">
+        {!user.must_change_password ? (
+          <div className="grid gap-1.5">
+            <Label htmlFor="current-password">Current password</Label>
+            <Input
+              id="current-password"
+              type="password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+              autoComplete="current-password"
+              required
+            />
+          </div>
+        ) : null}
 
-          <label htmlFor="new-password">New password</label>
-          <input
+        <div className="grid gap-1.5">
+          <Label htmlFor="new-password">New password</Label>
+          <Input
             id="new-password"
             type="password"
             value={newPassword}
@@ -81,8 +86,10 @@ function ChangePassword() {
             minLength={12}
             required
           />
-          <label htmlFor="confirm-password">Confirm new password</label>
-          <input
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="confirm-password">Confirm new password</Label>
+          <Input
             id="confirm-password"
             type="password"
             value={confirmPassword}
@@ -91,23 +98,29 @@ function ChangePassword() {
             minLength={12}
             required
           />
-          {error ? <p className="error-text">{error}</p> : null}
-          <div className="action-row">
-            <button type="submit" disabled={saving}>
-              {saving ? 'Saving...' : 'Save password'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                void logout()
-              }}
-            >
-              Sign out
-            </button>
-          </div>
-        </form>
-      </div>
-    </section>
+        </div>
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" size="lg" disabled={saving}>
+            {saving ? 'Saving...' : 'Save password'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={() => {
+              void logout()
+            }}
+          >
+            Sign out
+          </Button>
+        </div>
+      </form>
+    </AuthLayout>
   )
 }
 

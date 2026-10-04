@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import snapshotFixture from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
@@ -55,8 +55,15 @@ it('shows snapshot age and per-sport status from latest+snapshot', async () => {
 
   expect(await screen.findByText(/snapshot age/i)).toBeInTheDocument()
   expect(screen.getByText(/seconds/i)).toBeInTheDocument()
-  expect(screen.getByText(/cfb/i)).toBeInTheDocument()
-  expect(screen.getAllByText(/ok/i).length).toBeGreaterThan(0)
-  expect(screen.getByText(/golf/i)).toBeInTheDocument()
-  expect(screen.getByText(/upstream timeout/i)).toBeInTheDocument()
+  const details = within(screen.getByRole('table'))
+  expect(details.getByText(/cfb/i)).toBeInTheDocument()
+  expect(details.getAllByText('Fresh').length).toBeGreaterThan(0)
+  expect(details.getByText(/golf/i)).toBeInTheDocument()
+  expect(details.getByText(/upstream timeout/i)).toBeInTheDocument()
+
+  // The stale sport is also called out in the "Needs attention" list.
+  const attention = within(screen.getByRole('region', { name: /needs attention/i }))
+  expect(attention.getByText(/golf/i)).toBeInTheDocument()
+  expect(attention.getByText('Stale')).toBeInTheDocument()
+  expect(attention.queryByText(/cfb/i)).not.toBeInTheDocument()
 })
