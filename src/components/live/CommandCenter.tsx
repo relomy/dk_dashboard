@@ -11,6 +11,7 @@ import { railTrains, resolveFocusedTrain, resolveFocusedVip, useLiveView, type L
 import PlayersView from './PlayersView'
 import { NoTrains, TrainChips, TrainRailRows, TrainView } from './TrainView'
 import { NoVips, VipChips, VipRailRows, VipView } from './VipView'
+import ViewLink from './ViewLink'
 
 function formatSnapshotTime(iso: string): string {
   const date = new Date(iso)
@@ -51,14 +52,7 @@ function RailLink({
   detail: string
 }) {
   return (
-    <Link
-      to={{ search: to }}
-      aria-current={active ? 'page' : undefined}
-      className={cn(
-        'flex items-center gap-2 rounded-lg px-2 py-2 text-left',
-        active ? 'bg-accent ring-1 ring-border' : 'hover:bg-card',
-      )}
-    >
+    <ViewLink search={to} active={active} variant="rail">
       <span className="grid size-7 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
         <Icon className="size-4" aria-hidden="true" />
       </span>
@@ -66,7 +60,7 @@ function RailLink({
         <span className="block text-sm font-medium">{label}</span>
         <span className="block font-mono text-[11px] text-muted-foreground">{detail}</span>
       </span>
-    </Link>
+    </ViewLink>
   )
 }
 

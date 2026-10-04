@@ -1,9 +1,8 @@
-import { Link } from 'react-router-dom'
-import { cn } from '@/lib/utils'
 import { formatPmr, formatPoints, formatRank } from '../../lib/format'
 import { trainClosenessLabel, type LiveModel, type LiveTrain } from '../../lib/liveModel'
 import LineupGroups from './LineupGroups'
 import { Stat, VipAvatar } from './atoms'
+import ViewLink from './ViewLink'
 
 /** The rail's Train rows: size badge, closeness label, best rank and PMR, each linking to that Train. */
 export function TrainRailRows({
@@ -20,15 +19,7 @@ export function TrainRailRows({
       {trains.map((train) => {
         const closeness = trainClosenessLabel(train.closeness)
         return (
-          <Link
-            key={train.id}
-            to={{ search: hrefFor(train) }}
-            aria-current={train.id === activeId ? 'page' : undefined}
-            className={cn(
-              'flex items-center gap-2 rounded-lg px-2 py-2 text-left',
-              train.id === activeId ? 'bg-accent ring-1 ring-border' : 'hover:bg-card',
-            )}
-          >
+          <ViewLink key={train.id} search={hrefFor(train)} active={train.id === activeId} variant="rail">
             <span className="grid size-7 shrink-0 place-items-center rounded-md bg-muted font-mono text-[11px] font-bold text-foreground">
               {`×${train.entries}`}
             </span>
@@ -38,7 +29,7 @@ export function TrainRailRows({
                 {`best ${formatRank(train.rank)} · ${formatPmr(train.pmr)} PMR`}
               </span>
             </span>
-          </Link>
+          </ViewLink>
         )
       })}
     </>
@@ -58,18 +49,10 @@ export function TrainChips({
   return (
     <nav aria-label="Trains" className="-mx-3 -mt-1 mb-4 flex gap-2 overflow-x-auto px-3 py-1">
       {trains.map((train) => (
-        <Link
-          key={train.id}
-          to={{ search: hrefFor(train) }}
-          aria-current={train.id === activeId ? 'page' : undefined}
-          className={cn(
-            'flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs',
-            train.id === activeId ? 'border-ring bg-accent text-foreground' : 'text-muted-foreground',
-          )}
-        >
+        <ViewLink key={train.id} search={hrefFor(train)} active={train.id === activeId} variant="chip" className="px-3">
           <span className="font-mono">{`×${train.entries}`}</span>
           <span className="text-muted-foreground">{trainClosenessLabel(train.closeness)}</span>
-        </Link>
+        </ViewLink>
       ))}
     </nav>
   )
