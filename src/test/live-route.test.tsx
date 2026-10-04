@@ -327,6 +327,26 @@ describe('Leverage panel', () => {
       expect(leverage.getByText('Contest field avg remaining 246.89%')).toBeInTheDocument()
     })
 
+    it("compares a VIP with the field using their leverage row's own figures, not the card's ownership remaining", async () => {
+      // Hand-built divergence: the fixture's leverage rows agree with every other source. tuck8989 gets a
+      // standings row (which the VIP card prefers) and a leverage row measured against a different field.
+      const snapshot = load()
+      const contest = contestOf(snapshot)
+      const tuckKey = vipOf(snapshot, 'tuck8989').entry_key
+      contest.standings.push({ entry_key: tuckKey, username: 'tuck8989', rank: 900, points: 50, pmr: 200, ownership_remaining_total_pct: 150 })
+      const tuckRow = contest.metrics.threat.vip_vs_field_leverage.find((row: Json) => row.display_name === 'tuck8989')
+      tuckRow.field_remaining_pct = 300
+      await renderLive(snapshot, '/live/nfl?view=vips')
+
+      const leverage = section('Leverage vs field')
+      const tuck = leverage.getByRole('group', { name: 'tuck8989' })
+      expect(tuck).toHaveTextContent('202.82%')
+      expect(tuck).not.toHaveTextContent('150%')
+      // The field marker sits further along tuck8989's bar than along a VIP's measured against the contest field.
+      const fieldMarker = (group: HTMLElement) => parseFloat(group.querySelector<HTMLElement>('[aria-hidden="true"]')?.style.left ?? '')
+      expect(fieldMarker(tuck)).toBeGreaterThan(fieldMarker(leverage.getByRole('group', { name: 'Aj_cray' })))
+    })
+
     it('marks only partial leverage rows as partial', async () => {
       const snapshot = load()
       for (const row of contestOf(snapshot).metrics.threat.vip_vs_field_leverage) row.is_partial = row.display_name === 'tuck8989'

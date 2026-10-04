@@ -1,14 +1,12 @@
 import { INVARIANTS, contractCasesOf } from '../../../src/lib/liveInvariants'
-import { buildLiveModel, type LiveModel, type LiveNotRenderableReason } from '../../../src/lib/liveModel'
+import { buildLiveModel, type LiveModel, type LiveNotRenderableReason, type LiveVip, type Section } from '../../../src/lib/liveModel'
 import { LIVE_UNREAD_ALLOWLIST, liveUnreadPaths } from '../../../src/lib/liveUnreadPaths'
+import { formatOwnership } from '../../../src/lib/playerPool'
 import type { Snapshot } from '../../../src/lib/types'
 import { unallowlistedPaths } from '../../../src/lib/unreadPaths'
-import { LOGIN_COMMAND, SNAPSHOT_KEY, type SnapshotSource } from '../../fixtures/lib/refreshFixture'
+import { SNAPSHOT_KEY, guardProdRead, type ProdReadDeps, type SnapshotSource } from '../../lib/snapshotSource'
 
-export interface ProdCheckDeps {
-  source: SnapshotSource
-  env: Record<string, string | undefined>
-}
+export type ProdCheckDeps = ProdReadDeps
 
 export interface ProdCheckResult {
   exitCode: 0 | 1
@@ -24,17 +22,9 @@ const MAX_LISTED = 10
  * as a report with exit code 1. Never prints the raw snapshot.
  */
 export function runProdCheck(args: string[], deps: ProdCheckDeps): ProdCheckResult {
-  if (deps.env.CI) {
-    throw new Error('The prod check reads prod R2 with an operator login and never runs in CI.')
-  }
   const [sport, requestedKey] = args
   if (!sport) throw new Error(USAGE)
-  if (requestedKey !== undefined && !SNAPSHOT_KEY.test(requestedKey)) {
-    throw new Error(`Expected a snapshot key like snapshots/live-<timestamp>.json, got "${requestedKey}".\n${USAGE}`)
-  }
-  if (!deps.source.isLoggedIn()) {
-    throw new Error(`Cloudflare login missing. Run: ${LOGIN_COMMAND}`)
-  }
+  guardProdRead({ task: 'The prod check', key: requestedKey, usage: USAGE }, deps)
 
   const key = requestedKey ?? latestSnapshotKey(deps.source)
   const snapshot = JSON.parse(deps.source.read(key)) as Snapshot
@@ -87,12 +77,17 @@ function show(value: number | null): string {
   return value === null ? '-' : String(value)
 }
 
+/** "available (<what it holds>)", or "unavailable" when the feed omits the section. */
+function availability<T>(section: Section<T>, describe: (data: T) => string): string {
+  return section.availability === 'available' ? `available (${describe(section.data)})` : 'unavailable'
+}
+
 function sectionLines(model: LiveModel): string[] {
   const rows: Array<[string, string]> = [
-    ['trains', model.trains.availability === 'available' ? `available (${model.trains.data.rows.length} trains)` : 'unavailable'],
-    ['standings', model.standings.availability === 'available' ? `available (${model.standings.data.length} rows)` : 'unavailable'],
-    ['ownership leaders', model.ownershipLeaders.availability === 'available' ? `available (${model.ownershipLeaders.data.entries.length} entries)` : 'unavailable'],
-    ['threat', model.threat.availability === 'available' ? `available (${model.threat.data.swingPlayers.length} swing players)` : 'unavailable'],
+    ['trains', availability(model.trains, (data) => `${data.rows.length} trains`)],
+    ['standings', availability(model.standings, (data) => `${data.length} rows`)],
+    ['ownership leaders', availability(model.ownershipLeaders, (data) => `${data.entries.length} entries`)],
+    ['threat', availability(model.threat, (data) => `${data.swingPlayers.length} swing players`)],
     ['player pool', `${model.pool.length} players`],
   ]
   return rows.map(([name, status]) => `  ${name.padEnd(18)} ${status}`)
@@ -102,8 +97,15 @@ function vipLines(model: LiveModel): string[] {
   return model.vips.map(
     (vip) =>
       `  ${vip.name}: rank ${show(vip.rank)}, points ${show(vip.points)}, pmr ${show(vip.pmr)}, ` +
-      `${vip.cashing ? 'cashing' : 'not cashing'}, leverage ${vip.leverage.availability}`,
+      `${vip.cashing ? 'cashing' : 'not cashing'}, own rem ${formatOwnership(vip.ownershipRemainingPct)}, ${leverageFigure(vip)}`,
   )
+}
+
+/** The VIP's uniqueness delta, marked when partial; or that the feed has no leverage row for them. */
+function leverageFigure(vip: LiveVip): string {
+  if (vip.leverage.availability !== 'available') return 'leverage unavailable'
+  const { uniquenessDeltaPct, partial } = vip.leverage.data
+  return `leverage delta ${show(uniquenessDeltaPct)}${partial ? ' (partial)' : ''}`
 }
 
 function invariantLines({ name, violations }: { name: string; violations: string[] }): string[] {

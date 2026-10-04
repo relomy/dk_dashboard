@@ -78,7 +78,10 @@ export interface LiveVip {
   leverage: Section<LiveVipLeverage>
 }
 
-/** One VIP's ownership leverage against the field, as the producer computes it. */
+/**
+ * One VIP's ownership leverage against the field, as the producer computes it. The uniqueness delta is the
+ * field figure less the VIP figure, so the leverage panel compares the VIP with the field on these two.
+ */
 export interface LiveVipLeverage {
   vipRemainingPct: number | null
   fieldRemainingPct: number | null
@@ -362,24 +365,23 @@ function matchupOf(player: Player | undefined): string | null {
   return matchup.trim().toLowerCase() === player?.game_status?.trim().toLowerCase() ? null : matchup
 }
 
+/** A locked slot's player details: all empty, since the player is hidden and nothing comes from the pool. */
+export const LOCKED_SLOT_DETAIL = {
+  playerKey: null,
+  gameStatus: null,
+  points: null,
+  projection: null,
+  clock: null,
+  matchup: null,
+  ownershipPct: null,
+  value: null,
+  valueIcon: null,
+  stats: null,
+} as const satisfies Partial<LiveLineupPlayer>
+
 /** A locked slot's card: its slot and the locked label, with every player detail empty. */
 function lockedPlayer(key: string, slot: string): LiveLineupPlayer {
-  return {
-    key,
-    slot,
-    name: LOCKED_LABEL,
-    playerKey: null,
-    locked: true,
-    gameStatus: null,
-    points: null,
-    projection: null,
-    clock: null,
-    matchup: null,
-    ownershipPct: null,
-    value: null,
-    valueIcon: null,
-    stats: null,
-  }
+  return { key, slot, name: LOCKED_LABEL, locked: true, ...LOCKED_SLOT_DETAIL }
 }
 
 /** Fields on the row itself come first; the pool player fills in what the row lacks. A locked row is a locked slot. */
@@ -441,7 +443,7 @@ function projectLineup(players: LiveLineupPlayer[]): number | null {
  * A figure on the VIP's lineup row: a finite number, or a numeric string as the producer sends
  * `rank` and `pmr` (`"879"`). Anything else (blank, junk, absent) is null.
  */
-function lineupFigure(value: unknown): number | null {
+function parseLineupNumber(value: unknown): number | null {
   if (typeof value === 'string' && /^\s*-?\d+(\.\d+)?\s*$/.test(value)) return Number(value)
   return numberOrNull(value)
 }
@@ -469,14 +471,14 @@ function buildVips(contest: Contest, trains: Section<LiveTrains>, pool: PoolInde
       cashing: resolveVipCashing(lineup, distance, standing),
       distanceToCash: { points: numberOrNull(distance?.points_delta), rank: numberOrNull(distance?.rank_delta) },
       updatedAt: lineup.live?.updated_at || null,
-      rank: numberOrNull(lineup.live?.current_rank) ?? lineupFigure(lineup.rank) ?? numberOrNull(standing?.rank),
+      rank: numberOrNull(lineup.live?.current_rank) ?? parseLineupNumber(lineup.rank) ?? numberOrNull(standing?.rank),
       points:
         numberOrNull(lineup.live?.current_points) ??
-        lineupFigure(lineup.points) ??
-        lineupFigure(lineup.pts) ??
+        parseLineupNumber(lineup.points) ??
+        parseLineupNumber(lineup.pts) ??
         numberOrNull(standing?.points),
       projectedPoints: projectLineup(players),
-      pmr: numberOrNull(lineup.live?.pmr) ?? lineupFigure(lineup.pmr) ?? numberOrNull(standing?.pmr),
+      pmr: numberOrNull(lineup.live?.pmr) ?? parseLineupNumber(lineup.pmr) ?? numberOrNull(standing?.pmr),
       ownershipRemainingPct:
         numberOrNull(lineup.live?.ownership_remaining_pct) ??
         numberOrNull(standing?.ownership_remaining_total_pct) ??

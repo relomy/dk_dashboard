@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-import type { SnapshotSource } from '../../fixtures/lib/refreshFixture'
+import type { SnapshotSource } from '../../lib/snapshotSource'
 import type { Snapshot } from '../../../src/lib/types'
 import { runProdCheck } from '../lib/prodCheck'
 
@@ -43,6 +43,8 @@ describe('runProdCheck', () => {
     expect(result.output).toContain('cglenn91')
     expect(result.output).toMatch(/rank 879\b/)
     expect(result.output).toMatch(/pmr 390\b/)
+    // Every NFL leverage row is partial; cglenn91's says 262.59% remaining, 15.7 less unique than the field.
+    expect(result.output).toMatch(/cglenn91: .*own rem 262\.59%, leverage delta -15\.7 \(partial\)$/m)
     expect(result.output).toContain('PASS')
     expect(result.output.split('\n').length).toBeLessThan(60)
     expect(result.output).not.toContain('{')
@@ -55,6 +57,19 @@ describe('runProdCheck', () => {
 
     expect(snapshots.reads).toEqual([KEY])
     expect(result.exitCode).toBe(0)
+  })
+
+  it("rounds a VIP's ownership remaining as the card shows it", () => {
+    // Prod sums ownership with float noise (96.03999999999999); the fixture's figures are already rounded.
+    const noisy = withSnapshot((snapshot) => {
+      const contest = snapshot.sports.nfl.contests.find((c) => c.vip_lineups?.length)
+      const row = contest.metrics.threat.vip_vs_field_leverage.find((r) => r.display_name === 'cglenn91')
+      row.vip_remaining_pct = 96.03999999999999
+    })
+
+    const result = runProdCheck(['nfl', KEY], { source: source({ [KEY]: noisy }), env: {} })
+
+    expect(result.output).toMatch(/cglenn91: .*own rem 96\.04%,/)
   })
 
   it('fails with the violation named when an invariant breaks', () => {
