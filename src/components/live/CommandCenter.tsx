@@ -91,7 +91,8 @@ function PhoneTabBar({ view, searchFor }: { view: LiveView; searchFor: (view: Li
           to={{ search: searchFor(tab) }}
           aria-current={view === tab ? 'page' : undefined}
           className={cn(
-            'flex flex-col items-center gap-0.5 py-2 text-[11px]',
+            // The bar sits on the screen's bottom edge, so the focus ring is drawn inside.
+            'flex flex-col items-center gap-0.5 py-2 text-[11px] [--focus-offset:-2px]',
             view === tab ? 'text-cashing' : 'text-muted-foreground',
           )}
         >
