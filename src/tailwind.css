@@ -134,7 +134,7 @@
     }
 }
 @layer proto-reset {
-  :where(.proto-root, [data-slot="sheet-content"]) :where(button, input, select) {
+  :where(.proto-root, [data-slot="sheet-content"], [data-slot="dropdown-menu-content"]) :where(button, input, select) {
     min-height: 0;
     border: 0 solid;
     border-radius: 0;

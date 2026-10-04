@@ -16,7 +16,11 @@ export type LivePlayer = {
   minsLeft: number | null
   stats: string
   value: number | null
+  valueIcon: ValueIcon
 }
+
+// DraftKings' own hot/cold signal (dk_results#165). Absent today in real snapshots.
+export type ValueIcon = 'fire' | 'ice' | null
 
 export type PoolPlayer = {
   name: string
@@ -29,6 +33,7 @@ export type PoolPlayer = {
   value: number
   phase: GamePhase
   clock: string
+  valueIcon: ValueIcon
   vipIdx: number[]
 }
 
@@ -41,6 +46,7 @@ export type LiveVip = {
   cashing: boolean
   delta: number | null
   ownLeft: number | null
+  lineupOwnership: number | null
   projected: number
   totalSalary: number
   players: LivePlayer[]
@@ -81,12 +87,16 @@ export type LiveModel = {
     entries: number
     bestRank: number | null
     bestPoints: number | null
+    minShared: number | null
+    slotCount: number
     avgPmr: number | null
     players: string[]
     lineup: LivePlayer[]
     samples: string[]
   }>
   pool: PoolPlayer[]
+  sportStatus: Record<string, 'ok' | 'stale' | 'error'>
+  totalOwnership: { total: number; finalShare: number; inPlayShare: number; preGameShare: number; final: number; inPlay: number; preGame: number }
   maxPmr: number
 }
 
@@ -95,6 +105,28 @@ export function phaseOf(status: string | undefined): GamePhase {
   if (s.startsWith('final')) return 'final'
   if (!s || s.includes('scheduled') || s.includes('pm') || s.includes('am') || s.includes('pre')) return 'pre'
   return 'live'
+}
+
+function iconOf(p: unknown): ValueIcon {
+  const icon = (p as { value_icon?: unknown } | undefined)?.value_icon
+  return icon === 'fire' || icon === 'ice' ? icon : null
+}
+
+// Whole-pool ownership (≈ slots × 100%) split by game status, as shares of the total.
+function totalOwnershipOf(players: Array<{ ownership_pct?: number | null; game_status?: string }>) {
+  let final = 0
+  let inPlay = 0
+  let preGame = 0
+  for (const p of players) {
+    const own = p.ownership_pct ?? 0
+    const phase = phaseOf(p.game_status)
+    if (phase === 'final') final += own
+    else if (phase === 'live') inPlay += own
+    else preGame += own
+  }
+  const total = final + inPlay + preGame
+  const share = (n: number) => (total ? (n / total) * 100 : 0)
+  return { total, final, inPlay, preGame, finalShare: share(final), inPlayShare: share(inPlay), preGameShare: share(preGame) }
 }
 
 function vipKey(v: VipLineup) {
@@ -114,6 +146,13 @@ export function buildLiveModel(snapshot: Snapshot, sport: string): LiveModel | n
   const rawStandings = Array.isArray(contest.standings) ? contest.standings : (contest.standings?.rows ?? [])
   const cashRank = contest.live_metrics?.cash_line?.rank_cutoff ?? (contest as { positions_paid?: number }).positions_paid ?? null
   const vipKeys = new Set(contest.vip_lineups.map(vipKey))
+  // Lineup ownership: per-VIP sum of players' ownership. Producer may rename the field (dk_results#165).
+  const lineupOwn = new Map(
+    (contest.metrics?.ownership_summary?.per_vip ?? []).map((r) => [
+      r.entry_key ?? '',
+      (r as { lineup_ownership_pct?: number }).lineup_ownership_pct ?? r.total_ownership_pct ?? null,
+    ]),
+  )
 
   const vips: LiveVip[] = contest.vip_lineups.map((v) => {
     const players: LivePlayer[] = (v.players_live ?? []).map((p) => ({
@@ -128,6 +167,7 @@ export function buildLiveModel(snapshot: Snapshot, sport: string): LiveModel | n
       minsLeft: p.time_remaining_minutes ?? null,
       stats: p.stats_text ?? '',
       value: p.value ?? null,
+      valueIcon: iconOf(p),
     }))
     const d = distance.get(v.entry_key)
     const points = v.live?.current_points ?? players.reduce((s, p) => s + p.points, 0)
@@ -141,6 +181,7 @@ export function buildLiveModel(snapshot: Snapshot, sport: string): LiveModel | n
       cashing: delta != null ? delta >= 0 : Boolean(v.live?.is_cashing),
       delta,
       ownLeft: v.live?.ownership_remaining_pct ?? null,
+      lineupOwnership: lineupOwn.get(v.entry_key ?? '') ?? null,
       totalSalary: players.reduce((s, p) => s + (p.salary ?? 0), 0),
       projected: players.reduce((s, p) => s + (p.phase === 'final' ? p.points : (p.proj ?? p.points)), 0),
       players,
@@ -175,6 +216,7 @@ export function buildLiveModel(snapshot: Snapshot, sport: string): LiveModel | n
       minsLeft: null,
       stats: p?.matchup ?? '',
       value: p?.value ?? null,
+      valueIcon: iconOf(p),
     }
   }
 
@@ -218,6 +260,8 @@ export function buildLiveModel(snapshot: Snapshot, sport: string): LiveModel | n
         entries: c.entry_count,
         bestRank: c.best_rank ?? null,
         bestPoints: c.best_points ?? null,
+        minShared: (contest.train_clusters as { cluster_rule?: { min_shared?: number } }).cluster_rule?.min_shared ?? null,
+        slotCount: c.composition.length,
         avgPmr: c.avg_pmr ?? null,
         players: c.composition.map((s) => s.player_name),
         lineup: c.composition.map((s) => poolPlayer(s.player_name)),
@@ -237,10 +281,13 @@ export function buildLiveModel(snapshot: Snapshot, sport: string): LiveModel | n
           points: p.fantasy_points ?? p.actual_points ?? 0,
           value: p.value ?? 0,
           phase,
-          clock: phase === 'final' ? 'Final' : phase === 'pre' ? 'Not started' : (p.game_status ?? ''),
+          clock: phase === 'final' ? 'Final' : phase === 'pre' ? 'Pre-game' : 'In progress',
+          valueIcon: iconOf(p),
           vipIdx: vips.flatMap((v, i) => (v.players.some((vp) => vp.name === p.name) ? [i] : [])),
         }
       }),
+    sportStatus: Object.fromEntries(Object.entries(snapshot.sports).map(([k, v]) => [k, v.status])),
+    totalOwnership: totalOwnershipOf(sportData.players),
     maxPmr: sport === 'nba' ? 8 * 48 : 100,
   }
 }
@@ -258,12 +305,4 @@ export const fmt = {
   },
   inOut: (n: number | null | undefined) => (n == null ? '—' : `${fmt.pts(Math.abs(n))} pts ${n >= 0 ? 'in' : 'out'}`),
   time: (iso: string) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
-}
-
-// Sheet-style hot/cold marker. Thresholds are per-$1k value; prototype guesses, NBA-ish.
-export function heat(value: number | null | undefined, phase: GamePhase): '🔥' | '🧊' | '' {
-  if (value == null || phase === 'pre') return ''
-  if (value >= 6) return '🔥'
-  if (value < 2.5 && phase === 'final') return '🧊'
-  return ''
 }

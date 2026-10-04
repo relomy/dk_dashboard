@@ -55,6 +55,11 @@ for p in sport["players"]:
         proj = q(p["salary"] / 1000 * 5.2)
     p["fantasy_points"] = pts
     p["value"] = round(pts / (p["salary"] / 1000), 2) if p["salary"] else 0
+    # Stand-in for DraftKings' valueIcon (dk_results#165) so the prototype can show markers.
+    if phase != "pre" and p["value"] >= 6:
+        p["value_icon"] = "fire"
+    elif phase == "final" and p["ownership_pct"] > 10 and p["value"] < 2.5:
+        p["value_icon"] = "ice"
     players[p["name"]] = {**p, "mins_left": mins_left, "clock": clock, "proj": proj, "phase": phase}
 
 # Diversify the three (identical) VIP lineups so the board is interesting.
@@ -75,7 +80,7 @@ for vip in contest["vip_lineups"]:
         live_rows.append({
             "slot": row["slot"], "player_name": name, "game_status": pl["game_status"],
             "ownership_pct": pl["ownership_pct"], "salary": pl["salary"], "points": pl["fantasy_points"],
-            "value": pl["value"], "rt_projection": pl["proj"], "time_remaining_display": pl["clock"],
+            "value": pl["value"], "value_icon": pl.get("value_icon"), "rt_projection": pl["proj"], "time_remaining_display": pl["clock"],
             "time_remaining_minutes": pl["mins_left"],
             "stats_text": row["stats_text"] if pl["phase"] == "final" and name == row["player_name"]
             else ("" if pl["phase"] == "pre" else "6 REB, 4 AST, 14 PTS"),

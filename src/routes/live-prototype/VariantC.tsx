@@ -1,17 +1,29 @@
-// PROTOTYPE — Variant C "Command center": dark, dense split panes. The rail picks what fills
-// the center — the player ownership table (default, mirrors the friends' Google Sheet), a VIP,
-// or a train — and the right column compares to the field. On phones the rail becomes a
-// bottom tab bar: Players · VIPs · Trains · Field.
+// PROTOTYPE — Variant C "Command center" (the chosen design; reference for relomy/dk_dashboard#19).
+// Dark, dense split panes. The rail picks what fills the center — the player ownership table
+// (default, mirrors the friends' Google Sheet), a VIP, or a train — and the right column is the
+// Leverage panel. On phones the rail becomes a bottom tab bar: Players · VIPs · Trains · Leverage.
+// View + focus live in the URL (?view=&focus=) so links are shareable.
 import { useMemo, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Radar, Star, Table2, TrainFront } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { PhaseDot, initials, vipColor } from './atoms'
-import { fmt, heat, type GamePhase, type LiveModel, type LivePlayer } from './liveModel'
+import { fmt, type GamePhase, type LiveModel, type LivePlayer, type ValueIcon } from './liveModel'
 
 export const name = 'Command center'
 
-type Tab = 'players' | 'vips' | 'trains' | 'field'
+type Tab = 'players' | 'vips' | 'trains' | 'leverage'
+const TABS: Tab[] = ['players', 'vips', 'trains', 'leverage']
 
 const GROUPS: Array<{ phase: GamePhase; label: string }> = [
   { phase: 'live', label: 'Playing now' },
@@ -25,26 +37,36 @@ function overlap(a: string[], b: string[]) {
 }
 
 export default function VariantC({ model }: { model: LiveModel }) {
-  const [tab, setTab] = useState<Tab>('players')
-  const [vipI, setVipI] = useState(0)
-  const [trainI, setTrainI] = useState(0)
+  // URL state: ?view=players|vips|trains|leverage&focus=<vip name | train key>
+  const [params, setParams] = useSearchParams()
+  const viewParam = params.get('view') as Tab | null
+  const tab: Tab = viewParam && TABS.includes(viewParam) ? viewParam : 'players'
+  const focusParam = params.get('focus')
+  const vipI = Math.max(0, model.vips.findIndex((v) => v.name === focusParam))
+  const trainI = Math.max(0, model.trains.findIndex((t) => t.key === focusParam))
   const vip = model.vips[vipI]
   const train = model.trains[trainI]
+
+  const navigate = (view: Tab, focus?: string) => {
+    const next = new URLSearchParams(params)
+    next.set('view', view)
+    if (focus) next.set('focus', focus)
+    else if (view === 'players') next.delete('focus')
+    setParams(next, { replace: true })
+  }
+  const setTab = (view: Tab) =>
+    navigate(view, view === 'vips' ? vip?.name : view === 'trains' ? train?.key : focusParam ?? undefined)
+  const setVipI = (i: number) => navigate('vips', model.vips[i].name)
+  const setTrainI = (i: number) => navigate('trains', model.trains[i].key)
 
   // HAVE/FADE in the field panel is relative to whatever lineup is in focus.
   const focus =
     tab === 'trains' && train
-      ? { label: `${train.entries}-entry train`, names: train.players }
+      ? { label: `×${train.entries} train`, names: train.players }
       : { label: vip?.name ?? '', names: vip?.players.map((p) => p.name) ?? [] }
 
-  const openVip = (i: number) => {
-    setVipI(i)
-    setTab('vips')
-  }
-  const openTrain = (i: number) => {
-    setTrainI(i)
-    setTab('trains')
-  }
+  const openVip = setVipI
+  const openTrain = setTrainI
 
   return (
     <div className="min-h-screen bg-zinc-950 pb-36 font-sans text-zinc-100 md:pb-24">
@@ -57,9 +79,14 @@ export default function VariantC({ model }: { model: LiveModel }) {
               <Link
                 key={s}
                 to={`/live/${s}?variant=C`}
-                className={cn('rounded px-2 py-0.5 font-mono uppercase', s === model.sport ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300')}
+                title={`Data ${model.sportStatus[s] ?? 'stale'}`}
+                className={cn(
+                  'flex items-center gap-1 rounded px-2 py-0.5 font-mono uppercase',
+                  s === model.sport ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300',
+                )}
               >
                 {s}
+                <StatusDot status={model.sportStatus[s] ?? (s === 'mlb' ? 'stale' : 'ok')} />
               </Link>
             ))}
           </div>
@@ -68,6 +95,7 @@ export default function VariantC({ model }: { model: LiveModel }) {
             CASH <span className="text-amber-300">{fmt.pts(model.cashPoints)}</span>
             <span className="hidden sm:inline"> · TOP {model.cashRank} · {fmt.time(model.snapshotAt)}</span>
           </span>
+          <UserMenu />
         </div>
       </header>
 
@@ -96,8 +124,8 @@ export default function VariantC({ model }: { model: LiveModel }) {
                   #{v.rank} · {v.pmr} PMR
                 </span>
               </span>
-              <span className={cn('font-mono text-[11px] tabular-nums', v.cashing ? 'text-lime-400' : 'text-rose-400')}>
-                {fmt.pts(Math.abs(v.delta ?? 0))} {v.cashing ? 'in' : 'out'}
+              <span className={cn('font-mono text-xs tabular-nums', v.cashing ? 'text-lime-400' : 'text-rose-400')}>
+                {fmt.signed(v.delta)}
               </span>
             </RailButton>
           ))}
@@ -109,7 +137,7 @@ export default function VariantC({ model }: { model: LiveModel }) {
                 ×{t.entries}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{t.entries} identical</span>
+                <span className="block truncate text-sm font-medium">{trainCloseness(t)}</span>
                 <span className="block font-mono text-[11px] text-zinc-500">
                   best #{t.bestRank} · {t.avgPmr} PMR
                 </span>
@@ -145,7 +173,7 @@ export default function VariantC({ model }: { model: LiveModel }) {
                 {model.trains.map((t, i) => (
                   <Chip key={t.key} active={i === trainI} onClick={() => setTrainI(i)}>
                     <span className="pl-2 font-mono">×{t.entries}</span>
-                    <span className="text-zinc-500">best #{t.bestRank}</span>
+                    <span className="text-zinc-500">{trainCloseness(t)}</span>
                   </Chip>
                 ))}
               </ChipRow>
@@ -153,12 +181,12 @@ export default function VariantC({ model }: { model: LiveModel }) {
             </>
           ) : null}
 
-          {tab === 'field' ? <FieldPanel model={model} focus={focus} /> : null}
+          {tab === 'leverage' ? <LeveragePanel model={model} focus={focus} /> : null}
         </main>
 
-        {/* Right — field context (tablet: below, desktop: column) */}
+        {/* Right — Leverage panel (tablet: below, desktop: column) */}
         <aside className="hidden border-t border-zinc-800 p-4 md:col-span-2 md:block xl:col-span-1 xl:overflow-y-auto xl:border-t-0 xl:border-l">
-          <FieldPanel model={model} focus={focus} />
+          <LeveragePanel model={model} focus={focus} />
         </aside>
       </div>
 
@@ -169,7 +197,7 @@ export default function VariantC({ model }: { model: LiveModel }) {
             ['players', 'Players', Table2],
             ['vips', 'VIPs', Star],
             ['trains', 'Trains', TrainFront],
-            ['field', 'Field', Radar],
+            ['leverage', 'Leverage', Radar],
           ] as const
         ).map(([key, label, Icon]) => (
           <button
@@ -216,6 +244,7 @@ function PlayersView({ model, onVip }: { model: LiveModel; onVip: (i: number) =>
 
   return (
     <div>
+      <TotalOwnershipBar model={model} />
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-lg font-bold md:text-xl">Players</h1>
         <input
@@ -267,7 +296,7 @@ function PlayersView({ model, onVip }: { model: LiveModel; onVip: (i: number) =>
                   <div className="flex items-center gap-2">
                     <TeamChip team={p.team} />
                     <span className={cn('whitespace-nowrap', p.phase === 'final' && 'text-zinc-400')}>{p.name}</span>
-                    <span>{heat(p.value, p.phase)}</span>
+                    <IconMark icon={p.valueIcon} />
                   </div>
                 </td>
                 <td className="px-3 py-1.5 text-xs whitespace-nowrap text-zinc-400" title={p.clock}>
@@ -319,7 +348,7 @@ function PlayersView({ model, onVip }: { model: LiveModel; onVip: (i: number) =>
               <span className="min-w-0">
                 <span className="flex items-center gap-1.5">
                   <span className={cn('truncate text-sm', p.phase === 'final' && 'text-zinc-400')}>{p.name}</span>
-                  <span className="text-xs">{heat(p.value, p.phase)}</span>
+                  <IconMark icon={p.valueIcon} className="text-xs" />
                 </span>
                 <span className="flex items-center gap-1.5 text-[11px] text-zinc-500">
                   <PhaseDot phase={p.phase} />
@@ -461,12 +490,13 @@ function VipView({ model, index, onTrain }: { model: LiveModel; index: number; o
         <Big label="Rank" value={`#${vip.rank}`} sub={`of ${model.fieldSize}`} />
         <Big label="Points" value={fmt.pts(vip.points)} sub={`proj ${fmt.pts(vip.projected)}`} />
         <Big
-          label="Cash line"
-          value={fmt.pts(Math.abs(vip.delta ?? 0))}
+          label="vs cash"
+          value={fmt.signed(vip.delta)}
           tone={vip.cashing ? 'text-lime-400' : 'text-rose-400'}
-          sub={vip.cashing ? 'pts in' : 'pts out'}
+          sub={vip.cashing ? 'cashing' : 'not cashing'}
         />
-        <Big label="PMR" value={String(vip.pmr ?? '—')} sub={`${fmt.pct(vip.ownLeft)} own left`} />
+        <Big label="PMR" value={String(vip.pmr ?? '—')} sub={`${fmt.pct(vip.ownLeft)} own remaining`} />
+        <Big label="Lineup own" value={fmt.pct(vip.lineupOwnership)} sub={lineupOwnHint(vip.lineupOwnership, vip.players.length)} />
       </div>
 
       <CashMeter model={model} rank={vip.rank} />
@@ -480,25 +510,13 @@ function VipView({ model, index, onTrain }: { model: LiveModel; index: number; o
           <span className="font-mono text-zinc-200">
             {closest.shared}/{vip.players.length}
           </span>
-          shared with a {closest.t.entries}-entry train (best #{closest.t.bestRank})
+          shared with a ×{closest.t.entries} train (best #{closest.t.bestRank})
           <span className="ml-auto text-zinc-500">view →</span>
         </button>
       ) : null}
 
       <LineupGroups players={vip.players} />
 
-      {/* Sheet-style footer row */}
-      <div className="mt-4 flex justify-between rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2 font-mono text-xs">
-        <span>
-          <span className="text-zinc-500">rank</span> {vip.rank}
-        </span>
-        <span>
-          <span className="text-zinc-500">salary</span> {fmt.money(vip.totalSalary)}
-        </span>
-        <span>
-          <span className="text-zinc-500">pts</span> {fmt.pts(vip.points)}
-        </span>
-      </div>
     </>
   )
 }
@@ -510,7 +528,9 @@ function TrainView({ model, index }: { model: LiveModel; index: number }) {
       <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
         <div className="w-full sm:w-auto">
           <div className="text-xs text-zinc-500">Train</div>
-          <h1 className="text-2xl font-bold">{train.entries} identical lineups</h1>
+          <h1 className="text-2xl font-bold">
+            ×{train.entries} <span className="text-zinc-400">· {trainCloseness(train)}</span>
+          </h1>
         </div>
         <Big label="Best rank" value={`#${train.bestRank}`} sub={`of ${model.fieldSize}`} />
         <Big label="Best pts" value={fmt.pts(train.bestPoints)} />
@@ -559,7 +579,7 @@ function LineupGroups({ players: all }: { players: LivePlayer[] }) {
                     <div className="min-w-0">
                       <div className="font-mono text-[10px] text-zinc-500">{p.slot}</div>
                       <div className="truncate font-medium">
-                        {p.name} <span className="text-sm">{heat(p.value, p.phase)}</span>
+                        {p.name} <IconMark icon={p.valueIcon} className="text-sm" />
                       </div>
                     </div>
                     <div className="text-right">
@@ -585,9 +605,9 @@ function LineupGroups({ players: all }: { players: LivePlayer[] }) {
   )
 }
 
-/* ───────────────────────── Field panel ───────────────────────── */
+/* ───────────────────────── Leverage panel ───────────────────────── */
 
-function FieldPanel({ model, focus }: { model: LiveModel; focus: { label: string; names: string[] } }) {
+function LeveragePanel({ model, focus }: { model: LiveModel; focus: { label: string; names: string[] } }) {
   const owned = new Set(focus.names)
   return (
     <div className="space-y-6">
@@ -734,5 +754,102 @@ function CashMeter({ model, rank }: { model: LiveModel; rank: number | null }) {
         <span>{model.fieldSize}th</span>
       </div>
     </div>
+  )
+}
+
+function trainCloseness(t: { minShared: number | null; slotCount: number }) {
+  if (t.minShared == null || t.minShared >= t.slotCount) return 'identical'
+  return `share ${t.minShared} of ${t.slotCount}`
+}
+
+function lineupOwnHint(own: number | null, slots: number) {
+  if (own == null || !slots) return ''
+  const avg = own / slots
+  return avg >= 50 ? 'chalky' : avg <= 20 ? 'contrarian' : 'balanced'
+}
+
+function IconMark({ icon, className }: { icon: ValueIcon; className?: string }) {
+  if (!icon) return null
+  return (
+    <span className={className} title={icon === 'fire' ? 'Hot (DraftKings)' : 'Cold (DraftKings)'}>
+      {icon === 'fire' ? '🔥' : '❄️'}
+    </span>
+  )
+}
+
+function StatusDot({ status }: { status: 'ok' | 'stale' | 'error' }) {
+  return (
+    <span
+      className={cn(
+        'inline-block size-1.5 rounded-full',
+        status === 'ok' && 'bg-lime-400',
+        status === 'stale' && 'bg-amber-400',
+        status === 'error' && 'bg-rose-500',
+      )}
+    />
+  )
+}
+
+function TotalOwnershipBar({ model }: { model: LiveModel }) {
+  const t = model.totalOwnership
+  const parts = [
+    { label: 'Final', share: t.finalShare, raw: t.final, cls: 'bg-zinc-500' },
+    { label: 'In play', share: t.inPlayShare, raw: t.inPlay, cls: 'bg-emerald-400' },
+    { label: 'Pre-game', share: t.preGameShare, raw: t.preGame, cls: 'bg-sky-400' },
+  ]
+  return (
+    <div className="mb-4" title={`Total ownership ${fmt.pct(t.total)} — ${parts.map((p) => `${p.label} ${fmt.pct(p.raw)}`).join(' · ')}`}>
+      <div className="mb-1.5 flex items-baseline justify-between text-[11px] text-zinc-500">
+        <span className="font-semibold tracking-widest uppercase">Total ownership</span>
+        <span className="font-mono">{fmt.pct(t.total)}</span>
+      </div>
+      <div className="flex h-2 overflow-hidden rounded-full bg-zinc-800">
+        {parts.map((p) => (
+          <div key={p.label} className={p.cls} style={{ width: `${p.share}%` }} />
+        ))}
+      </div>
+      <div className="mt-1.5 flex gap-4 text-[11px] text-zinc-400">
+        {parts.map((p) => (
+          <span key={p.label} className="flex items-center gap-1.5">
+            <span className={cn('size-2 rounded-sm', p.cls)} />
+            {p.label} <span className="font-mono text-zinc-200">{Math.round(p.share)}%</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function UserMenu() {
+  const [profile, setProfile] = useState('me')
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="User menu"
+          className="grid size-7 shrink-0 place-items-center rounded-full bg-zinc-800 font-mono text-[10px] font-bold text-zinc-200 ring-1 ring-zinc-700 hover:ring-zinc-500"
+        >
+          AL
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>alewando · Owner</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs text-muted-foreground">Profile</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={profile} onValueChange={setProfile}>
+          <DropdownMenuRadioItem value="me">Me</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="friends">Friends</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem>All contests</DropdownMenuItem>
+        <DropdownMenuItem>History</DropdownMenuItem>
+        <DropdownMenuItem>Health</DropdownMenuItem>
+        <DropdownMenuItem>Settings</DropdownMenuItem>
+        <DropdownMenuItem>Admin</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem>Sign out</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

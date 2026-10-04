@@ -27,7 +27,8 @@ export default function PrototypeSwitcher({ variants }: { variants: Variant[] })
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  if (import.meta.env.PROD) return null
+  // ?shot hides the bar for reference screenshots.
+  if (import.meta.env.PROD || params.has('shot')) return null
 
   return (
     <div className="fixed bottom-20 md:bottom-4 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-1 rounded-full border-2 border-fuchsia-400 bg-black px-1.5 py-1 font-mono text-xs text-white shadow-2xl">
