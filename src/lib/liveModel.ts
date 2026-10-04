@@ -95,7 +95,7 @@ export interface LiveLineupPlayer {
   projection: number | null
   /** Game clock: the time remaining display, then the raw game status. */
   clock: string | null
-  /** The player's game ("MIL@OKC"), from the player pool by name; null when the pool lacks the player or a matchup. */
+  /** The player's game ("MIL@OKC"), from the player pool by name; null when the pool has no real matchup for them. */
   matchup: string | null
   ownershipPct: number | null
   value: number | null
@@ -304,8 +304,14 @@ function indexPoolByName(players: Player[]): Map<string, Player> {
   return poolByName
 }
 
-function matchupOf(name: string, poolByName: Map<string, Player>): string | null {
-  return nonEmptyString(poolByName.get(name)?.matchup)
+/**
+ * A pool player's matchup ("MIL@OKC"). Null when the feed sends the game status in its place
+ * (today's producer copies `game_status` into `matchup`), so the card does not repeat it.
+ */
+function matchupOf(player: Player | undefined): string | null {
+  const matchup = nonEmptyString(player?.matchup)
+  if (!matchup) return null
+  return matchup.trim().toLowerCase() === player?.game_status?.trim().toLowerCase() ? null : matchup
 }
 
 function buildLineupPlayers(lineup: VipLineup, poolByName: Map<string, Player>): LiveLineupPlayer[] {
@@ -318,7 +324,7 @@ function buildLineupPlayers(lineup: VipLineup, poolByName: Map<string, Player>):
       points: numberOrNull(player.points),
       projection: numberOrNull(player.rt_projection),
       clock: nonEmptyString(player.time_remaining_display) ?? nonEmptyString(player.game_status),
-      matchup: matchupOf(player.player_name, poolByName),
+      matchup: matchupOf(poolByName.get(player.player_name)),
       ownershipPct: numberOrNull(player.ownership_pct),
       value: numberOrNull(player.value),
       valueIcon: readValueIcon(player.value_icon),
@@ -333,7 +339,7 @@ function buildLineupPlayers(lineup: VipLineup, poolByName: Map<string, Player>):
     points: null,
     projection: null,
     clock: null,
-    matchup: matchupOf(slot.player_name, poolByName),
+    matchup: matchupOf(poolByName.get(slot.player_name)),
     ownershipPct: null,
     value: null,
     valueIcon: null,
@@ -406,7 +412,7 @@ function buildTrainPlayers(lineup: LineupSlot[], poolByName: Map<string, Player>
       points: numberOrNull(player?.fantasy_points),
       projection: null,
       clock: nonEmptyString(player?.game_status),
-      matchup: nonEmptyString(player?.matchup),
+      matchup: matchupOf(player),
       ownershipPct: numberOrNull(player?.ownership_pct),
       value: numberOrNull(player?.value),
       valueIcon: readValueIcon(player?.value_icon),

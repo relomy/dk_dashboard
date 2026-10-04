@@ -4,14 +4,8 @@ import { groupLineup, type LiveLineupPlayer } from '../../lib/liveModel'
 import { formatOwnership } from '../../lib/playerPool'
 import { GameStatusDot, ValueIconMark, ValuePill } from './atoms'
 
-/** The matchup line, unless it only repeats the game clock (the feed can send the game status as the matchup). */
-function matchupLine(player: LiveLineupPlayer): string | null {
-  return player.matchup && player.matchup.toLowerCase() !== player.clock?.toLowerCase() ? player.matchup : null
-}
-
 function PlayerCard({ player }: { player: LiveLineupPlayer }) {
   const final = player.gameStatus === 'final'
-  const matchup = matchupLine(player)
   return (
     <li className={cn('rounded-lg border bg-card p-3', final && 'opacity-60')}>
       <div className="flex items-start justify-between gap-2">
@@ -37,7 +31,7 @@ function PlayerCard({ player }: { player: LiveLineupPlayer }) {
         </span>
       </div>
       {player.stats ? <div className="mt-1 truncate text-[11px] text-muted-foreground">{player.stats}</div> : null}
-      {matchup ? <div className="mt-1 text-[11px] text-muted-foreground">{matchup}</div> : null}
+      {player.matchup ? <div className="mt-1 text-[11px] text-muted-foreground">{player.matchup}</div> : null}
     </li>
   )
 }

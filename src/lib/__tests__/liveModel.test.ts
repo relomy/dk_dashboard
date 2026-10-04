@@ -247,7 +247,8 @@ describe('VIP lineup players', () => {
         points: 7.25,
         projection: 21.11,
         clock: '38.02',
-        matchup: 'In-Progress',
+        // The fixture's pool repeats the game status as the matchup, which is no matchup at all.
+        matchup: null,
         ownershipPct: 84.67,
         value: 2.07,
         valueIcon: null,
@@ -610,6 +611,14 @@ describe('trains', () => {
       expect(live).toMatchObject({ slot: 'QB', name: 'Live Guy', gameStatus: 'in-progress', points: 12.5, ownershipPct: 31.5, value: 4.5, clock: 'In-Progress', matchup: 'FSU@MIZZ' })
       expect(later).toMatchObject({ slot: 'RB', gameStatus: 'pre-game', points: 0, ownershipPct: 12 })
       expect(done).toMatchObject({ slot: 'WR', gameStatus: 'final', points: 30 })
+    })
+
+    it('has no matchup when the pool repeats the game status as the matchup', () => {
+      const [live] = lineupOf('Live Guy', [
+        { name: 'Live Guy', team: 'FSU', position: 'QB', matchup: 'In-Progress', salary: 1, game_status: 'In-Progress' },
+      ])
+
+      expect(live.matchup).toBeNull()
     })
 
     it('keeps a player missing from the pool as a name with no live details', () => {
