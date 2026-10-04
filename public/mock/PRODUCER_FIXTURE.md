@@ -56,10 +56,21 @@ NFL mid-slate plus golf, captured for relomy/dk_dashboard#37.
 | `sports.nfl.contests[0].standings` | 500 → 52 |
 | `sports.nfl.players` | 629 → 45 |
 
-## `snapshots/live-2026-10-03T20-48-31Z.json` (stale)
+## `snapshots/live-2026-10-03T20-48-31Z.json` (older)
 
-Kept until the Live route tests move to the 2026-10-04 fixture. It has zero VIP lineups and almost
-no metrics.
+The Live route tests (`src/test/live-*.test.tsx`, harness `src/test/liveHarness.tsx`) and the
+Sport/Live pool test run on the 2026-10-04 fixture above. This one has zero VIP lineups and almost no
+metrics, and is kept only where a test needs a sport the newer one lacks (`cfb`, `mlb`) or the mock
+bundle that points at it:
+
+- The mock bundle (`latest.json`, `manifest/2026-10-03.json`, the default snapshot path in
+  `src/lib/env.ts`) and the tests that read it through `/mock/*`: landing (which routes to the `mlb`
+  Live view), sport, history, app shell, auth routing, admin users and health. The 2026-10-04 capture
+  has no manifest and no `cfb` or `mlb`.
+- `src/lib/__tests__/liveModel.test.ts`: the Live model's unit tests, whose edge cases hand-build VIP
+  rows over `cfb` and use `mlb` as the sport with no `metrics`. Real-data checks of the model live in
+  `src/lib/__tests__/liveContract.test.ts`, which runs on every fixture here.
+- The fixture shape tests (`src/test/fixtures-v3.test.ts`, `src/lib/__tests__/fixtures.test.ts`).
 
 - Producer: `dk_results` production feed `snapshot_feed.py` (not `export_fixture.py`).
 - Producer commit: `a04055d1ee51562dcee36bf9dfaf0e6d8ff3e88d`.

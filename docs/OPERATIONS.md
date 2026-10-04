@@ -55,9 +55,8 @@ npm run auth:reset-local -- --username <owner_username>
 This wipes local auth tables and reseeds one owner with a temporary password.
 
 ## Canonical fixtures
-- Baseline snapshot fixture: `public/mock/snapshots/live-2026-10-03T20-48-31Z.json` (producer export; see `public/mock/PRODUCER_FIXTURE.md`).
-- In mock mode, `public/mock/latest.json` and `public/mock/manifest/2026-10-03.json` point to the baseline fixture.
-- Route tests run on the baseline fixture; edge cases are variants derived in-test.
+- Live route fixture: `public/mock/snapshots/live-2026-10-04T18-41-34Z.json` (prod capture, NFL mid-slate plus golf; see `public/mock/PRODUCER_FIXTURE.md`). The Live route tests (`src/test/liveHarness.tsx`) load it by default; edge cases are variants derived in-test, and hand-built VIPs (`setVips`) are used only for cases it lacks, each with a one-line reason.
+- Mock-bundle fixture: `public/mock/snapshots/live-2026-10-03T20-48-31Z.json` (cfb, golf, mlb). In mock mode, `public/mock/latest.json` and `public/mock/manifest/2026-10-03.json` point to it, and the landing, history, sport, app-shell, auth, admin and health tests run on it because they need cfb and mlb, which the Live route fixture lacks. Its remaining users are listed in `public/mock/PRODUCER_FIXTURE.md`.
 
 ### Fixture-change guardrails
 - Keep fixture names contract-oriented (avoid version/date-coupled names for the canonical baseline).
