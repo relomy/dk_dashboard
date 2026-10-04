@@ -1,6 +1,7 @@
 import { INVARIANTS, contractCasesOf } from '../../../src/lib/liveInvariants'
 import { buildLiveModel, type LiveModel, type LiveNotRenderableReason, type LiveVip, type Section } from '../../../src/lib/liveModel'
 import { LIVE_UNREAD_ALLOWLIST, liveUnreadPaths } from '../../../src/lib/liveUnreadPaths'
+import { formatOwnership } from '../../../src/lib/playerPool'
 import type { Snapshot } from '../../../src/lib/types'
 import { unallowlistedPaths } from '../../../src/lib/unreadPaths'
 import { SNAPSHOT_KEY, guardProdRead, type ProdReadDeps, type SnapshotSource } from '../../lib/snapshotSource'
@@ -96,7 +97,7 @@ function vipLines(model: LiveModel): string[] {
   return model.vips.map(
     (vip) =>
       `  ${vip.name}: rank ${show(vip.rank)}, points ${show(vip.points)}, pmr ${show(vip.pmr)}, ` +
-      `${vip.cashing ? 'cashing' : 'not cashing'}, own rem ${show(vip.ownershipRemainingPct)}, ${leverageFigure(vip)}`,
+      `${vip.cashing ? 'cashing' : 'not cashing'}, own rem ${formatOwnership(vip.ownershipRemainingPct)}, ${leverageFigure(vip)}`,
   )
 }
 
