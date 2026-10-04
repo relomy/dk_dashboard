@@ -5,7 +5,18 @@ import { groupLineup, visibleValue } from '../../lib/livePresentation'
 import { formatOwnership } from '../../lib/playerPool'
 import { GameStatusDot, ValueIconMark, ValuePill } from './atoms'
 
+/** A locked slot hides its player, so the card shows only the slot and the locked label. */
+function LockedCard({ player }: { player: LiveLineupPlayer }) {
+  return (
+    <li className="rounded-lg border border-dashed p-3 text-muted-foreground">
+      <div className="font-mono text-[10px]">{player.slot}</div>
+      <div className="font-medium">{player.name}</div>
+    </li>
+  )
+}
+
 function PlayerCard({ player }: { player: LiveLineupPlayer }) {
+  if (player.locked) return <LockedCard player={player} />
   const final = player.gameStatus === 'final'
   return (
     <li className={cn('rounded-lg border bg-card p-3', final && 'opacity-60')}>

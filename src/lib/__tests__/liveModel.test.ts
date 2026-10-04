@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 // Exported by the dk_results producer; provenance in public/mock/PRODUCER_FIXTURE.md.
 // cfb carries `metrics.threat`; mlb carries no `metrics` at all (the missing-metrics variant).
 import producerSnapshot from '../../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
+// NFL mid-slate: six VIPs ranked below the 500-row standings cut (string rank/pmr, `pts`).
+import nflSnapshot from '../../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
 import { formatSigned } from '../format'
 import { buildLiveModel, largestTrains, type LiveModel } from '../liveModel'
 import type { Snapshot } from '../types'
@@ -235,6 +237,8 @@ describe('VIP lineup players', () => {
         key: 'QB-0',
         slot: 'QB',
         name: 'Ashton Daniels',
+        playerKey: null,
+        locked: false,
         gameStatus: 'in-progress',
         points: 7.25,
         projection: 21.11,
@@ -278,6 +282,8 @@ describe('VIP lineup players', () => {
         key: 'QB-0',
         slot: 'QB',
         name: 'Unknown Slot Name',
+        playerKey: null,
+        locked: false,
         gameStatus: null,
         points: null,
         projection: null,
@@ -441,12 +447,20 @@ describe('VIP card from a minimal producer lineup', () => {
     return vip
   }
 
-  it('takes rank, points, PMR and ownership remaining from the standings row, ignoring the lineup strings and pts', () => {
+  it('reads rank and PMR from the lineup strings and points from pts, ahead of the standings row', () => {
     const snapshot = load()
     addVip(snapshot, 'cfb', MINIMAL_LINEUP)
+    setStandings(snapshot, [{ ...STANDINGS_ROW, pmr: 90 }])
+
+    expect(vipOf(snapshot)).toMatchObject({ rank: 74, points: 433, pmr: 82, ownershipRemainingPct: 143.5 })
+  })
+
+  it('ignores lineup strings that are not numbers and falls back to the standings row', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', { ...MINIMAL_LINEUP, rank: 'n/a', pmr: '', pts: '12 pts' })
     setStandings(snapshot, [STANDINGS_ROW])
 
-    expect(vipOf(snapshot)).toMatchObject({ rank: 77, points: 424.5, pmr: 82, ownershipRemainingPct: 143.5 })
+    expect(vipOf(snapshot)).toMatchObject({ rank: 77, points: 424.5, pmr: 82 })
   })
 
   it('lets the lineup live block and numeric rank and points win over the standings row', () => {
@@ -460,19 +474,33 @@ describe('VIP card from a minimal producer lineup', () => {
   it('matches the standings row on vip_entry_key before entry_key', () => {
     const snapshot = load()
     addVip(snapshot, 'cfb', { ...MINIMAL_LINEUP, entry_key: 'someone-else', vip_entry_key: VIP_KEY })
-    setStandings(snapshot, [{ ...STANDINGS_ROW, entry_key: 'someone-else', rank: 1 }, STANDINGS_ROW])
+    setStandings(snapshot, [{ ...STANDINGS_ROW, entry_key: 'someone-else', ownership_remaining_total_pct: 1 }, STANDINGS_ROW])
 
-    expect(vipOf(snapshot).rank).toBe(77)
+    expect(vipOf(snapshot).ownershipRemainingPct).toBe(143.5)
   })
 
-  it('shows no standing values when the VIP has no standings row or the contest has no standings', () => {
+  it('keeps the lineup figures when the VIP has no standings row or the contest has no standings', () => {
     const snapshot = load()
     addVip(snapshot, 'cfb', MINIMAL_LINEUP)
     setStandings(snapshot, [{ ...STANDINGS_ROW, entry_key: 'someone-else' }])
-    expect(vipOf(snapshot)).toMatchObject({ rank: null, points: null, pmr: null, ownershipRemainingPct: null })
+    expect(vipOf(snapshot)).toMatchObject({ rank: 74, points: 433, pmr: 82, ownershipRemainingPct: null })
 
     delete contestOf(snapshot).standings
-    expect(vipOf(snapshot)).toMatchObject({ rank: null, points: null, pmr: null, ownershipRemainingPct: null })
+    expect(vipOf(snapshot)).toMatchObject({ rank: 74, points: 433, pmr: 82, ownershipRemainingPct: null })
+  })
+
+  it('prefers the standings row\'s ownership remaining over the leverage row, which matches on entry key only', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', MINIMAL_LINEUP)
+    setStandings(snapshot, [STANDINGS_ROW])
+    contestOf(snapshot).metrics.threat.vip_vs_field_leverage = [{ entry_key: VIP_KEY, vip_remaining_pct: 300.5 }]
+    expect(vipOf(snapshot).ownershipRemainingPct).toBe(143.5)
+
+    setStandings(snapshot, [])
+    expect(vipOf(snapshot).ownershipRemainingPct).toBe(300.5)
+
+    contestOf(snapshot).metrics.threat.vip_vs_field_leverage = [{ display_name: VIP_NAME, vip_remaining_pct: 300.5 }]
+    expect(vipOf(snapshot).ownershipRemainingPct).toBeNull()
   })
 
   it('leaves ownership remaining empty when the standings row omits it, as golf does', () => {
@@ -480,7 +508,7 @@ describe('VIP card from a minimal producer lineup', () => {
     addVip(snapshot, 'cfb', MINIMAL_LINEUP)
     setStandings(snapshot, [{ ...STANDINGS_ROW, ownership_remaining_total_pct: undefined }])
 
-    expect(vipOf(snapshot)).toMatchObject({ rank: 77, ownershipRemainingPct: null })
+    expect(vipOf(snapshot).ownershipRemainingPct).toBeNull()
   })
 
   describe('player rows', () => {
@@ -619,10 +647,31 @@ describe('VIP card from a minimal producer lineup', () => {
 
   it('takes only the missing header figures from the standings row when the lineup has some', () => {
     const snapshot = load()
-    addVip(snapshot, 'cfb', { ...MINIMAL_LINEUP, points: 91.25 })
+    addVip(snapshot, 'cfb', { ...MINIMAL_LINEUP, rank: undefined, pmr: undefined, points: 91.25 })
     setStandings(snapshot, [STANDINGS_ROW])
 
     expect(vipOf(snapshot)).toMatchObject({ rank: 77, points: 91.25, pmr: 82 })
+  })
+})
+
+describe('VIP card below the standings cut (prod NFL fixture)', () => {
+  it('shows each VIP\'s rank, points and PMR from its lineup row and ownership remaining from its leverage row', () => {
+    const vips = modelOf(structuredClone(nflSnapshot), 'nfl').vips.map(({ name, rank, points, pmr, ownershipRemainingPct }) => ({
+      name,
+      rank,
+      points,
+      pmr,
+      ownershipRemainingPct,
+    }))
+
+    expect(vips).toEqual([
+      { name: 'cglenn91', rank: 879, points: 28.64, pmr: 390, ownershipRemainingPct: 262.59 },
+      { name: 'Cubbiesftw23', rank: 1014, points: 21.339998, pmr: 390, ownershipRemainingPct: 318.41 },
+      { name: 'tuck8989', rank: 847, points: 29.64, pmr: 390, ownershipRemainingPct: 202.82 },
+      { name: 'EmpireMaker2', rank: 511, points: 30.939999, pmr: 360, ownershipRemainingPct: 373.51 },
+      { name: 'Aj_cray', rank: 879, points: 28.64, pmr: 390, ownershipRemainingPct: 207.49 },
+      { name: 'Mcoleman1902', rank: 883, points: 28.539999, pmr: 360, ownershipRemainingPct: 314.17 },
+    ])
   })
 })
 
@@ -1059,6 +1108,7 @@ describe('swing players', () => {
     expect(threat.data.swingPlayers[0]).toEqual({
       key: 'cfb:ousmane-kromah:fsu:5900:rb',
       name: 'Ousmane Kromah',
+      playerKey: 'cfb:ousmane-kromah:fsu:5900:rb',
       ownershipRemainingPct: 79.11,
       vipCount: 0,
     })
@@ -1071,7 +1121,7 @@ describe('swing players', () => {
     const threat = modelOf(snapshot).threat
     expect(threat).toEqual({
       availability: 'available',
-      data: { swingPlayers: [{ key: 'Alt Field-0', name: 'Alt Field', ownershipRemainingPct: 12.5, vipCount: 0 }] },
+      data: { swingPlayers: [{ key: 'Alt Field-0', name: 'Alt Field', playerKey: null, ownershipRemainingPct: 12.5, vipCount: 0 }] },
     })
   })
 
@@ -1089,23 +1139,25 @@ describe('swing players', () => {
 })
 
 describe('field ownership remaining', () => {
-  it("reads the field's average ownership remaining from the ownership leaders total", () => {
-    expect(modelOf(load()).fieldOwnershipRemainingPct).toBeCloseTo(146.4668, 4)
+  it("reads the field's average ownership remaining from the ownership leaders total, with no scope", () => {
+    const field = modelOf(load()).fieldOwnershipRemaining
+    expect(field?.pct).toBeCloseTo(146.4668, 4)
+    expect(field?.scope).toBeNull()
   })
 
-  it('falls back to the threat field remaining figure when the leaders carry no total', () => {
+  it('prefers the threat field remaining figure over the leaders total, with its scope', () => {
     const snapshot = load()
-    delete contestOf(snapshot).ownership_watchlist.ownership_remaining_total_pct
     contestOf(snapshot).metrics.threat.field_remaining_pct = 150.5
+    contestOf(snapshot).metrics.threat.field_remaining_scope = 'contest_field'
 
-    expect(modelOf(snapshot).fieldOwnershipRemainingPct).toBe(150.5)
+    expect(modelOf(snapshot).fieldOwnershipRemaining).toEqual({ pct: 150.5, scope: 'contest_field' })
   })
 
   it('is null when the feed gives neither', () => {
     const snapshot = load()
     delete contestOf(snapshot, 'mlb').ownership_watchlist
 
-    expect(modelOf(snapshot, 'mlb').fieldOwnershipRemainingPct).toBeNull()
+    expect(modelOf(snapshot, 'mlb').fieldOwnershipRemaining).toBeNull()
   })
 })
 
