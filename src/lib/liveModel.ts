@@ -365,24 +365,23 @@ function matchupOf(player: Player | undefined): string | null {
   return matchup.trim().toLowerCase() === player?.game_status?.trim().toLowerCase() ? null : matchup
 }
 
+/** A locked slot's player details: all empty, since the player is hidden and nothing comes from the pool. */
+export const LOCKED_SLOT_DETAIL = {
+  playerKey: null,
+  gameStatus: null,
+  points: null,
+  projection: null,
+  clock: null,
+  matchup: null,
+  ownershipPct: null,
+  value: null,
+  valueIcon: null,
+  stats: null,
+} as const satisfies Partial<LiveLineupPlayer>
+
 /** A locked slot's card: its slot and the locked label, with every player detail empty. */
 function lockedPlayer(key: string, slot: string): LiveLineupPlayer {
-  return {
-    key,
-    slot,
-    name: LOCKED_LABEL,
-    playerKey: null,
-    locked: true,
-    gameStatus: null,
-    points: null,
-    projection: null,
-    clock: null,
-    matchup: null,
-    ownershipPct: null,
-    value: null,
-    valueIcon: null,
-    stats: null,
-  }
+  return { key, slot, name: LOCKED_LABEL, locked: true, ...LOCKED_SLOT_DETAIL }
 }
 
 /** Fields on the row itself come first; the pool player fills in what the row lacks. A locked row is a locked slot. */
