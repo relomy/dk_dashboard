@@ -379,8 +379,9 @@ function buildVips(contest: Contest, trains: Section<LiveTrains>, poolByName: Ma
   })
 }
 
+/** The lineup's size, counted as `buildLineupPlayers` would list it: `players_live` when present, else the slots. */
 function lineupSlotCount(lineup: VipLineup): number {
-  return buildLineupPlayers(lineup, new Map()).length
+  return Array.isArray(lineup.players_live) ? lineup.players_live.length : (lineup.slots ?? []).length
 }
 
 /** The train a VIP shares the most players with (ties: the larger train), if that reaches the notice threshold. */
