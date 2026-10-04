@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import LatestOverview from '../components/LatestOverview'
-import StatusBadge from '../components/StatusBadge'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
+import DataPage from '../components/DataPage'
+import SelectField from '../components/SelectField'
+import SnapshotOverview from '../components/SnapshotOverview'
+import StatusPill from '../components/StatusPill'
 import { useProfiles } from '../context/ProfileContext'
 import { useHistorySnapshot } from '../hooks/useHistorySnapshot'
 import { useHistoryTimeline } from '../hooks/useHistoryTimeline'
@@ -65,15 +68,18 @@ function History() {
   if (!timestampParam) {
     if (config.useMock && config.mockSnapshotOnly) {
       return (
-        <section className="page page-stack">
-          <h1 className="page-title">History</h1>
+        <DataPage title="History">
           <p>History requires manifest files.</p>
-        </section>
+        </DataPage>
       )
     }
 
     if (timeline.latestQuery.isLoading || timeline.todayManifestQuery.isLoading) {
-      return <p className="page">Loading history timeline...</p>
+      return (
+        <DataPage>
+          <p className="text-muted-foreground">Loading history timeline...</p>
+        </DataPage>
+      )
     }
 
     if (timeline.latestQuery.error || timeline.todayManifestQuery.error) {
@@ -85,20 +91,21 @@ function History() {
             : 'Unable to load timeline.'
 
       return (
-        <section className="page page-stack">
-          <h1 className="page-title">History</h1>
-          <p className="error-text">{message}</p>
-        </section>
+        <DataPage title="History">
+          <p className="rounded-lg bg-non-cashing-muted px-3 py-2 text-non-cashing-foreground">{message}</p>
+        </DataPage>
       )
     }
 
     return (
-      <section className="page page-stack">
-        <h1 className="page-title">History</h1>
-        <div className="panel page-stack-sm">
-          <div className="action-row">
-            <button
+      <DataPage
+        title="History"
+        actions={
+          <>
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => {
                 if (!timeline.latestQuery.data?.snapshot_at) {
                   return
@@ -107,89 +114,105 @@ function History() {
               }}
             >
               Jump to latest
-            </button>
+            </Button>
             {timeline.yesterdayManifestPath ? (
-              <button type="button" onClick={() => timeline.yesterdayManifestQuery.refetch()}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => timeline.yesterdayManifestQuery.refetch()}
+              >
                 Load yesterday
-              </button>
+              </Button>
             ) : null}
-          </div>
-          <div className="history-filter-grid">
-            <div className="field-inline">
-              <label htmlFor="history-sport-filter">Sport filter</label>
-              <select
-                id="history-sport-filter"
-                value={sportFilter}
-                onChange={(event) => setSportFilter(event.target.value)}
-              >
-                <option value="all">All sports</option>
-                {availableSports.map((sport) => (
-                  <option key={sport} value={sport}>
-                    {sport}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field-inline">
-              <label htmlFor="history-state-filter">State filter</label>
-              <select
-                id="history-state-filter"
-                value={stateFilter}
-                onChange={(event) => setStateFilter(event.target.value)}
-              >
-                <option value="all">All states</option>
-                {availableStates.map((state) => (
-                  <option key={state} value={state}>
-                    {state}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          </>
+        }
+      >
+        <div className="flex flex-wrap gap-3">
+          <SelectField
+            id="history-sport-filter"
+            label="Sport filter"
+            value={sportFilter}
+            onChange={(event) => setSportFilter(event.target.value)}
+          >
+            <option value="all">All sports</option>
+            {availableSports.map((sport) => (
+              <option key={sport} value={sport}>
+                {sport}
+              </option>
+            ))}
+          </SelectField>
+          <SelectField
+            id="history-state-filter"
+            label="State filter"
+            value={stateFilter}
+            onChange={(event) => setStateFilter(event.target.value)}
+          >
+            <option value="all">All states</option>
+            {availableStates.map((state) => (
+              <option key={state} value={state}>
+                {state}
+              </option>
+            ))}
+          </SelectField>
         </div>
 
-        <ul className="list-panel">
-          {filteredSnapshots.map((item) => (
-            <li key={item.snapshot_at} className="item-card page-stack-sm history-item">
-              <button
-                className="history-item-time"
-                type="button"
-                onClick={() => navigate(`/history/${formatHistoryTimestampForUrl(item.snapshot_at)}`)}
+        {filteredSnapshots.length === 0 ? (
+          <p className="text-muted-foreground">No snapshots match these filters.</p>
+        ) : (
+          <ul className="divide-y overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+            {filteredSnapshots.map((item) => (
+              <li
+                key={item.snapshot_at}
+                className="relative flex flex-col gap-1 px-3 py-2.5 focus-within:bg-muted/50 hover:bg-muted/50"
               >
-                {new Date(item.snapshot_at).toLocaleString()}
-              </button>
-              <p className="meta-text history-item-row">Sports: {item.sports_present.join(', ') || '-'}</p>
-              <div className="status-list history-item-row">
-                {Object.entries(item.sports_status ?? {}).map(([sport, details]) => (
-                  <span key={`${item.snapshot_at}-${sport}`} className="status-item">
-                    {sport}: <StatusBadge status={details.status} />
-                  </span>
-                ))}
-              </div>
-              <p className="meta-text history-item-row">
-                Contest counts:{' '}
-                {Object.entries(item.contest_counts_by_sport ?? {})
-                  .map(([sport, count]) => `${sport} ${count}`)
-                  .join(', ') || '-'}
-              </p>
-            </li>
-          ))}
-        </ul>
-      </section>
+                <Link
+                  to={`/history/${formatHistoryTimestampForUrl(item.snapshot_at)}`}
+                  className="w-fit font-mono text-sm font-medium tabular-nums underline-offset-4 outline-none after:absolute after:inset-0 hover:underline focus-visible:underline"
+                >
+                  {new Date(item.snapshot_at).toLocaleString()}
+                </Link>
+                <p className="font-mono text-xs text-muted-foreground">
+                  Sports: {item.sports_present.join(', ') || '-'}
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {Object.entries(item.sports_status ?? {}).map(([sport, details]) => (
+                    <span
+                      key={`${item.snapshot_at}-${sport}`}
+                      className="inline-flex items-center gap-1.5 font-mono text-xs"
+                    >
+                      {sport}: <StatusPill status={details.status} />
+                    </span>
+                  ))}
+                </div>
+                <p className="font-mono text-xs text-muted-foreground tabular-nums">
+                  Contest counts:{' '}
+                  {Object.entries(item.contest_counts_by_sport ?? {})
+                    .map(([sport, count]) => `${sport} ${count}`)
+                    .join(', ') || '-'}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </DataPage>
     )
   }
 
   if (config.useMock && config.mockSnapshotOnly) {
     return (
-      <section className="page page-stack">
-        <h1 className="page-title">History</h1>
+      <DataPage title="History">
         <p>History requires manifest files.</p>
-      </section>
+      </DataPage>
     )
   }
 
   if (manifestQuery.isLoading || snapshotQuery.isLoading) {
-    return <p className="page">Loading historical snapshot...</p>
+    return (
+      <DataPage>
+        <p className="text-muted-foreground">Loading historical snapshot...</p>
+      </DataPage>
+    )
   }
 
   if (manifestQuery.error || snapshotQuery.error) {
@@ -201,40 +224,44 @@ function History() {
           : 'Unable to load historical snapshot.'
 
     return (
-      <section className="page page-stack">
-        <h1 className="page-title">History</h1>
-        <p className="error-text">{message}</p>
-      </section>
+      <DataPage title="History">
+        <p className="rounded-lg bg-non-cashing-muted px-3 py-2 text-non-cashing-foreground">{message}</p>
+      </DataPage>
     )
   }
 
   if (snapshotNotFound) {
     return (
-      <section className="page page-stack">
-        <h1 className="page-title">History</h1>
+      <DataPage title="History">
         <p>Snapshot not found for {timestamp}.</p>
-        <p className="meta-text">Manifest checked: {manifestPath}</p>
-      </section>
+        <p className="font-mono text-xs break-all text-muted-foreground">Manifest checked: {manifestPath}</p>
+      </DataPage>
     )
   }
 
   if (!snapshotQuery.data) {
-    return <p className="page">Snapshot not available.</p>
+    return (
+      <DataPage>
+        <p className="text-muted-foreground">Snapshot not available.</p>
+      </DataPage>
+    )
   }
 
   return (
-    <section className="page page-stack">
-      <div className="action-row">
-        <button type="button" onClick={() => snapshotQuery.refetch()}>
+    <DataPage
+      title="History"
+      actions={
+        <Button type="button" variant="outline" size="sm" onClick={() => snapshotQuery.refetch()}>
           Refresh
-        </button>
-      </div>
-      <LatestOverview
+        </Button>
+      }
+    >
+      <SnapshotOverview
         snapshot={snapshotQuery.data}
         vipFilterMode="all"
         activeProfileRules={activeProfile.rules}
       />
-    </section>
+    </DataPage>
   )
 }
 

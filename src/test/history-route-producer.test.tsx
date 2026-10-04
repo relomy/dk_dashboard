@@ -38,7 +38,7 @@ it('shows each sport with its Status and no stray separator in the History timel
   )
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const { container } = render(
+  render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/history']}>
         <Routes>
@@ -49,9 +49,9 @@ it('shows each sport with its Status and no stray separator in the History timel
   )
 
   await screen.findAllByText(/contest counts/i)
-  const items = Array.from(container.querySelectorAll('.status-item'))
-  expect(items.length).toBe(producerManifest.snapshots.length * 3)
-  for (const item of items) {
-    expect(item.textContent).toMatch(/^(cfb|golf|mlb): (Fresh|Stale|Error)$/)
+  const statuses = screen.getAllByText(/^(Fresh|Stale|Error)$/)
+  expect(statuses.length).toBe(producerManifest.snapshots.length * 3)
+  for (const status of statuses) {
+    expect(status.parentElement?.textContent).toMatch(/^(cfb|golf|mlb): (Fresh|Stale|Error)$/)
   }
 })
