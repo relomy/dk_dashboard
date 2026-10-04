@@ -55,12 +55,15 @@ function sortScore(row: PlayerPoolRow): number {
   return row.ownershipPct ?? row.points ?? Number.NEGATIVE_INFINITY
 }
 
+/** Keep rows whose player name contains the search text (case-insensitive); blank keeps all. */
+export function searchPlayerPool(rows: PlayerPoolRow[], search: string): PlayerPoolRow[] {
+  const needle = search.trim().toLowerCase()
+  return needle ? rows.filter((row) => row.name.toLowerCase().includes(needle)) : rows
+}
+
 /** Search, drop irrelevant rows, and order by ownership then points. Shared by Live and Sport. */
 export function buildPlayerPool(players: Player[], search: string): PlayerPoolRow[] {
-  const needle = search.trim().toLowerCase()
-  return players
-    .map(toRow)
-    .filter((row) => (needle ? row.name.toLowerCase().includes(needle) : true))
+  return searchPlayerPool(players.map(toRow), search)
     .filter((row) => isRelevantPlayerRow({ ownershipPct: row.ownershipPct, points: row.points, value: row.value }))
     .sort((a, b) => sortScore(b) - sortScore(a))
 }
