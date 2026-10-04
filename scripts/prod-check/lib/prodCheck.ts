@@ -1,5 +1,5 @@
 import { INVARIANTS, contractCasesOf } from '../../../src/lib/liveInvariants'
-import { buildLiveModel, type LiveModel, type LiveNotRenderableReason, type LiveVip } from '../../../src/lib/liveModel'
+import { buildLiveModel, type LiveModel, type LiveNotRenderableReason, type LiveVip, type Section } from '../../../src/lib/liveModel'
 import { LIVE_UNREAD_ALLOWLIST, liveUnreadPaths } from '../../../src/lib/liveUnreadPaths'
 import type { Snapshot } from '../../../src/lib/types'
 import { unallowlistedPaths } from '../../../src/lib/unreadPaths'
@@ -76,12 +76,17 @@ function show(value: number | null): string {
   return value === null ? '-' : String(value)
 }
 
+/** "available (<what it holds>)", or "unavailable" when the feed omits the section. */
+function availability<T>(section: Section<T>, describe: (data: T) => string): string {
+  return section.availability === 'available' ? `available (${describe(section.data)})` : 'unavailable'
+}
+
 function sectionLines(model: LiveModel): string[] {
   const rows: Array<[string, string]> = [
-    ['trains', model.trains.availability === 'available' ? `available (${model.trains.data.rows.length} trains)` : 'unavailable'],
-    ['standings', model.standings.availability === 'available' ? `available (${model.standings.data.length} rows)` : 'unavailable'],
-    ['ownership leaders', model.ownershipLeaders.availability === 'available' ? `available (${model.ownershipLeaders.data.entries.length} entries)` : 'unavailable'],
-    ['threat', model.threat.availability === 'available' ? `available (${model.threat.data.swingPlayers.length} swing players)` : 'unavailable'],
+    ['trains', availability(model.trains, (data) => `${data.rows.length} trains`)],
+    ['standings', availability(model.standings, (data) => `${data.length} rows`)],
+    ['ownership leaders', availability(model.ownershipLeaders, (data) => `${data.entries.length} entries`)],
+    ['threat', availability(model.threat, (data) => `${data.swingPlayers.length} swing players`)],
     ['player pool', `${model.pool.length} players`],
   ]
   return rows.map(([name, status]) => `  ${name.padEnd(18)} ${status}`)
