@@ -243,21 +243,25 @@ it('renders timeline list from manifest metadata and navigates on item click', a
   expect(screen.getByRole('button', { name: /load yesterday/i })).toBeInTheDocument()
   expect(screen.getByText(/sports: nba, nfl/i)).toBeInTheDocument()
 
-  const list = screen.getByRole('list')
-  expect(within(list).getAllByRole('listitem')).toHaveLength(2)
+  // One timestamp link per snapshot in the timeline.
+  const list = screen.getByRole('list', { name: 'Snapshots' })
+  expect(within(list).getAllByRole('link')).toHaveLength(2)
 
   fireEvent.change(screen.getByLabelText(/sport filter/i), { target: { value: 'nfl' } })
-  expect(within(list).getAllByRole('listitem')).toHaveLength(1)
+  expect(within(list).getAllByRole('link')).toHaveLength(1)
 
   fireEvent.change(screen.getByLabelText(/sport filter/i), { target: { value: 'all' } })
   fireEvent.change(screen.getByLabelText(/state filter/i), { target: { value: 'live' } })
-  expect(within(list).getAllByRole('listitem')).toHaveLength(1)
+  expect(within(list).getAllByRole('link')).toHaveLength(1)
 
   fireEvent.change(screen.getByLabelText(/state filter/i), { target: { value: 'all' } })
   fireEvent.click(screen.getByRole('button', { name: /load yesterday/i }))
   expect(await screen.findByText(/sports: nfl/i)).toBeInTheDocument()
 
   const firstItemLink = within(list).getAllByRole('link')[0]
+  // Each snapshot is reachable from the keyboard through its timestamp link.
+  firstItemLink.focus()
+  expect(firstItemLink).toHaveFocus()
   fireEvent.click(firstItemLink)
 
   expect(screen.getByTestId('location')).toHaveTextContent('/history/2026-02-13T18-25-00Z')

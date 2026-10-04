@@ -21,7 +21,7 @@ function ContestCard({
   const contestState = normalizeContestState(contest.state)
 
   return (
-    <article className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+    <article className="card-surface overflow-hidden">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-2">
         <h3 className="min-w-0 flex-1 font-medium break-words">{contest.name}</h3>
         <span className="font-mono text-xs text-muted-foreground tabular-nums">

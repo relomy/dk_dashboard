@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { DASH, formatPmr, formatPoints, formatSigned } from '../../lib/format'
-import { lineupOwnershipHint, type LiveModel, type LiveVip, type LiveVipTrainOverlap } from '../../lib/liveModel'
+import { formatPmr, formatPoints, formatRank, formatSigned } from '../../lib/format'
+import type { LiveModel, LiveVip, LiveVipTrainOverlap } from '../../lib/liveModel'
+import { lineupOwnershipHint } from '../../lib/livePresentation'
 import { formatOwnership } from '../../lib/playerPool'
 import CashMeter from './CashMeter'
 import LineupGroups from './LineupGroups'
 import { Stat, VipAvatar } from './atoms'
+import ViewLink from './ViewLink'
 
 /** Green when the VIP is cashing, red when not; neutral when the distance is missing. */
 function distanceTone(vip: LiveVip): string | undefined {
@@ -26,26 +28,18 @@ export function VipRailRows({
   return (
     <>
       {vips.map((vip, index) => (
-        <Link
-          key={vip.key}
-          to={{ search: hrefFor(vip) }}
-          aria-current={vip.key === activeKey ? 'page' : undefined}
-          className={cn(
-            'flex items-center gap-2 rounded-lg px-2 py-2 text-left',
-            vip.key === activeKey ? 'bg-accent ring-1 ring-border' : 'hover:bg-card',
-          )}
-        >
+        <ViewLink key={vip.key} search={hrefFor(vip)} active={vip.key === activeKey} variant="rail">
           <VipAvatar name={vip.name} index={index} className="size-7 rounded-md text-[10px]" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium">{vip.name}</span>
             <span className="block font-mono text-[11px] text-muted-foreground">
-              {vip.rank === null ? DASH : `#${vip.rank}`} · {formatPmr(vip.pmr)} PMR
+              {formatRank(vip.rank)} · {formatPmr(vip.pmr)} PMR
             </span>
           </span>
           <span className={cn('font-mono text-xs tabular-nums', distanceTone(vip))}>
             {formatSigned(vip.distanceToCash.points)}
           </span>
-        </Link>
+        </ViewLink>
       ))}
     </>
   )
@@ -62,21 +56,19 @@ export function VipChips({
   hrefFor: (vip: LiveVip) => string
 }) {
   return (
-    <nav aria-label="VIPs" className="-mx-3 mb-4 flex gap-2 overflow-x-auto px-3 pb-1">
+    <nav aria-label="VIPs" className="-mx-3 -mt-1 mb-4 flex gap-2 overflow-x-auto px-3 py-1">
       {vips.map((vip, index) => (
-        <Link
+        <ViewLink
           key={vip.key}
-          to={{ search: hrefFor(vip) }}
-          aria-current={vip.key === activeKey ? 'page' : undefined}
-          className={cn(
-            'flex shrink-0 items-center gap-1.5 rounded-full border py-1 pr-3 pl-1 text-xs',
-            vip.key === activeKey ? 'border-ring bg-accent text-foreground' : 'text-muted-foreground',
-          )}
+          search={hrefFor(vip)}
+          active={vip.key === activeKey}
+          variant="chip"
+          className="pr-3 pl-1"
         >
           <VipAvatar name={vip.name} index={index} className="size-5 rounded-full text-[9px]" />
           {vip.name}
-          <span className={cn('font-mono', distanceTone(vip))}>{vip.rank === null ? DASH : `#${vip.rank}`}</span>
-        </Link>
+          <span className={cn('font-mono', distanceTone(vip))}>{formatRank(vip.rank)}</span>
+        </ViewLink>
       ))}
     </nav>
   )
@@ -103,7 +95,7 @@ export function VipView({
         </div>
         <Stat
           label="Rank"
-          value={vip.rank === null ? DASH : `#${vip.rank}`}
+          value={formatRank(vip.rank)}
           sub={model.fieldSize === null ? undefined : `of ${model.fieldSize}`}
         />
         <Stat

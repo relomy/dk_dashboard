@@ -3,15 +3,7 @@ import { describe, expect, it } from 'vitest'
 // cfb carries `metrics.threat`; mlb carries no `metrics` at all (the missing-metrics variant).
 import producerSnapshot from '../../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import { formatSigned } from '../format'
-import {
-  buildLiveModel,
-  groupLineup,
-  haveOrFade,
-  largestTrains,
-  lineupOwnershipHint,
-  type LiveLineupPlayer,
-  type LiveModel,
-} from '../liveModel'
+import { buildLiveModel, largestTrains, type LiveModel } from '../liveModel'
 import type { Snapshot } from '../types'
 
 const VIP_KEY = '5067365318'
@@ -247,6 +239,8 @@ describe('VIP lineup players', () => {
         points: 7.25,
         projection: 21.11,
         clock: '38.02',
+        // The fixture's pool repeats the game status as the matchup, which is no matchup at all.
+        matchup: null,
         ownershipPct: 84.67,
         value: 2.07,
         valueIcon: null,
@@ -288,6 +282,7 @@ describe('VIP lineup players', () => {
         points: null,
         projection: null,
         clock: null,
+        matchup: null,
         ownershipPct: null,
         value: null,
         valueIcon: null,
@@ -450,62 +445,10 @@ describe('signed distance to cash', () => {
   })
 })
 
-describe('lineup ownership hint', () => {
-  it('calls an average of 50% a slot or more chalky, 20% or less contrarian, otherwise balanced', () => {
-    expect(lineupOwnershipHint(400, 8)).toBe('chalky')
-    expect(lineupOwnershipHint(445.6, 8)).toBe('chalky')
-    expect(lineupOwnershipHint(160, 8)).toBe('contrarian')
-    expect(lineupOwnershipHint(100, 8)).toBe('contrarian')
-    expect(lineupOwnershipHint(240, 8)).toBe('balanced')
-  })
-
-  it('has no hint without ownership or slots', () => {
-    expect(lineupOwnershipHint(null, 8)).toBeNull()
-    expect(lineupOwnershipHint(200, 0)).toBeNull()
-  })
-})
-
-describe('lineup grouping', () => {
-  const player = (name: string, gameStatus: LiveLineupPlayer['gameStatus']): LiveLineupPlayer => ({
-    key: name,
-    slot: 'FLEX',
-    name,
-    gameStatus,
-    points: null,
-    projection: null,
-    clock: null,
-    ownershipPct: null,
-    value: null,
-    valueIcon: null,
-    stats: null,
-  })
-
-  it('groups by game status, keeping lineup order, with no game status counting as yet to play', () => {
-    const groups = groupLineup([
-      player('a', 'final'),
-      player('b', 'pre-game'),
-      player('c', 'in-progress'),
-      player('d', null),
-      player('e', 'in-progress'),
-    ])
-
-    expect(groups.map((group) => [group.label, group.players.map((p) => p.name)])).toEqual([
-      ['Playing now', ['c', 'e']],
-      ['Yet to play', ['b', 'd']],
-      ['Done', ['a']],
-    ])
-  })
-
-  it('drops empty groups', () => {
-    expect(groupLineup([player('a', 'final')]).map((group) => group.label)).toEqual(['Done'])
-    expect(groupLineup([])).toEqual([])
-  })
-})
-
 describe('trains', () => {
   function trainsOf(snapshot: unknown, sport = 'cfb') {
     const trains = modelOf(snapshot, sport).trains
-    if (trains.status !== 'available') throw new Error('Expected trains to be available')
+    if (trains.availability !== 'available') throw new Error('Expected trains to be available')
     return trains.data
   }
 
@@ -599,20 +542,28 @@ describe('trains', () => {
 
     it('takes each player game status, points and ownership from the pool, matched by name', () => {
       const [live, later, done] = lineupOf('Live Guy|Later Guy|Done Guy', [
-        { name: 'Live Guy', team: 'FSU', position: 'QB', salary: 1, game_status: 'In-Progress', fantasy_points: 12.5, ownership_pct: 31.5, value: 4.5 },
+        { name: 'Live Guy', team: 'FSU', position: 'QB', matchup: 'FSU@MIZZ', salary: 1, game_status: 'In-Progress', fantasy_points: 12.5, ownership_pct: 31.5, value: 4.5 },
         { name: 'Later Guy', team: 'MIZZ', position: 'RB', salary: 1, game_status: 'FSU@MIZZ 07:30PM ET', fantasy_points: 0, ownership_pct: 12 },
         { name: 'Done Guy', team: 'FSU', position: 'WR', salary: 1, game_status: 'Final', fantasy_points: 30, ownership_pct: 55, value: 6.5 },
       ])
 
-      expect(live).toMatchObject({ slot: 'QB', name: 'Live Guy', gameStatus: 'in-progress', points: 12.5, ownershipPct: 31.5, value: 4.5, clock: 'In-Progress' })
+      expect(live).toMatchObject({ slot: 'QB', name: 'Live Guy', gameStatus: 'in-progress', points: 12.5, ownershipPct: 31.5, value: 4.5, clock: 'In-Progress', matchup: 'FSU@MIZZ' })
       expect(later).toMatchObject({ slot: 'RB', gameStatus: 'pre-game', points: 0, ownershipPct: 12 })
       expect(done).toMatchObject({ slot: 'WR', gameStatus: 'final', points: 30 })
+    })
+
+    it('has no matchup when the pool repeats the game status as the matchup', () => {
+      const [live] = lineupOf('Live Guy', [
+        { name: 'Live Guy', team: 'FSU', position: 'QB', matchup: 'In-Progress', salary: 1, game_status: 'In-Progress' },
+      ])
+
+      expect(live.matchup).toBeNull()
     })
 
     it('keeps a player missing from the pool as a name with no live details', () => {
       const [stranger] = lineupOf('Stranger', [])
 
-      expect(stranger).toMatchObject({ name: 'Stranger', slot: '', gameStatus: null, points: null, ownershipPct: null, clock: null })
+      expect(stranger).toMatchObject({ name: 'Stranger', slot: '', gameStatus: null, points: null, ownershipPct: null, clock: null, matchup: null })
     })
 
     it('keeps locked slots in position, with no live details', () => {
@@ -733,7 +684,7 @@ describe('trains', () => {
     const snapshot = load()
     delete contestOf(snapshot).train_clusters
 
-    expect(modelOf(snapshot).trains).toEqual({ status: 'unavailable' })
+    expect(modelOf(snapshot).trains).toEqual({ availability: 'unavailable' })
   })
 
   it('is empty, not unavailable, when train_clusters is an empty list', () => {
@@ -747,7 +698,7 @@ describe('trains', () => {
     const snapshot = load()
     contestOf(snapshot).train_clusters = [null, 'invalid-row', { cluster_id: 123, user_count: 'x' }, { entry_keys: [42] }]
 
-    expect(modelOf(snapshot).trains).toEqual({ status: 'unavailable' })
+    expect(modelOf(snapshot).trains).toEqual({ availability: 'unavailable' })
   })
 
   it('does not accept the pre-v3 train_clusters object shape', () => {
@@ -757,14 +708,14 @@ describe('trains', () => {
       clusters: [{ cluster_key: 'old', entry_count: 9 }],
     }
 
-    expect(modelOf(snapshot).trains).toEqual({ status: 'unavailable' })
+    expect(modelOf(snapshot).trains).toEqual({ availability: 'unavailable' })
   })
 })
 
 describe('standings', () => {
   function standingsOf(snapshot: unknown) {
     const standings = modelOf(snapshot).standings
-    if (standings.status !== 'available') throw new Error('Expected standings to be available')
+    if (standings.availability !== 'available') throw new Error('Expected standings to be available')
     return standings.data
   }
 
@@ -813,7 +764,7 @@ describe('standings', () => {
     const snapshot = load()
     delete contestOf(snapshot).standings
 
-    expect(modelOf(snapshot).standings).toEqual({ status: 'unavailable' })
+    expect(modelOf(snapshot).standings).toEqual({ availability: 'unavailable' })
   })
 
   it('is empty, not unavailable, when standings is an empty list', () => {
@@ -834,7 +785,7 @@ describe('standings', () => {
 describe('ownership leaders', () => {
   function leadersOf(snapshot: unknown) {
     const leaders = modelOf(snapshot).ownershipLeaders
-    if (leaders.status !== 'available') throw new Error('Expected ownership leaders to be available')
+    if (leaders.availability !== 'available') throw new Error('Expected ownership leaders to be available')
     return leaders.data
   }
 
@@ -880,14 +831,14 @@ describe('ownership leaders', () => {
     const snapshot = load()
     delete contestOf(snapshot).ownership_watchlist
 
-    expect(modelOf(snapshot).ownershipLeaders).toEqual({ status: 'unavailable' })
+    expect(modelOf(snapshot).ownershipLeaders).toEqual({ availability: 'unavailable' })
   })
 })
 
 describe('swing players', () => {
   it('lists swing players from the canonical fixture', () => {
     const threat = modelOf(load()).threat
-    if (threat.status !== 'available') throw new Error('Expected threat to be available')
+    if (threat.availability !== 'available') throw new Error('Expected threat to be available')
 
     expect(threat.data.swingPlayers).toHaveLength(10)
     expect(threat.data.swingPlayers[0]).toEqual({
@@ -904,20 +855,20 @@ describe('swing players', () => {
 
     const threat = modelOf(snapshot).threat
     expect(threat).toEqual({
-      status: 'available',
+      availability: 'available',
       data: { swingPlayers: [{ key: 'Alt Field-0', name: 'Alt Field', ownershipRemainingPct: 12.5, vipCount: 0 }] },
     })
   })
 
   it('is unavailable for the missing-metrics fixture', () => {
-    expect(modelOf(load(), 'mlb').threat).toEqual({ status: 'unavailable' })
+    expect(modelOf(load(), 'mlb').threat).toEqual({ availability: 'unavailable' })
   })
 
   it('is empty, not unavailable, when the threat metrics list no swing players', () => {
     const snapshot = load()
     contestOf(snapshot).metrics.threat.top_swing_players = []
 
-    expect(modelOf(snapshot).threat).toEqual({ status: 'available', data: { swingPlayers: [] } })
+    expect(modelOf(snapshot).threat).toEqual({ availability: 'available', data: { swingPlayers: [] } })
   })
 
 })
@@ -940,34 +891,6 @@ describe('field ownership remaining', () => {
     delete contestOf(snapshot, 'mlb').ownership_watchlist
 
     expect(modelOf(snapshot, 'mlb').fieldOwnershipRemainingPct).toBeNull()
-  })
-})
-
-describe('HAVE or FADE', () => {
-  const lineup = (...names: string[]): LiveLineupPlayer[] =>
-    names.map((name) => ({
-      key: name,
-      slot: 'FLEX',
-      name,
-      gameStatus: null,
-      points: null,
-      projection: null,
-      clock: null,
-      ownershipPct: null,
-      value: null,
-      valueIcon: null,
-      stats: null,
-    }))
-
-  it('is HAVE when the focused lineup rosters the player and FADE when it does not', () => {
-    const focused = lineup('Ousmane Kromah', 'Cayden Lee')
-
-    expect(haveOrFade(focused, 'Ousmane Kromah')).toBe('have')
-    expect(haveOrFade(focused, 'Duce Robinson')).toBe('fade')
-  })
-
-  it('is neither without a focused lineup', () => {
-    expect(haveOrFade(null, 'Ousmane Kromah')).toBeNull()
   })
 })
 
@@ -1087,7 +1010,7 @@ describe('value icon', () => {
       { cluster_id: 't1', user_count: 3, rank: 1, lineup_signature: 'Hot Guy|Plain Guy|LOCKED 🔒' },
     ]
     const trains = modelOf(snapshot).trains
-    if (trains.status !== 'available') throw new Error('Expected trains')
+    if (trains.availability !== 'available') throw new Error('Expected trains')
 
     expect(trains.data.rows[0].players.map((player) => player.valueIcon)).toEqual(['fire', null, null])
   })

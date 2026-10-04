@@ -9,9 +9,9 @@ import { formatOwnership } from '../../lib/playerPool'
  */
 function TotalOwnershipBar({ total }: { total: LiveTotalOwnership }) {
   const parts = [
-    { label: 'Final', share: total.finalShare, raw: total.final, className: 'bg-zinc-500' },
-    { label: 'In play', share: total.inPlayShare, raw: total.inPlay, className: 'bg-emerald-400' },
-    { label: 'Pre-game', share: total.preGameShare, raw: total.preGame, className: 'bg-sky-400' },
+    { label: 'Final', share: total.finalShare, raw: total.final, className: 'bg-game-final' },
+    { label: 'In play', share: total.inPlayShare, raw: total.inPlay, className: 'bg-game-in-progress' },
+    { label: 'Pre-game', share: total.preGameShare, raw: total.preGame, className: 'bg-game-pre-game' },
   ]
   const hasGameStatus = total.final + total.inPlay + total.preGame > 0 || total.total === 0
   const title = `Total ownership ${formatOwnership(total.total)} — ${parts
@@ -30,14 +30,14 @@ function TotalOwnershipBar({ total }: { total: LiveTotalOwnership }) {
         ))}
       </div>
       {hasGameStatus ? (
-        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+        <ul aria-label="Game status shares" className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
           {parts.map((part) => (
-            <span key={part.label} className="flex items-center gap-1.5">
+            <li key={part.label} className="flex items-center gap-1.5">
               <span aria-hidden="true" className={cn('size-2 rounded-sm', part.className)} />
               <span>{part.label}</span> <span className="font-mono text-foreground">{Math.round(part.share)}%</span>
-            </span>
+            </li>
           ))}
-        </div>
+        </ul>
       ) : (
         <p className="mt-1.5 text-[11px] text-muted-foreground">Game status isn't available for this sport.</p>
       )}

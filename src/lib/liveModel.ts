@@ -1,6 +1,6 @@
 import { parseLineupSignature, type LineupSlot } from './lineup'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from './perVipKeys'
-import { buildPlayerPool, readValueIcon, type PlayerPoolRow } from './playerPool'
+import { buildPlayerPool, numberOrNull, readValueIcon, type PlayerPoolRow } from './playerPool'
 import type {
   Contest,
   ContestMetricsDistanceToCash,
@@ -21,13 +21,14 @@ export type LiveNotRenderableReason =
 /**
  * A section the feed may omit. A missing object is `unavailable`; a present one is
  * `available`, and a present but empty list inside it is the section's empty state.
+ * The discriminant is `availability`, not `status`: Status means data freshness (CONTEXT.md).
  */
-export type Section<T> = { status: 'unavailable' } | { status: 'available'; data: T }
+export type Section<T> = { availability: 'unavailable' } | { availability: 'available'; data: T }
 
-const UNAVAILABLE = { status: 'unavailable' } as const
+const UNAVAILABLE = { availability: 'unavailable' } as const
 
 function available<T>(data: T): Section<T> {
-  return { status: 'available', data }
+  return { availability: 'available', data }
 }
 
 export interface LiveContestHeader {
@@ -95,6 +96,8 @@ export interface LiveLineupPlayer {
   projection: number | null
   /** Game clock: the time remaining display, then the raw game status. */
   clock: string | null
+  /** The player's game ("MIL@OKC"), from the player pool by name; null when the pool has no real matchup for them. */
+  matchup: string | null
   ownershipPct: number | null
   value: number | null
   /** DraftKings' hot/cold marker; null when the feed sends none. */
@@ -247,10 +250,6 @@ export type LiveModelResult =
   | { kind: 'ready'; model: LiveModel }
   | { kind: 'not-renderable'; reason: LiveNotRenderableReason }
 
-function numberOrNull(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
 function notRenderable(reason: LiveNotRenderableReason): LiveModelResult {
   return { kind: 'not-renderable', reason }
 }
@@ -293,7 +292,26 @@ function lineupOwnershipOf(row: ContestMetricsOwnershipSummary['per_vip'][number
   return numberOrNull(row?.lineup_ownership_pct) ?? numberOrNull(row?.total_ownership_pct)
 }
 
-function buildLineupPlayers(lineup: VipLineup): LiveLineupPlayer[] {
+/** The player pool by name; the first row wins when a name repeats. */
+function indexPoolByName(players: Player[]): Map<string, Player> {
+  const poolByName = new Map<string, Player>()
+  for (const player of players) {
+    if (!poolByName.has(player.name)) poolByName.set(player.name, player)
+  }
+  return poolByName
+}
+
+/**
+ * A pool player's matchup ("MIL@OKC"). Null when the feed sends the game status in its place
+ * (today's producer copies `game_status` into `matchup`), so the card does not repeat it.
+ */
+function matchupOf(player: Player | undefined): string | null {
+  const matchup = nonEmptyString(player?.matchup)
+  if (!matchup) return null
+  return matchup.trim().toLowerCase() === player?.game_status?.trim().toLowerCase() ? null : matchup
+}
+
+function buildLineupPlayers(lineup: VipLineup, poolByName: Map<string, Player>): LiveLineupPlayer[] {
   if (Array.isArray(lineup.players_live)) {
     return lineup.players_live.map((player, index) => ({
       key: `${player.slot}-${index}`,
@@ -303,6 +321,7 @@ function buildLineupPlayers(lineup: VipLineup): LiveLineupPlayer[] {
       points: numberOrNull(player.points),
       projection: numberOrNull(player.rt_projection),
       clock: nonEmptyString(player.time_remaining_display) ?? nonEmptyString(player.game_status),
+      matchup: matchupOf(poolByName.get(player.player_name)),
       ownershipPct: numberOrNull(player.ownership_pct),
       value: numberOrNull(player.value),
       valueIcon: readValueIcon(player.value_icon),
@@ -317,6 +336,7 @@ function buildLineupPlayers(lineup: VipLineup): LiveLineupPlayer[] {
     points: null,
     projection: null,
     clock: null,
+    matchup: matchupOf(poolByName.get(slot.player_name)),
     ownershipPct: null,
     value: null,
     valueIcon: null,
@@ -335,7 +355,7 @@ function projectLineup(lineup: VipLineup): number | null {
   }, 0)
 }
 
-function buildVips(contest: Contest, trains: Section<LiveTrains>): LiveVip[] {
+function buildVips(contest: Contest, trains: Section<LiveTrains>, poolByName: Map<string, Player>): LiveVip[] {
   const distanceByKey = buildPerVipIndex(contest.metrics?.distance_to_cash?.per_vip ?? [])
   const summaryByKey = buildPerVipIndex(contest.metrics?.ownership_summary?.per_vip ?? [])
   return contest.vip_lineups.map((lineup, vipIndex) => {
@@ -353,19 +373,20 @@ function buildVips(contest: Contest, trains: Section<LiveTrains>): LiveVip[] {
       pmr: numberOrNull(lineup.live?.pmr),
       ownershipRemainingPct: numberOrNull(lineup.live?.ownership_remaining_pct),
       lineupOwnershipPct: lineupOwnershipOf(metricKey ? summaryByKey.get(metricKey) : undefined),
-      players: buildLineupPlayers(lineup),
+      players: buildLineupPlayers(lineup, poolByName),
       trainOverlap: closestTrain(trains, vipIndex, lineupSlotCount(lineup)),
     }
   })
 }
 
+/** The lineup's size, counted as `buildLineupPlayers` would list it: `players_live` when present, else the slots. */
 function lineupSlotCount(lineup: VipLineup): number {
-  return buildLineupPlayers(lineup).length
+  return Array.isArray(lineup.players_live) ? lineup.players_live.length : (lineup.slots ?? []).length
 }
 
 /** The train a VIP shares the most players with (ties: the larger train), if that reaches the notice threshold. */
 function closestTrain(trains: Section<LiveTrains>, vipIndex: number, slotCount: number): LiveVipTrainOverlap | null {
-  if (trains.status !== 'available') return null
+  if (trains.availability !== 'available') return null
   let best: { train: LiveTrain; shared: number } | null = null
   for (const train of trains.data.rows) {
     const shared = train.vipOverlaps[vipIndex]?.shared ?? 0
@@ -389,6 +410,7 @@ function buildTrainPlayers(lineup: LineupSlot[], poolByName: Map<string, Player>
       points: numberOrNull(player?.fantasy_points),
       projection: null,
       clock: nonEmptyString(player?.game_status),
+      matchup: matchupOf(player),
       ownershipPct: numberOrNull(player?.ownership_pct),
       value: numberOrNull(player?.value),
       valueIcon: readValueIcon(player?.value_icon),
@@ -408,7 +430,7 @@ function buildTrainCloseness(minShared: number | null, slotCount: number): LiveT
  */
 function buildTrains(
   contest: Contest,
-  sportData: SportSnapshot,
+  poolByName: Map<string, Player>,
   standings: Section<LiveStandingsRow[]>,
 ): Section<LiveTrains> {
   const raw: unknown = contest.train_clusters
@@ -416,12 +438,8 @@ function buildTrains(
     return UNAVAILABLE
   }
 
-  const poolByName = new Map<string, Player>()
-  for (const player of sportData.players) {
-    if (!poolByName.has(player.name)) poolByName.set(player.name, player)
-  }
   const namesByEntryKey = new Map<string, string>()
-  if (standings.status === 'available') {
+  if (standings.availability === 'available') {
     for (const row of standings.data) {
       if (row.name !== null) namesByEntryKey.set(row.key, row.name)
     }
@@ -482,12 +500,6 @@ function buildTrains(
   })
 
   return available({ updatedAt: contest.live_metrics?.updated_at || null, rule, rows })
-}
-
-/** "identical" when every slot is shared, else "share N of M"; null when the producer gave no `min_shared_slots`. */
-export function trainClosenessLabel(closeness: LiveTrainCloseness | null): string | null {
-  if (!closeness) return null
-  return closeness.identical ? 'identical' : `share ${closeness.minShared} of ${closeness.slotCount}`
 }
 
 /** The `count` largest trains: most entries first, then best rank (unranked last). */
@@ -621,110 +633,6 @@ function buildTotalOwnership(players: Player[]): LiveTotalOwnership {
   }
 }
 
-export type LineupOwnershipHint = 'chalky' | 'balanced' | 'contrarian'
-
-/**
- * How chalky a lineup is, from its summed ownership over its slot count (the prototype's thresholds):
- * an average of 50% a slot or more is chalky, 20% or less is contrarian. Null without ownership or slots.
- */
-export function lineupOwnershipHint(lineupOwnershipPct: number | null, slotCount: number): LineupOwnershipHint | null {
-  if (lineupOwnershipPct === null || slotCount <= 0) return null
-  const average = lineupOwnershipPct / slotCount
-  if (average >= 50) return 'chalky'
-  if (average <= 20) return 'contrarian'
-  return 'balanced'
-}
-
-export interface LineupGroup {
-  gameStatus: GameStatus
-  label: 'Playing now' | 'Yet to play' | 'Done'
-  players: LiveLineupPlayer[]
-}
-
-/**
- * A lineup grouped for display: Playing now (in progress), Yet to play (pre-game, or no game status)
- * and Done (final), in that order and each in lineup order. Empty groups are left out.
- */
-export function groupLineup(players: LiveLineupPlayer[]): LineupGroup[] {
-  const groups: LineupGroup[] = [
-    { gameStatus: 'in-progress', label: 'Playing now', players: [] },
-    { gameStatus: 'pre-game', label: 'Yet to play', players: [] },
-    { gameStatus: 'final', label: 'Done', players: [] },
-  ]
-  for (const player of players) {
-    const status = player.gameStatus ?? 'pre-game'
-    groups.find((group) => group.gameStatus === status)?.players.push(player)
-  }
-  return groups.filter((group) => group.players.length > 0)
-}
-
-/**
- * A swing player against the lineup in focus (a VIP, or a Train on the Trains view): HAVE when the
- * lineup rosters them, FADE when it does not, matched by name; null without a focused lineup.
- */
-export function haveOrFade(lineup: LiveLineupPlayer[] | null, playerName: string): 'have' | 'fade' | null {
-  if (!lineup) return null
-  return lineup.some((player) => player.name === playerName) ? 'have' : 'fade'
-}
-
-export type PoolSortKey = 'own' | 'points' | 'value' | 'salary' | 'name'
-export type PoolFilter = 'all' | 'still-to-play' | 'on-a-vip'
-export interface PoolSort {
-  key: PoolSortKey
-  dir: 'asc' | 'desc'
-}
-
-/** Name sorts A to Z first; the numbers sort highest first. */
-export function defaultSortDir(key: PoolSortKey): PoolSort['dir'] {
-  return key === 'name' ? 'asc' : 'desc'
-}
-
-/** Value is hidden for pre-game players (a zero is not a bust), so it never ranks them. */
-export function visibleValue(player: LivePoolPlayer): number | null {
-  return player.gameStatus === 'pre-game' ? null : player.value
-}
-
-function sortValue(player: LivePoolPlayer, key: PoolSortKey): number | string | null {
-  switch (key) {
-    case 'own':
-      return player.ownershipPct
-    case 'points':
-      return player.points
-    case 'value':
-      return visibleValue(player)
-    case 'salary':
-      return player.salary
-    case 'name':
-      return player.name
-  }
-}
-
-/**
- * The Players view's rows: search by player or team, the "Still to play" (game not final)
- * and "On a VIP" filters, then the chosen sort. Missing values sort last in either direction.
- */
-export function queryPool(
-  pool: LivePoolPlayer[],
-  { search, filter, sort }: { search: string; filter: PoolFilter; sort: PoolSort },
-): LivePoolPlayer[] {
-  const needle = search.trim().toLowerCase()
-  const sign = sort.dir === 'asc' ? 1 : -1
-  return pool
-    .filter((player) => !needle || player.name.toLowerCase().includes(needle) || player.team.toLowerCase().includes(needle))
-    .filter((player) => {
-      if (filter === 'still-to-play') return player.gameStatus === 'pre-game' || player.gameStatus === 'in-progress'
-      if (filter === 'on-a-vip') return player.vipIndexes.length > 0
-      return true
-    })
-    .sort((a, b) => {
-      const av = sortValue(a, sort.key)
-      const bv = sortValue(b, sort.key)
-      if (av === null || bv === null) return (av === null ? 1 : 0) - (bv === null ? 1 : 0)
-      if (typeof av === 'string' || typeof bv === 'string') return String(av).localeCompare(String(bv)) * sign
-      return (av - bv) * sign
-    })
-}
-
 /** The only snapshot schema the dashboard reads (ADR 0002). */
 export const SUPPORTED_SCHEMA_VERSION = 3
 
@@ -746,7 +654,8 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
   }
   const cashLine = contest.live_metrics?.cash_line
   const standings = buildStandings(contest)
-  const trains = buildTrains(contest, sportData, standings)
+  const poolByName = indexPoolByName(sportData.players)
+  const trains = buildTrains(contest, poolByName, standings)
   return {
     kind: 'ready',
     model: {
@@ -755,7 +664,7 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
       contest: { name: contest.name },
       fieldSize: numberOrNull(contest.entries_count) ?? numberOrNull(contest.max_entries),
       cashLine: { points: numberOrNull(cashLine?.points_cutoff), rank: numberOrNull(cashLine?.rank_cutoff) },
-      vips: buildVips(contest, trains),
+      vips: buildVips(contest, trains, poolByName),
       pool: buildPool(sportData, contest),
       totalOwnership: buildTotalOwnership(sportData.players),
       fieldOwnershipRemainingPct:

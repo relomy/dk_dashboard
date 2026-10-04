@@ -11,6 +11,7 @@ import { railTrains, resolveFocusedTrain, resolveFocusedVip, useLiveView, type L
 import PlayersView from './PlayersView'
 import { NoTrains, TrainChips, TrainRailRows, TrainView } from './TrainView'
 import { NoVips, VipChips, VipRailRows, VipView } from './VipView'
+import ViewLink from './ViewLink'
 
 function formatSnapshotTime(iso: string): string {
   const date = new Date(iso)
@@ -51,14 +52,7 @@ function RailLink({
   detail: string
 }) {
   return (
-    <Link
-      to={{ search: to }}
-      aria-current={active ? 'page' : undefined}
-      className={cn(
-        'flex items-center gap-2 rounded-lg px-2 py-2 text-left',
-        active ? 'bg-accent ring-1 ring-border' : 'hover:bg-card',
-      )}
-    >
+    <ViewLink search={to} active={active} variant="rail">
       <span className="grid size-7 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
         <Icon className="size-4" aria-hidden="true" />
       </span>
@@ -66,7 +60,7 @@ function RailLink({
         <span className="block text-sm font-medium">{label}</span>
         <span className="block font-mono text-[11px] text-muted-foreground">{detail}</span>
       </span>
-    </Link>
+    </ViewLink>
   )
 }
 
@@ -97,7 +91,8 @@ function PhoneTabBar({ view, searchFor }: { view: LiveView; searchFor: (view: Li
           to={{ search: searchFor(tab) }}
           aria-current={view === tab ? 'page' : undefined}
           className={cn(
-            'flex flex-col items-center gap-0.5 py-2 text-[11px]',
+            // The bar sits on the screen's bottom edge, so the focus ring is drawn inside.
+            'flex flex-col items-center gap-0.5 py-2 text-[11px] [--focus-offset:-2px]',
             view === tab ? 'text-cashing' : 'text-muted-foreground',
           )}
         >
@@ -117,7 +112,7 @@ function PhoneTabBar({ view, searchFor }: { view: LiveView; searchFor: (view: Li
 function CommandCenter({ model, title }: { model: LiveModel; title: ReactNode }) {
   const isPhone = useIsPhone()
   const { view, vipKey, trainId, searchFor } = useLiveView()
-  const trainRows = model.trains.status === 'available' ? model.trains.data.rows : null
+  const trainRows = model.trains.availability === 'available' ? model.trains.data.rows : null
   const focusedVip = resolveFocusedVip(model.vips, vipKey)
   const focusedTrain = trainRows ? resolveFocusedTrain(trainRows, trainId) : null
   const listedTrains = trainRows ? railTrains(trainRows, focusedTrain) : []

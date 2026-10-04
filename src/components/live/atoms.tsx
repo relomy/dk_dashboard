@@ -13,14 +13,14 @@ export function GameStatusDot({ status, className }: { status: GameStatus | null
   return (
     <span aria-hidden="true" className={cn('relative inline-flex size-2 shrink-0', className)}>
       {status === 'in-progress' ? (
-        <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+        <span className="absolute inline-flex size-full animate-ping rounded-full bg-game-in-progress opacity-60" />
       ) : null}
       <span
         className={cn(
           'relative inline-flex size-2 rounded-full',
-          status === 'in-progress' && 'bg-emerald-400',
-          status === 'pre-game' && 'bg-sky-400/70',
-          status === 'final' && 'bg-zinc-500',
+          status === 'in-progress' && 'bg-game-in-progress',
+          status === 'pre-game' && 'bg-game-pre-game/70',
+          status === 'final' && 'bg-game-final',
         )}
       />
     </span>

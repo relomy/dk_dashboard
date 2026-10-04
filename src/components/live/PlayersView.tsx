@@ -3,16 +3,9 @@ import { Link } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { DASH, formatPoints } from '../../lib/format'
-import {
-  defaultSortDir,
-  queryPool,
-  visibleValue,
-  type LiveModel,
-  type LivePoolPlayer,
-  type PoolFilter,
-  type PoolSort,
-  type PoolSortKey,
-} from '../../lib/liveModel'
+import type { LiveModel, LivePoolPlayer } from '../../lib/liveModel'
+import { defaultSortDir, queryPool, type PoolFilter, type PoolSort, type PoolSortKey } from '../../lib/livePlayersQuery'
+import { visibleValue } from '../../lib/livePresentation'
 import { GameStatusDot, OwnCell, TeamChip, ValueIconMark, ValuePill, VipAvatars, type AvatarVip } from './atoms'
 import { GAME_STATUS_LABEL } from './presentation'
 import TotalOwnershipBar from './TotalOwnershipBar'
@@ -246,7 +239,7 @@ function PhoneList({ rows, sort, onSort, vipsOf, avatarHref }: RowsProps) {
               type="button"
               aria-expanded={isOpen}
               onClick={() => setExpanded(isOpen ? null : player.key)}
-              className={cn(PHONE_GRID, 'w-full items-center px-3 py-2 text-left')}
+              className={cn(PHONE_GRID, 'w-full items-center px-3 py-2 text-left [--focus-offset:-2px]')}
             >
               <span className="min-w-0">
                 <span

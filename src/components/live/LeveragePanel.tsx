@@ -1,7 +1,8 @@
 import { useId, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
-import { DASH, formatPmr, formatPoints } from '../../lib/format'
-import { haveOrFade, type LiveLineupPlayer, type LiveModel } from '../../lib/liveModel'
+import { DASH, formatPmr, formatPoints, formatRank } from '../../lib/format'
+import type { LiveLineupPlayer, LiveModel } from '../../lib/liveModel'
+import { haveOrFade } from '../../lib/livePresentation'
 import { formatOwnership } from '../../lib/playerPool'
 import { vipColorClass } from './presentation'
 
@@ -42,7 +43,7 @@ function SwingPlayers({ model, focus }: { model: LiveModel; focus: LeverageFocus
           </>
         ) : null}
       </p>
-      {threat.status === 'unavailable' ? (
+      {threat.availability === 'unavailable' ? (
         <Note>Swing players are unavailable for this contest.</Note>
       ) : threat.data.swingPlayers.length === 0 ? (
         <Note>No swing players right now.</Note>
@@ -137,7 +138,7 @@ function OwnershipLeaders({ model }: { model: LiveModel }) {
   const leaders = model.ownershipLeaders
   return (
     <PanelSection title="Ownership leaders">
-      {leaders.status === 'unavailable' ? (
+      {leaders.availability === 'unavailable' ? (
         <Note>Ownership leaders are unavailable for this contest.</Note>
       ) : leaders.data.entries.length === 0 ? (
         <Note>No ownership leaders yet.</Note>
@@ -149,6 +150,10 @@ function OwnershipLeaders({ model }: { model: LiveModel }) {
                 <span className="sr-only">Rank</span>#
               </th>
               <th className="py-1 text-left font-normal">Entry</th>
+              <th className="py-1 text-right font-normal">
+                <span className="sr-only">Ownership remaining</span>
+                <span aria-hidden="true">Own left</span>
+              </th>
               <th className="py-1 text-right font-normal">PMR</th>
               <th className="py-1 text-right font-normal">Pts</th>
             </tr>
@@ -156,8 +161,9 @@ function OwnershipLeaders({ model }: { model: LiveModel }) {
           <tbody>
             {leaders.data.entries.map((entry) => (
               <tr key={entry.key} className="border-b border-border/50">
-                <td className="py-1 text-muted-foreground">{entry.rank === null ? DASH : `#${entry.rank}`}</td>
+                <td className="py-1 text-muted-foreground">{formatRank(entry.rank)}</td>
                 <td className="max-w-28 truncate py-1">{entry.name ?? DASH}</td>
+                <td className="py-1 text-right">{formatOwnership(entry.ownershipRemainingPct)}</td>
                 <td className="py-1 text-right text-muted-foreground">{formatPmr(entry.pmr)}</td>
                 <td className="py-1 text-right">{formatPoints(entry.points)}</td>
               </tr>

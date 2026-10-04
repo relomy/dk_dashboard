@@ -60,7 +60,7 @@ function SportSection({
   }
 
   return (
-    <article className="flex flex-col gap-3 rounded-xl bg-card p-3 ring-1 ring-foreground/10">
+    <article className="card-surface flex flex-col gap-3 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-mono text-base font-semibold">{sport.toUpperCase()}</h2>
         <div className="flex items-center gap-3">

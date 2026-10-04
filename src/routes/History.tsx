@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import DataPage from '../components/DataPage'
-import SelectField from '../components/SelectField'
 import SnapshotOverview from '../components/SnapshotOverview'
 import StatusPill from '../components/StatusPill'
 import { useProfiles } from '../context/ProfileContext'
@@ -129,38 +130,46 @@ function History() {
         }
       >
         <div className="flex flex-wrap gap-3">
-          <SelectField
-            id="history-sport-filter"
-            label="Sport filter"
-            value={sportFilter}
-            onChange={(event) => setSportFilter(event.target.value)}
-          >
-            <option value="all">All sports</option>
-            {availableSports.map((sport) => (
-              <option key={sport} value={sport}>
-                {sport}
-              </option>
-            ))}
-          </SelectField>
-          <SelectField
-            id="history-state-filter"
-            label="State filter"
-            value={stateFilter}
-            onChange={(event) => setStateFilter(event.target.value)}
-          >
-            <option value="all">All states</option>
-            {availableStates.map((state) => (
-              <option key={state} value={state}>
-                {state}
-              </option>
-            ))}
-          </SelectField>
+          <div className="grid w-fit min-w-36 gap-1">
+            <Label htmlFor="history-sport-filter" className="text-xs font-normal text-muted-foreground">
+              Sport filter
+            </Label>
+            <NativeSelect
+              id="history-sport-filter"
+              value={sportFilter}
+              onChange={(event) => setSportFilter(event.target.value)}
+            >
+              <option value="all">All sports</option>
+              {availableSports.map((sport) => (
+                <option key={sport} value={sport}>
+                  {sport}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="grid w-fit min-w-36 gap-1">
+            <Label htmlFor="history-state-filter" className="text-xs font-normal text-muted-foreground">
+              State filter
+            </Label>
+            <NativeSelect
+              id="history-state-filter"
+              value={stateFilter}
+              onChange={(event) => setStateFilter(event.target.value)}
+            >
+              <option value="all">All states</option>
+              {availableStates.map((state) => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
         </div>
 
         {filteredSnapshots.length === 0 ? (
           <p className="text-muted-foreground">No snapshots match these filters.</p>
         ) : (
-          <ul className="divide-y overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+          <ul aria-label="Snapshots" className="card-surface divide-y overflow-hidden">
             {filteredSnapshots.map((item) => (
               <li
                 key={item.snapshot_at}
@@ -168,23 +177,23 @@ function History() {
               >
                 <Link
                   to={`/history/${formatHistoryTimestampForUrl(item.snapshot_at)}`}
-                  className="w-fit font-mono text-sm font-medium tabular-nums underline-offset-4 outline-none after:absolute after:inset-0 hover:underline focus-visible:underline"
+                  className="w-fit font-mono text-sm font-medium tabular-nums underline-offset-4 after:absolute after:inset-0 hover:underline focus-visible:underline"
                 >
                   {new Date(item.snapshot_at).toLocaleString()}
                 </Link>
                 <p className="font-mono text-xs text-muted-foreground">
                   Sports: {item.sports_present.join(', ') || '-'}
                 </p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                <ul aria-label="Sport status" className="flex flex-wrap gap-x-4 gap-y-1">
                   {Object.entries(item.sports_status ?? {}).map(([sport, details]) => (
-                    <span
+                    <li
                       key={`${item.snapshot_at}-${sport}`}
                       className="inline-flex items-center gap-1.5 font-mono text-xs"
                     >
                       {sport}: <StatusPill status={details.status} />
-                    </span>
+                    </li>
                   ))}
-                </div>
+                </ul>
                 <p className="font-mono text-xs text-muted-foreground tabular-nums">
                   Contest counts:{' '}
                   {Object.entries(item.contest_counts_by_sport ?? {})

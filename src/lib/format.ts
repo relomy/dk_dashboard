@@ -8,6 +8,11 @@ function formatFixed(value: number | null | undefined, decimals: number): string
   return value.toFixed(decimals)
 }
 
+/** A contest rank: "#12", or a dash when missing. */
+export function formatRank(rank: number | null): string {
+  return rank === null ? DASH : `#${rank}`
+}
+
 /** Fantasy points, to 2 decimals. */
 export function formatPoints(value: number | null | undefined): string {
   return formatFixed(value, 2)
