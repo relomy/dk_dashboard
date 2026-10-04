@@ -39,7 +39,7 @@ export interface VipLineup {
   /** The producer sends `players_live` only. */
   slots?: VipLineupSlot[]
   players_live?: VipLineupPlayerLive[]
-  /** The producer sends rank and PMR as strings; only numbers are read. */
+  /** The producer sends rank and PMR as strings; numeric strings are read as numbers. */
   rank?: number | string
   points?: number
   pts?: number
