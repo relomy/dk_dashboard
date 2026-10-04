@@ -55,11 +55,13 @@ export interface LiveVip {
   updatedAt: string | null
   /** The live block's current rank, then the lineup's rank. */
   rank: number | null
-  /** The live block's current points, then the lineup's points. */
+  /** The live block's current points, then lineup points or the producer's `pts`. */
   points: number | null
   /** Points if the lineup scores as projected: final points for finished players, else the real-time projection. */
   projectedPoints: number | null
+  /** The live block's PMR, then the producer's lineup PMR. */
   pmr: number | null
+  /** The live block's ownership remaining, else the complete per-VIP field leverage metric. */
   ownershipRemainingPct: number | null
   /**
    * Lineup ownership: the summed ownership of the lineup's players, from the per-VIP ownership
@@ -292,6 +294,14 @@ function lineupOwnershipOf(row: ContestMetricsOwnershipSummary['per_vip'][number
   return numberOrNull(row?.lineup_ownership_pct) ?? numberOrNull(row?.total_ownership_pct)
 }
 
+/** VIP summaries carry decimal strings for rank and PMR in the v3 producer feed. */
+function vipSummaryNumber(value: unknown): number | null {
+  if (typeof value === 'string' && /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value.trim())) {
+    return numberOrNull(Number(value.trim()))
+  }
+  return numberOrNull(value)
+}
+
 /** The player pool by name; the first row wins when a name repeats. */
 function indexPoolByName(players: Player[]): Map<string, Player> {
   const poolByName = new Map<string, Player>()
@@ -358,20 +368,23 @@ function projectLineup(lineup: VipLineup): number | null {
 function buildVips(contest: Contest, trains: Section<LiveTrains>, poolByName: Map<string, Player>): LiveVip[] {
   const distanceByKey = buildPerVipIndex(contest.metrics?.distance_to_cash?.per_vip ?? [])
   const summaryByKey = buildPerVipIndex(contest.metrics?.ownership_summary?.per_vip ?? [])
+  const leverageByKey = buildPerVipIndex(contest.metrics?.threat?.vip_vs_field_leverage ?? [])
   return contest.vip_lineups.map((lineup, vipIndex) => {
     const metricKey = resolveVipMetricMatchKey(lineup)
     const distance = metricKey ? distanceByKey.get(metricKey) : undefined
+    const leverage = metricKey ? leverageByKey.get(metricKey) : undefined
     return {
       key: lineup.entry_key || lineup.vip_entry_key || lineup.display_name,
       name: lineup.display_name,
       cashing: resolveVipCashing(lineup, distance),
       distanceToCash: { points: numberOrNull(distance?.points_delta), rank: numberOrNull(distance?.rank_delta) },
       updatedAt: lineup.live?.updated_at || null,
-      rank: numberOrNull(lineup.live?.current_rank) ?? numberOrNull(lineup.rank),
-      points: numberOrNull(lineup.live?.current_points) ?? numberOrNull(lineup.points),
+      rank: numberOrNull(lineup.live?.current_rank) ?? vipSummaryNumber(lineup.rank),
+      points: numberOrNull(lineup.live?.current_points) ?? numberOrNull(lineup.points) ?? numberOrNull(lineup.pts),
       projectedPoints: projectLineup(lineup),
-      pmr: numberOrNull(lineup.live?.pmr),
-      ownershipRemainingPct: numberOrNull(lineup.live?.ownership_remaining_pct),
+      pmr: numberOrNull(lineup.live?.pmr) ?? vipSummaryNumber(lineup.pmr),
+      ownershipRemainingPct: numberOrNull(lineup.live?.ownership_remaining_pct) ??
+        (leverage?.is_partial ? null : numberOrNull(leverage?.vip_remaining_pct)),
       lineupOwnershipPct: lineupOwnershipOf(metricKey ? summaryByKey.get(metricKey) : undefined),
       players: buildLineupPlayers(lineup, poolByName),
       trainOverlap: closestTrain(trains, vipIndex, lineupSlotCount(lineup)),

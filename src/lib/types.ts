@@ -34,7 +34,10 @@ export interface VipLineup {
   display_name: string
   slots: VipLineupSlot[]
   players_live?: VipLineupPlayerLive[]
-  rank?: number
+  rank?: number | string
+  /** Producer summary fields; rank and PMR may be decimal strings. */
+  pts?: number
+  pmr?: number | string
   points?: number
   payout_cents?: number | null
   live?: {
@@ -81,6 +84,7 @@ export interface ContestMetricsThreat {
     vip_remaining_pct?: number | null
     field_remaining_pct?: number | null
     uniqueness_delta_pct?: number | null
+    is_partial?: boolean
   }>
 }
 

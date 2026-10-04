@@ -27,3 +27,11 @@ renamed, reshaped or added, and key order and JSON formatting match the original
 - Players keep every player named in a `train_clusters[].lineup_signature` plus the 25 most owned.
 - `train_clusters` and every other array are complete.
 - The manifest also lists `snapshots/live-2026-10-03T18-57-07Z.json`, which is not committed.
+
+## NFL summary regression fixture
+
+`src/test/fixtures/nfl-live-2026-10-04T20-41-34Z.json` was read directly from R2
+key `snapshots/live-2026-10-04T20-41-34Z.json` on 2026-10-04. It preserves the
+producer's string ranks and PMR, `pts`, and per-VIP field leverage. Only NFL's
+primary contest is retained; standings retain VIP entries, players retain VIP
+lineup player keys, and train rows are dropped. No fields are renamed or added.
