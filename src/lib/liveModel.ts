@@ -232,7 +232,7 @@ function notRenderable(reason: LiveNotRenderableReason): LiveModelResult {
 }
 
 /** `is_primary` wins; otherwise match the configured primary contest by key, then by id. */
-function resolvePrimaryContest(
+export function resolvePrimaryContest(
   contests: Contest[],
   configured: NonNullable<SportSnapshot['primary_contest']>,
 ): Contest | null {
