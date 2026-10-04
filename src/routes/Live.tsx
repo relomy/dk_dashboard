@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import CommandCenter from '../components/live/CommandCenter'
 import PageMessage from '../components/PageMessage'
 import { useRememberSport } from '../hooks/useRememberSport'
-import { useSportSnapshot } from '../hooks/useSportSnapshot'
+import { useLatest } from '../hooks/useLatest'
 import { buildLiveModel, type LiveNotRenderableReason } from '../lib/liveModel'
 
 function AllContestsLink({ sportKey, sportLabel }: { sportKey: string; sportLabel: string }) {
@@ -46,7 +46,10 @@ function NotRenderable({ reason, sportKey, sportLabel }: { reason: LiveNotRender
 
 function Live() {
   const { sport } = useParams()
-  const { snapshot, loading, error } = useSportSnapshot()
+  const { latestQuery, snapshotQuery } = useLatest()
+  const snapshot = snapshotQuery.data
+  const loading = latestQuery.isLoading || snapshotQuery.isLoading
+  const error = latestQuery.error ?? snapshotQuery.error
 
   const sportKey = sport?.toLowerCase()
   useRememberSport(sportKey)
