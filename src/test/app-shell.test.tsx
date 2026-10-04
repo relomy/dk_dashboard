@@ -7,8 +7,8 @@ import snapshotFixture from '../../public/mock/snapshots/live-2026-10-03T20-48-3
 import App from '../App'
 import AppShell from '../components/AppShell'
 import TopBarSlot from '../components/TopBarSlot'
-import { AuthProvider } from '../context/AuthContext'
-import { ProfileProvider } from '../context/ProfileContext'
+import { AuthProvider } from '../context/AuthProvider'
+import { ProfileProvider } from '../context/ProfileProvider'
 
 afterEach(() => {
   cleanup()
