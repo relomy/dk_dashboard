@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 // Exported by the dk_results producer; provenance in public/mock/PRODUCER_FIXTURE.md.
@@ -49,20 +49,6 @@ async function renderLiveAgainstProducerSnapshot(sport: string, snapshot: unknow
   await screen.findByRole('heading', { name: new RegExp(`live: ${sport}`, 'i') })
 }
 
-type MutableContest = {
-  live_metrics: Record<string, unknown>
-  train_clusters: Array<Record<string, unknown>>
-}
-
-function mlbContest(snapshot: typeof producerSnapshot): MutableContest {
-  return snapshot.sports.mlb.contests[0] as unknown as MutableContest
-}
-
-/** Selects a Live view from the rail (the Trains section sits behind its tab). */
-function openView(name: RegExp) {
-  fireEvent.click(within(screen.getByRole('navigation', { name: /live views/i })).getByRole('link', { name }))
-}
-
 function panel(headingName: RegExp) {
   const heading = screen.getByRole('heading', { name: headingName })
   const container = heading.closest('.panel')
@@ -72,97 +58,13 @@ function panel(headingName: RegExp) {
 
 it('renders the Live route against the producer-exported v3 snapshot', async () => {
   await renderLiveAgainstProducerSnapshot('mlb')
-  openView(/^trains/i)
 
   const contest = panel(/primary contest/i)
   expect(within(contest).getByText('MLB Single Entry $5 Double Up')).toBeInTheDocument()
   expect(within(contest).getByText(/contest key: mlb:196293731/i)).toBeInTheDocument()
 
-  const trainRows = within(panel(/train finder/i)).getAllByRole('row')
-  expect(trainRows).toHaveLength(1 + 17)
-
   const standings = panel(/^standings$/i)
   expect(within(standings).getByText('nycgator12')).toBeInTheDocument()
-})
-
-it('shows the Train finder update time and Train rule from the producer snapshot', async () => {
-  await renderLiveAgainstProducerSnapshot('mlb')
-  openView(/^trains/i)
-
-  const trains = panel(/train finder/i)
-  const updatedAt = new Date('2026-10-03T20:48:31Z').toLocaleString()
-  expect(within(trains).getByText(`Updated: ${updatedAt}`)).toBeInTheDocument()
-  expect(
-    within(trains).getByText('Train rule: salary_remaining<=40000_and_same_points_pmr'),
-  ).toBeInTheDocument()
-  expect(within(trains).queryByText(/unknown/i)).not.toBeInTheDocument()
-  expect(within(trains).queryByText(/cluster rule/i)).not.toBeInTheDocument()
-})
-
-it('shows Rank, Entries, Points, PMR and Lineup for each train with rounded numbers', async () => {
-  await renderLiveAgainstProducerSnapshot('cfb')
-  openView(/^trains/i)
-
-  const table = within(panel(/train finder/i)).getByRole('table')
-  const headers = within(table)
-    .getAllByRole('columnheader')
-    .map((cell) => cell.textContent)
-  expect(headers).toEqual(['Rank', 'Entries', 'Points', 'PMR', 'Lineup'])
-
-  const secondTrain = within(table).getAllByRole('row')[2]
-  const cells = within(secondTrain)
-    .getAllByRole('cell')
-    .slice(0, 4)
-    .map((cell) => cell.textContent)
-  expect(cells).toEqual(['8', '3', '177.52', '119.8'])
-})
-
-it('shows each train lineup as slot chips with locked slots muted and in position', async () => {
-  await renderLiveAgainstProducerSnapshot('mlb')
-  openView(/^trains/i)
-
-  const table = within(panel(/train finder/i)).getByRole('table')
-  const firstTrain = within(table).getAllByRole('row')[1]
-  const chips = within(within(firstTrain).getByRole('list', { name: /lineup/i })).getAllByRole('listitem')
-
-  expect(chips.map((chip) => chip.textContent)).toEqual([
-    'Locked 🔒',
-    'Parker Messick',
-    'Will Smith',
-    'Freddie Freeman',
-    'Ozzie Albies',
-    'Jose Ramirez',
-    'Locked 🔒',
-    'Jo Adell',
-    'Locked 🔒',
-    'Steven Kwan',
-  ])
-  expect(chips[0]).toHaveClass('live-train-chip-locked')
-  expect(chips[1]).not.toHaveClass('live-train-chip-locked')
-  expect(within(firstTrain).queryByText(/\|/)).not.toBeInTheDocument()
-})
-
-it('shows a dash for a train whose lineup has no slots', async () => {
-  const snapshot = structuredClone(producerSnapshot)
-  const clusters = mlbContest(snapshot).train_clusters
-  clusters[0].lineup_signature = ''
-  clusters[1].lineup_signature = ' | '
-  delete clusters[2].lineup_signature
-  // Rank them best so they are the first three rows.
-  clusters.slice(0, 3).forEach((cluster, index) => {
-    cluster.rank = index + 1
-  })
-
-  await renderLiveAgainstProducerSnapshot('mlb', snapshot)
-  openView(/^trains/i)
-
-  const rows = within(within(panel(/train finder/i)).getByRole('table')).getAllByRole('row')
-  for (const row of rows.slice(1, 4)) {
-    const lineupCell = within(row).getAllByRole('cell')[4]
-    expect(lineupCell).toHaveTextContent(/^—$/)
-    expect(within(lineupCell).queryByRole('list')).not.toBeInTheDocument()
-  }
-  expect(rows).toHaveLength(1 + 17)
 })
 
 const FEED_ISSUE_URL = 'https://github.com/relomy/dk_results/issues/156'
@@ -252,21 +154,6 @@ it('populates the four panels when the feed provides the metrics', async () => {
   expect(within(avg).queryByText(/feed does not provide/i)).not.toBeInTheDocument()
 })
 
-it('omits Train finder header values the snapshot does not carry', async () => {
-  const snapshot = structuredClone(producerSnapshot)
-  const contest = mlbContest(snapshot)
-  delete contest.live_metrics.updated_at
-  for (const cluster of contest.train_clusters) delete cluster.cluster_rule
-
-  await renderLiveAgainstProducerSnapshot('mlb', snapshot)
-  openView(/^trains/i)
-
-  const trains = panel(/train finder/i)
-  expect(within(trains).queryByText(/updated:/i)).not.toBeInTheDocument()
-  expect(within(trains).queryByText(/train rule:/i)).not.toBeInTheDocument()
-  expect(within(trains).queryByText(/unknown/i)).not.toBeInTheDocument()
-})
-
 it('omits update times and selection reason the snapshot does not carry instead of saying unknown', async () => {
   const snapshot = structuredClone(producerSnapshot)
   ;(snapshot.sports.cfb.primary_contest as Record<string, unknown>).selection_reason = {}
@@ -316,21 +203,4 @@ it('rounds standings points to 2 decimals and PMR to 1', async () => {
     .slice(0, 4)
     .map((cell) => cell.textContent)
   expect(cells).toEqual(['nycgator12', '1', '43.15', '56.5'])
-})
-
-function trainRanks() {
-  const rows = within(within(panel(/train finder/i)).getByRole('table')).getAllByRole('row').slice(1)
-  return rows.map((row) => within(row).getAllByRole('cell')[0].textContent)
-}
-
-it('lists trains best-placed first, with trains missing a rank last', async () => {
-  const snapshot = structuredClone(producerSnapshot)
-  delete mlbContest(snapshot).train_clusters[0].rank
-
-  await renderLiveAgainstProducerSnapshot('mlb', snapshot)
-  openView(/^trains/i)
-
-  expect(trainRanks()).toEqual([
-    '25', '49', '54', '54', '68', '68', '68', '68', '68', '88', '88', '101', '101', '101', '101', '123', '—',
-  ])
 })

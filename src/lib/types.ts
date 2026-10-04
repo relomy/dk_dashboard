@@ -155,6 +155,11 @@ export interface Contest {
     cluster_id: string
     cluster_rule?: string
     user_count: number
+    /**
+     * Optional (relomy/dk_results#165): the fewest lineup slots any two entries in the train share.
+     * Without it the dashboard shows the train's size only.
+     */
+    min_shared_slots?: number
     rank?: number
     points?: number
     pmr?: number

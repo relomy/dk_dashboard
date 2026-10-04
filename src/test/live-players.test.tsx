@@ -323,25 +323,26 @@ describe('views and URL state', () => {
   it('switches views from the rail and keeps the view in the URL', async () => {
     await renderLive(load())
 
-    fireEvent.click(within(rail()).getByRole('link', { name: /^trains/i }))
-    expect(location()).toBe('/live/cfb?view=trains')
-    expect(within(rail()).getByRole('link', { name: /^trains/i })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('heading', { name: /train finder/i })).toBeInTheDocument()
+    const [largest] = within(rail()).getAllByRole('link', { name: /×\d+/ })
+    fireEvent.click(largest)
+    expect(location()).toBe('/live/cfb?view=trains&train=720149ac5192')
+    expect(within(rail()).getByRole('link', { name: /×17/ })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('heading', { name: /^×17/ })).toBeInTheDocument()
     expect(screen.queryByRole('table', { name: /players/i })).not.toBeInTheDocument()
 
     fireEvent.click(within(rail()).getByRole('link', { name: /^vips/i }))
-    expect(location()).toBe('/live/cfb?view=vips')
+    expect(location()).toBe('/live/cfb?view=vips&train=720149ac5192')
     expect(screen.getByText(/no vips are tracked in this contest/i)).toBeInTheDocument()
 
     fireEvent.click(within(rail()).getByRole('link', { name: /^players/i }))
-    expect(location()).toBe('/live/cfb')
+    expect(location()).toBe('/live/cfb?train=720149ac5192')
     expect(playersTable()).toBeInTheDocument()
   })
 
   it('opens the view named in a shared link', async () => {
     await renderLive(load(), '/live/cfb?view=trains')
 
-    expect(screen.getByRole('heading', { name: /train finder/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^×17/ })).toBeInTheDocument()
     expect(screen.queryByRole('table', { name: /players/i })).not.toBeInTheDocument()
   })
 

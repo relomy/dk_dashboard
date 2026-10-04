@@ -1,27 +1,16 @@
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { DASH, formatPmr, formatPoints, formatSigned } from '../../lib/format'
-import { lineupOwnershipHint, type LiveModel, type LiveVip } from '../../lib/liveModel'
+import { lineupOwnershipHint, type LiveModel, type LiveVip, type LiveVipTrainOverlap } from '../../lib/liveModel'
 import { formatOwnership } from '../../lib/playerPool'
 import CashMeter from './CashMeter'
 import LineupGroups from './LineupGroups'
-import { vipColorClass, vipInitials } from './presentation'
+import { Stat, VipAvatar } from './atoms'
 
 /** Green when the VIP is cashing, red when not; neutral when the distance is missing. */
 function distanceTone(vip: LiveVip): string | undefined {
   if (vip.distanceToCash.points === null) return 'text-muted-foreground'
   return vip.cashing ? 'text-cashing' : 'text-non-cashing'
-}
-
-function VipAvatar({ vip, index, className }: { vip: LiveVip; index: number; className?: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={cn('grid shrink-0 place-items-center font-bold text-white', vipColorClass(index), className)}
-    >
-      {vipInitials(vip.name)}
-    </span>
-  )
 }
 
 /** The rail's VIP rows: avatar, "#rank · PMR" and the signed distance to cash, each linking to that VIP. */
@@ -46,7 +35,7 @@ export function VipRailRows({
             vip.key === activeKey ? 'bg-accent ring-1 ring-border' : 'hover:bg-card',
           )}
         >
-          <VipAvatar vip={vip} index={index} className="size-7 rounded-md text-[10px]" />
+          <VipAvatar name={vip.name} index={index} className="size-7 rounded-md text-[10px]" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium">{vip.name}</span>
             <span className="block font-mono text-[11px] text-muted-foreground">
@@ -84,7 +73,7 @@ export function VipChips({
             vip.key === activeKey ? 'border-ring bg-accent text-foreground' : 'text-muted-foreground',
           )}
         >
-          <VipAvatar vip={vip} index={index} className="size-5 rounded-full text-[9px]" />
+          <VipAvatar name={vip.name} index={index} className="size-5 rounded-full text-[9px]" />
           {vip.name}
           <span className={cn('font-mono', distanceTone(vip))}>{vip.rank === null ? DASH : `#${vip.rank}`}</span>
         </Link>
@@ -93,30 +82,17 @@ export function VipChips({
   )
 }
 
-function Stat({
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  label: string
-  value: string
-  sub?: string
-  tone?: string
-}) {
-  return (
-    <div role="group" aria-label={label}>
-      <div className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase" aria-hidden="true">
-        {label}
-      </div>
-      <div className={cn('font-mono text-2xl font-semibold tabular-nums', tone)}>{value}</div>
-      {sub ? <div className="text-[11px] text-muted-foreground">{sub}</div> : null}
-    </div>
-  )
-}
-
 /** The focused VIP: standing and lineup stats, the cash-line meter, and the lineup grouped by game status. */
-export function VipView({ model, vip }: { model: LiveModel; vip: LiveVip }) {
+export function VipView({
+  model,
+  vip,
+  trainHref,
+}: {
+  model: LiveModel
+  vip: LiveVip
+  /** The `search` of a link to a Train. */
+  trainHref: (trainId: string) => string
+}) {
   const hint = lineupOwnershipHint(vip.lineupOwnershipPct, vip.players.length)
   return (
     <>
@@ -155,12 +131,31 @@ export function VipView({ model, vip }: { model: LiveModel; vip: LiveVip }) {
 
       <CashMeter model={model} focusedKey={vip.key} />
 
+      {vip.trainOverlap ? <TrainNotice overlap={vip.trainOverlap} href={trainHref(vip.trainOverlap.trainId)} /> : null}
+
       {vip.players.length === 0 ? (
         <p className="mt-6 text-sm text-muted-foreground">No lineup players are available for this VIP.</p>
       ) : (
         <LineupGroups players={vip.players} />
       )}
     </>
+  )
+}
+
+/** Points at the Train whose lineup this VIP's lineup shares the most players with. */
+function TrainNotice({ overlap, href }: { overlap: LiveVipTrainOverlap; href: string }) {
+  return (
+    <Link
+      to={{ search: href }}
+      className="mt-4 flex w-full items-center gap-2 rounded-lg border bg-card/60 px-3 py-2 text-left text-xs text-muted-foreground hover:border-ring"
+    >
+      <span className="font-mono text-foreground">{`${overlap.shared}/${overlap.slotCount}`}</span>
+      {`shared with a ×${overlap.entries} train`}
+      {overlap.rank === null ? null : ` (best #${overlap.rank})`}
+      <span aria-hidden="true" className="ml-auto">
+        view →
+      </span>
+    </Link>
   )
 }
 

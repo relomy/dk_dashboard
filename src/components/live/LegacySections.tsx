@@ -69,66 +69,6 @@ export function LegacySurface({ children }: { children: ReactNode }) {
   return <div className="page-stack min-w-0 overflow-x-auto text-[color:var(--ink)]">{children}</div>
 }
 
-export function LegacyTrainFinder({ trains }: { trains: LiveModel['trains'] }) {
-  return (
-    <div className="panel page-stack-sm">
-      <h2 className="section-title">Train finder</h2>
-      {trains.status === 'unavailable' ? (
-        <p className="meta-text">Train data unavailable for this contest.</p>
-      ) : (
-        <>
-          {trains.data.updatedAt ? (
-            <p className="meta-text">Updated: {new Date(trains.data.updatedAt).toLocaleString()}</p>
-          ) : null}
-          {trains.data.rule ? <p className="meta-text">Train rule: {trains.data.rule}</p> : null}
-          {trains.data.rows.length === 0 ? (
-            <p className="meta-text">No trains available.</p>
-          ) : (
-            <table className="data-table live-train-table">
-              <thead>
-                <tr>
-                  <th>Rank</th>
-                  <th>Entries</th>
-                  <th>Points</th>
-                  <th>PMR</th>
-                  <th>Lineup</th>
-                </tr>
-              </thead>
-              <tbody>
-                {trains.data.rows.map((train) => (
-                  <tr key={train.id}>
-                    <td>{formatValue(train.rank)}</td>
-                    <td>{train.entries}</td>
-                    <td>{formatPoints(train.points)}</td>
-                    <td>{formatPmr(train.pmr)}</td>
-                    <td>
-                      {train.lineup.length ? (
-                        <ul className="live-train-lineup" aria-label="Lineup">
-                          {train.lineup.map((slot, slotIndex) => (
-                            <li
-                              key={slotIndex}
-                              className={slot.locked ? 'live-train-chip live-train-chip-locked' : 'live-train-chip'}
-                            >
-                              {slot.label}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </>
-      )}
-    </div>
-
-  )
-}
-
 /** Primary contest details, threat and leverage, ownership remaining, non-cashing info and standings. */
 export function LegacyLeverageSections({ model }: { model: LiveModel }) {
   const {

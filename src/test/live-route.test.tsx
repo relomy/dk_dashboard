@@ -82,11 +82,6 @@ async function renderLive(snapshot: unknown, sport = 'cfb') {
   await screen.findByRole('heading', { name: new RegExp(`live: ${sport}`, 'i') })
 }
 
-/** Selects a Live view from the rail (the Trains section sits behind its tab). */
-function openView(name: RegExp) {
-  fireEvent.click(within(screen.getByRole('navigation', { name: /live views/i })).getByRole('link', { name }))
-}
-
 function panel(headingName: RegExp, selector = '.panel') {
   const container = screen.getByRole('heading', { name: headingName }).closest(selector)
   if (!(container instanceof HTMLElement)) throw new Error(`No panel for ${headingName}`)
@@ -262,42 +257,9 @@ it('shows unavailable placeholders when sections are missing', async () => {
   delete contest.standings
 
   await renderLive(snapshot)
-  openView(/^trains/i)
   expect(screen.getByText(/^ownership leaders unavailable for this contest\.$/i)).toBeInTheDocument()
-  expect(screen.getByText(/train data unavailable for this contest/i)).toBeInTheDocument()
   expect(screen.getByText(/standings unavailable for this contest/i)).toBeInTheDocument()
   expect(screen.queryByText(/cluster/i)).not.toBeInTheDocument()
-})
-
-it('has no show-all toggle: every emitted train is listed', async () => {
-  await renderLive(load())
-  openView(/^trains/i)
-  const trains = panel(/train finder/i)
-  expect(within(trains).queryByRole('button')).not.toBeInTheDocument()
-  expect(within(within(trains).getByRole('table')).getAllByRole('row')).toHaveLength(1 + 24)
-})
-
-it('shows the train unavailable state for malformed train rows', async () => {
-  const snapshot = load()
-  contestOf(snapshot).train_clusters = [null, 'invalid-row', { cluster_id: 123, user_count: 'x' }, { entry_keys: [42] }]
-
-  await renderLive(snapshot)
-  openView(/^trains/i)
-  expect(screen.getByText(/train data unavailable for this contest/i)).toBeInTheDocument()
-})
-
-it('does not accept the pre-v3 train_clusters object shape', async () => {
-  const snapshot = load()
-  contestOf(snapshot).train_clusters = {
-    updated_at: '2026-10-03T20:48:31Z',
-    cluster_rule: { type: 'shared_slots', min_shared: 8 },
-    clusters: [{ cluster_key: 'old', entry_count: 9, composition: [{ slot: 'QB', player_name: 'Old Shape' }] }],
-  }
-
-  await renderLive(snapshot)
-  openView(/^trains/i)
-  expect(screen.getByText(/train data unavailable for this contest/i)).toBeInTheDocument()
-  expect(screen.queryByText(/Old Shape/)).not.toBeInTheDocument()
 })
 
 it('renders standings table from the producer snapshot', async () => {

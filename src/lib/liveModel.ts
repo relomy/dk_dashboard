@@ -69,6 +69,21 @@ export interface LiveVip {
   lineupOwnershipPct: number | null
   /** A present `players_live` list (even an empty one) is the lineup; when it is missing the name-only slots stand in. */
   players: LiveLineupPlayer[]
+  /** The train this VIP's lineup shares the most players with, when that is at least `TRAIN_NOTICE_MIN_SHARED`. */
+  trainOverlap: LiveVipTrainOverlap | null
+}
+
+/** A VIP shares this many players or more with a Train before the VIP view points at it. */
+export const TRAIN_NOTICE_MIN_SHARED = 4
+
+export interface LiveVipTrainOverlap {
+  trainId: string
+  entries: number
+  rank: number | null
+  /** Players the VIP's lineup shares with the train, by name. */
+  shared: number
+  /** The VIP's lineup size. */
+  slotCount: number
 }
 
 /** One player in a lineup, as the lineup cards show them. Fields the feed omits are null. */
@@ -87,15 +102,44 @@ export interface LiveLineupPlayer {
   stats: string | null
 }
 
+/** How alike a train's lineups are: every entry shares at least `minShared` of the lineup's `slotCount` slots. */
+export interface LiveTrainCloseness {
+  minShared: number
+  slotCount: number
+  /** Every slot is shared. */
+  identical: boolean
+}
+
+export interface LiveTrainVipOverlap {
+  /** The VIP's `LiveVip.key`. */
+  key: string
+  name: string
+  /** Players the VIP's lineup shares with the train's lineup, by name. */
+  shared: number
+}
+
 export interface LiveTrain {
   id: string
   /** Entries riding this train (v3 `user_count`). */
   entries: number
+  /** The best-placed entry's rank. */
   rank: number | null
+  /** The train's points (its entries tie on them). */
   points: number | null
+  /** The train's PMR (its entries tie on it). */
   pmr: number | null
   lineup: LineupSlot[]
   entryKeys: string[]
+  /** The optional per-cluster `min_shared_slots`; null when the producer omits it or sends no whole number. */
+  minSharedSlots: number | null
+  /** Null unless `minSharedSlots` is known and the train has a lineup. */
+  closeness: LiveTrainCloseness | null
+  /** The lineup as cards: game status, points and ownership come from the player pool, matched by name. */
+  players: LiveLineupPlayer[]
+  /** Display names of the entries riding the train that the standings list, in `entry_keys` order. */
+  ridingNames: string[]
+  /** One row per VIP, in VIP order. */
+  vipOverlaps: LiveTrainVipOverlap[]
 }
 
 export interface LiveTrains {
@@ -332,10 +376,10 @@ function projectLineup(lineup: VipLineup): number | null {
   }, 0)
 }
 
-function buildVips(contest: Contest): LiveVip[] {
+function buildVips(contest: Contest, trains: Section<LiveTrains>): LiveVip[] {
   const distanceByKey = buildPerVipIndex(contest.metrics?.distance_to_cash?.per_vip ?? [])
   const summaryByKey = buildPerVipIndex(contest.metrics?.ownership_summary?.per_vip ?? [])
-  return contest.vip_lineups.map((lineup) => {
+  return contest.vip_lineups.map((lineup, vipIndex) => {
     const metricKey = resolveVipMetricMatchKey(lineup)
     const distance = metricKey ? distanceByKey.get(metricKey) : undefined
     return {
@@ -351,19 +395,82 @@ function buildVips(contest: Contest): LiveVip[] {
       ownershipRemainingPct: numberOrNull(lineup.live?.ownership_remaining_pct),
       lineupOwnershipPct: lineupOwnershipOf(metricKey ? summaryByKey.get(metricKey) : undefined),
       players: buildLineupPlayers(lineup),
+      trainOverlap: closestTrain(trains, vipIndex, lineupSlotCount(lineup)),
     }
   })
+}
+
+function lineupSlotCount(lineup: VipLineup): number {
+  return buildLineupPlayers(lineup).length
+}
+
+/** The train a VIP shares the most players with (ties: the larger train), if that reaches the notice threshold. */
+function closestTrain(trains: Section<LiveTrains>, vipIndex: number, slotCount: number): LiveVipTrainOverlap | null {
+  if (trains.status !== 'available') return null
+  let best: { train: LiveTrain; shared: number } | null = null
+  for (const train of trains.data.rows) {
+    const shared = train.vipOverlaps[vipIndex]?.shared ?? 0
+    if (!best || shared > best.shared || (shared === best.shared && train.entries > best.train.entries)) {
+      best = { train, shared }
+    }
+  }
+  if (!best || best.shared < TRAIN_NOTICE_MIN_SHARED) return null
+  return { trainId: best.train.id, entries: best.train.entries, rank: best.train.rank, shared: best.shared, slotCount }
+}
+
+/** A train's lineup as cards. Pool rows supply status, points and ownership; a name the pool lacks has none. */
+function buildTrainPlayers(lineup: LineupSlot[], poolByName: Map<string, Player>): LiveLineupPlayer[] {
+  return lineup.map((slot, index) => {
+    const player = slot.locked ? undefined : poolByName.get(slot.label)
+    return {
+      key: `${index}-${slot.label}`,
+      slot: player ? (player.position ?? player.roster_positions?.join('/') ?? '') : '',
+      name: slot.label,
+      gameStatus: classifyGameStatus(player?.game_status),
+      points: numberOrNull(player?.fantasy_points),
+      projection: null,
+      clock: nonEmptyString(player?.game_status),
+      ownershipPct: numberOrNull(player?.ownership_pct),
+      value: numberOrNull(player?.value),
+      stats: null,
+    }
+  })
+}
+
+function buildTrainCloseness(minShared: number | null, slotCount: number): LiveTrainCloseness | null {
+  if (minShared === null || slotCount === 0) return null
+  return { minShared, slotCount, identical: minShared >= slotCount }
 }
 
 /**
  * v3 `train_clusters` is a bare array. Rows without a string `cluster_id` and numeric `user_count`
  * are malformed and dropped; a non-empty list with no valid rows is treated as unavailable.
  */
-function buildTrains(contest: Contest): Section<LiveTrains> {
+function buildTrains(
+  contest: Contest,
+  sportData: SportSnapshot,
+  standings: Section<LiveStandingsRow[]>,
+): Section<LiveTrains> {
   const raw: unknown = contest.train_clusters
   if (!Array.isArray(raw)) {
     return UNAVAILABLE
   }
+
+  const poolByName = new Map<string, Player>()
+  for (const player of sportData.players) {
+    if (!poolByName.has(player.name)) poolByName.set(player.name, player)
+  }
+  const namesByEntryKey = new Map<string, string>()
+  if (standings.status === 'available') {
+    for (const row of standings.data) {
+      if (row.name !== null) namesByEntryKey.set(row.key, row.name)
+    }
+  }
+  const vipNames = contest.vip_lineups.map((lineup) => ({
+    key: lineup.entry_key || lineup.vip_entry_key || lineup.display_name,
+    name: lineup.display_name,
+    players: lineupPlayerNames(lineup),
+  }))
 
   let rule: string | null = null
   const rows: LiveTrain[] = []
@@ -374,16 +481,32 @@ function buildTrains(contest: Contest): Section<LiveTrains> {
     if (!id || typeof row.user_count !== 'number') continue
 
     rule ??= nonEmptyString(row.cluster_rule)
+    const lineup = parseLineupSignature(typeof row.lineup_signature === 'string' ? row.lineup_signature : null)
+    const entryKeys = Array.isArray(row.entry_keys)
+      ? row.entry_keys.filter((key): key is string => typeof key === 'string')
+      : []
+    const minSharedSlots = Number.isInteger(row.min_shared_slots) ? (row.min_shared_slots as number) : null
+    const trainNames = new Set(lineup.filter((slot) => !slot.locked).map((slot) => slot.label))
     rows.push({
       id,
       entries: row.user_count,
       rank: numberOrNull(row.rank),
       points: numberOrNull(row.points),
       pmr: numberOrNull(row.pmr),
-      lineup: parseLineupSignature(typeof row.lineup_signature === 'string' ? row.lineup_signature : null),
-      entryKeys: Array.isArray(row.entry_keys)
-        ? row.entry_keys.filter((key): key is string => typeof key === 'string')
-        : [],
+      lineup,
+      entryKeys,
+      minSharedSlots,
+      closeness: buildTrainCloseness(minSharedSlots, lineup.length),
+      players: buildTrainPlayers(lineup, poolByName),
+      ridingNames: entryKeys.flatMap((key) => {
+        const name = namesByEntryKey.get(key)
+        return name === undefined ? [] : [name]
+      }),
+      vipOverlaps: vipNames.map((vip) => ({
+        key: vip.key,
+        name: vip.name,
+        shared: [...vip.players].filter((name) => trainNames.has(name)).length,
+      })),
     })
   }
 
@@ -399,6 +522,23 @@ function buildTrains(contest: Contest): Section<LiveTrains> {
   })
 
   return available({ updatedAt: contest.live_metrics?.updated_at || null, rule, rows })
+}
+
+/** "identical" when every slot is shared, else "share N of M"; null when the producer gave no `min_shared_slots`. */
+export function trainClosenessLabel(closeness: LiveTrainCloseness | null): string | null {
+  if (!closeness) return null
+  return closeness.identical ? 'identical' : `share ${closeness.minShared} of ${closeness.slotCount}`
+}
+
+/** The `count` largest trains: most entries first, then best rank (unranked last). */
+export function largestTrains(rows: LiveTrain[], count: number): LiveTrain[] {
+  return [...rows]
+    .sort((a, b) => {
+      if (a.entries !== b.entries) return b.entries - a.entries
+      if (a.rank === null || b.rank === null) return (a.rank === null ? 1 : 0) - (b.rank === null ? 1 : 0)
+      return a.rank - b.rank
+    })
+    .slice(0, count)
 }
 
 /**
@@ -708,6 +848,8 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
     })
   }
   const cashLine = contest.live_metrics?.cash_line
+  const standings = buildStandings(contest)
+  const trains = buildTrains(contest, sportData, standings)
   return {
     kind: 'ready',
     model: {
@@ -721,11 +863,11 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
       },
       fieldSize: numberOrNull(contest.entries_count) ?? numberOrNull(contest.max_entries),
       cashLine: { points: numberOrNull(cashLine?.points_cutoff), rank: numberOrNull(cashLine?.rank_cutoff) },
-      vips: buildVips(contest),
+      vips: buildVips(contest, trains),
       pool: buildPool(sportData, contest),
       totalOwnership: buildTotalOwnership(sportData.players),
-      trains: buildTrains(contest),
-      standings: buildStandings(contest),
+      trains,
+      standings,
       ownershipLeaders: buildOwnershipLeaders(contest),
       ownershipSummary: buildOwnershipSummary(contest),
       threat: buildThreat(contest),
