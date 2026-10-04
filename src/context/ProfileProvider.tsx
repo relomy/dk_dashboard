@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import {
   createDefaultProfile,
   createProfileId,
@@ -9,18 +9,7 @@ import {
   type Profile,
   type ProfileMatchRules,
 } from '../lib/profiles'
-
-interface ProfileContextValue {
-  profiles: Profile[]
-  activeProfileId: string
-  activeProfile: Profile
-  setActiveProfileId: (id: string) => void
-  addProfile: (input: { name: string; rules: ProfileMatchRules }) => void
-  updateProfile: (id: string, input: { name: string; rules: ProfileMatchRules }) => void
-  deleteProfile: (id: string) => void
-}
-
-const ProfileContext = createContext<ProfileContextValue | null>(null)
+import { ProfileContext, type ProfileContextValue } from './ProfileContext'
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const [profiles, setProfiles] = useState<Profile[]>(() => loadProfiles())
@@ -32,12 +21,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     return activeExists ? loadedActiveId : loadedProfiles[0].id
   })
 
-  const setActiveProfileId = (id: string) => {
+  const setActiveProfileId = useCallback((id: string) => {
     setActiveProfileState(id)
     saveActiveProfileId(id)
-  }
+  }, [])
 
-  const addProfile = (input: { name: string; rules: ProfileMatchRules }) => {
+  const addProfile = useCallback((input: { name: string; rules: ProfileMatchRules }) => {
     const profile: Profile = {
       id: createProfileId(),
       name: input.name,
@@ -49,9 +38,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       saveProfiles(next)
       return next
     })
-  }
+  }, [])
 
-  const updateProfile = (id: string, input: { name: string; rules: ProfileMatchRules }) => {
+  const updateProfile = useCallback((id: string, input: { name: string; rules: ProfileMatchRules }) => {
     setProfiles((prev) => {
       const next = prev.map((profile) =>
         profile.id === id
@@ -65,9 +54,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       saveProfiles(next)
       return next
     })
-  }
+  }, [])
 
-  const deleteProfile = (id: string) => {
+  const deleteProfile = useCallback((id: string) => {
     setProfiles((prev) => {
       const nextWithoutDeleted = prev.filter((profile) => profile.id !== id)
       const next = nextWithoutDeleted.length > 0 ? nextWithoutDeleted : [createDefaultProfile()]
@@ -77,7 +66,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       saveProfiles(next)
       return next
     })
-  }
+  }, [activeProfileId])
 
   const activeProfile =
     profiles.find((profile) => profile.id === activeProfileId) ??
@@ -94,17 +83,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       updateProfile,
       deleteProfile,
     }),
-    [profiles, activeProfile],
+    [profiles, activeProfile, setActiveProfileId, addProfile, updateProfile, deleteProfile],
   )
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>
 }
 
-export function useProfiles(): ProfileContextValue {
-  const context = useContext(ProfileContext)
-  if (!context) {
-    throw new Error('useProfiles must be used within ProfileProvider')
-  }
-
-  return context
-}
