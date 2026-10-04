@@ -273,6 +273,7 @@ function nonEmptyString(value: unknown): string | null {
 }
 
 type DistanceToCashRow = ContestMetricsDistanceToCash['per_vip'][number]
+type StandingsRow = NonNullable<Contest['standings']>[number]
 
 /**
  * Metrics first: a matched distance-to-cash row decides by points delta, then rank delta.
@@ -281,7 +282,7 @@ type DistanceToCashRow = ContestMetricsDistanceToCash['per_vip'][number]
 function resolveVipCashing(
   lineup: VipLineup,
   distance: DistanceToCashRow | undefined,
-  standing: LiveStandingsRow | undefined,
+  standing: StandingsRow | undefined,
 ): boolean {
   if (typeof distance?.points_delta === 'number') {
     return distance.points_delta >= 0
@@ -292,7 +293,7 @@ function resolveVipCashing(
   if (lineup.payout_cents != null || lineup.live?.payout_cents != null) {
     return true
   }
-  return standing?.cashing ?? false
+  return standing?.is_cashing === true
 }
 
 /** Lineup ownership under either name: `lineup_ownership_pct`, else the older `total_ownership_pct`. */
@@ -393,13 +394,14 @@ function projectLineup(players: LiveLineupPlayer[]): number | null {
   }, 0)
 }
 
-function buildVips(
-  contest: Contest,
-  trains: Section<LiveTrains>,
-  pool: PoolIndex,
-  standings: Section<LiveStandingsRow[]>,
-): LiveVip[] {
-  const standingsByKey = new Map((standings.availability === 'available' ? standings.data : []).map((row) => [row.key, row]))
+/** The contest's raw standings rows: v3 `standings` is a bare array, and any other shape has none. */
+function standingsRowsOf(contest: Contest): StandingsRow[] {
+  const raw: unknown = contest.standings
+  return Array.isArray(raw) ? raw.filter((row): row is StandingsRow => Boolean(row && typeof row === 'object')) : []
+}
+
+function buildVips(contest: Contest, trains: Section<LiveTrains>, pool: PoolIndex): LiveVip[] {
+  const standingsByKey = buildPerVipIndex(standingsRowsOf(contest))
   const distanceByKey = buildPerVipIndex(contest.metrics?.distance_to_cash?.per_vip ?? [])
   const summaryByKey = buildPerVipIndex(contest.metrics?.ownership_summary?.per_vip ?? [])
   return contest.vip_lineups.map((lineup, vipIndex) => {
@@ -413,11 +415,11 @@ function buildVips(
       cashing: resolveVipCashing(lineup, distance, standing),
       distanceToCash: { points: numberOrNull(distance?.points_delta), rank: numberOrNull(distance?.rank_delta) },
       updatedAt: lineup.live?.updated_at || null,
-      rank: numberOrNull(lineup.live?.current_rank) ?? numberOrNull(lineup.rank) ?? standing?.rank ?? null,
-      points: numberOrNull(lineup.live?.current_points) ?? numberOrNull(lineup.points) ?? standing?.points ?? null,
+      rank: numberOrNull(lineup.live?.current_rank) ?? numberOrNull(lineup.rank) ?? numberOrNull(standing?.rank),
+      points: numberOrNull(lineup.live?.current_points) ?? numberOrNull(lineup.points) ?? numberOrNull(standing?.points),
       projectedPoints: projectLineup(players),
-      pmr: numberOrNull(lineup.live?.pmr) ?? standing?.pmr ?? null,
-      ownershipRemainingPct: numberOrNull(lineup.live?.ownership_remaining_pct) ?? standing?.ownershipRemainingPct ?? null,
+      pmr: numberOrNull(lineup.live?.pmr) ?? numberOrNull(standing?.pmr),
+      ownershipRemainingPct: numberOrNull(lineup.live?.ownership_remaining_pct) ?? numberOrNull(standing?.ownership_remaining_total_pct),
       lineupOwnershipPct: lineupOwnershipOf(metricKey ? summaryByKey.get(metricKey) : undefined),
       players,
       trainOverlap: closestTrain(trains, vipIndex, lineupSlotCount(lineup)),
@@ -711,7 +713,7 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
       contest: { name: contest.name },
       fieldSize: numberOrNull(contest.entries_count) ?? numberOrNull(contest.max_entries),
       cashLine: { points: numberOrNull(cashLine?.points_cutoff), rank: numberOrNull(cashLine?.rank_cutoff) },
-      vips: buildVips(contest, trains, pool, standings),
+      vips: buildVips(contest, trains, pool),
       pool: buildPool(sportData, contest),
       totalOwnership: buildTotalOwnership(sportData.players),
       fieldOwnershipRemainingPct:

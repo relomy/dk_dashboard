@@ -540,6 +540,22 @@ describe('VIP card from a minimal producer lineup', () => {
       ])
     })
 
+    it('does not match a locked row against the pool even when it carries a player_key', () => {
+      const snapshot = load()
+      addVip(snapshot, 'cfb', { players_live: [{ ...KEYED_ROW, is_locked: true }] })
+
+      expect(playersOf(snapshot)).toEqual([
+        expect.objectContaining({ ownershipPct: null, points: null, gameStatus: null, value: null }),
+      ])
+    })
+
+    it('treats an empty player_key as no key and matches the row by name', () => {
+      const snapshot = load()
+      addVip(snapshot, 'cfb', { players_live: [{ ...KEYED_ROW, player_key: '' }] })
+
+      expect(playersOf(snapshot)).toEqual([expect.objectContaining({ ownershipPct: 24.02, points: 18.16 })])
+    })
+
     it('lists a row with no slot under a stable key and no slot label', () => {
       const snapshot = load()
       addVip(snapshot, 'cfb', {
@@ -589,6 +605,24 @@ describe('VIP card from a minimal producer lineup', () => {
       per_vip: [{ entry_key: VIP_KEY, points_delta: -75.5 }],
     }
     expect(vipOf(snapshot).cashing).toBe(false)
+  })
+
+  it('reads only a boolean is_cashing from the standings row, not its payout', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', MINIMAL_LINEUP)
+    setStandings(snapshot, [{ ...STANDINGS_ROW, is_cashing: undefined, payout_cents: 1000 }])
+    expect(vipOf(snapshot).cashing).toBe(false)
+
+    setStandings(snapshot, [{ ...STANDINGS_ROW, is_cashing: false }])
+    expect(vipOf(snapshot).cashing).toBe(false)
+  })
+
+  it('takes only the missing header figures from the standings row when the lineup has some', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', { ...MINIMAL_LINEUP, points: 91.25 })
+    setStandings(snapshot, [STANDINGS_ROW])
+
+    expect(vipOf(snapshot)).toMatchObject({ rank: 77, points: 91.25, pmr: 82 })
   })
 })
 

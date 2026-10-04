@@ -187,6 +187,7 @@ export interface Contest {
     pmr?: number
     payout_cents?: number | null
     ownership_remaining_total_pct?: number
+    is_cashing?: boolean
   }>
   metrics?: ContestMetrics
 }
