@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { load, location, rail, renderLive, setPlayers, setVips, stubPhone } from './liveHarness'
 
@@ -212,6 +212,37 @@ describe('views and URL state', () => {
     fireEvent.click(within(rail()).getByRole('link', { name: /^players/i }))
     expect(location()).toBe('/live/cfb?train=720149ac5192')
     expect(playersTable()).toBeInTheDocument()
+  })
+
+  it('lands a reload or shared link on the same view and focus the app put in the URL', async () => {
+    const snapshot = load()
+    setVips(snapshot, [
+      { key: 'vip-a', name: 'First VIP', players: ['Ousmane Kromah'] },
+      { key: 'vip-b', name: 'Second VIP', players: ['Duce Robinson'] },
+    ])
+    await renderLive(snapshot)
+
+    fireEvent.click(within(rail()).getByRole('link', { name: /Second VIP/ }))
+    const [, secondLargest] = within(rail()).getAllByRole('link', { name: /×\d+/ })
+    const trainName = secondLargest.textContent?.match(/×\d+/)?.[0] ?? ''
+    fireEvent.click(secondLargest)
+    const shared = location() ?? ''
+    expect(shared).toMatch(/view=trains/)
+    expect(shared).toMatch(/vip=vip-b/)
+    expect(shared).toMatch(/train=/)
+
+    cleanup()
+    await renderLive(snapshot, shared)
+
+    expect(location()).toBe(shared)
+    expect(screen.getByRole('heading', { name: new RegExp(`^${trainName}`) })).toBeInTheDocument()
+    expect(within(rail()).getByRole('link', { name: new RegExp(trainName) })).toHaveAttribute('aria-current', 'page')
+    const swing = within(screen.getByRole('region', { name: 'Swing players' }))
+    expect(swing.getByText(/unfinished, most owned/i)).toHaveTextContent(`vs ${trainName} train`)
+
+    // The VIP picked before the Train is still the one in focus once the Train is left.
+    fireEvent.click(within(rail()).getByRole('link', { name: /^players/i }))
+    expect(swing.getByText(/unfinished, most owned/i)).toHaveTextContent('vs Second VIP')
   })
 
   it('opens the view named in a shared link', async () => {
