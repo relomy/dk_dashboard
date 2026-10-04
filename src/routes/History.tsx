@@ -169,7 +169,7 @@ function History() {
         {filteredSnapshots.length === 0 ? (
           <p className="text-muted-foreground">No snapshots match these filters.</p>
         ) : (
-          <ul aria-label="Snapshots" className="divide-y overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+          <ul aria-label="Snapshots" className="card-surface divide-y overflow-hidden">
             {filteredSnapshots.map((item) => (
               <li
                 key={item.snapshot_at}

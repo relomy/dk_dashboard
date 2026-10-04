@@ -52,7 +52,7 @@ function PlayerPoolTable({ players }: { players: Player[] }) {
           />
         </div>
       </div>
-      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+      <div className="card-surface overflow-hidden">
         <Table className="text-xs sm:text-sm [&_td]:px-1.5 [&_th]:px-1.5 sm:[&_td]:px-2 sm:[&_th]:px-2">
           <TableHeader>
             <TableRow className="hover:bg-transparent">

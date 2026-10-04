@@ -36,7 +36,6 @@ function truncateText(value: string, max = 80): string {
   return `${value.slice(0, max).trimEnd()}...`
 }
 
-const panel = 'rounded-xl bg-card ring-1 ring-foreground/10'
 const headCell = 'h-8 text-xs text-muted-foreground'
 
 function Health() {
@@ -98,7 +97,7 @@ function Health() {
       }
     >
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-        <div className={cn(panel, 'flex flex-col gap-1 p-4')}>
+        <div className="card-surface flex flex-col gap-1 p-4">
           <p className="text-xs text-muted-foreground">Snapshot age</p>
           <p className="font-mono text-3xl font-semibold tabular-nums">{formatAgeValue(snapshotAgeSeconds)}</p>
           <p className="font-mono text-xs text-muted-foreground tabular-nums">
@@ -106,7 +105,7 @@ function Health() {
           </p>
         </div>
 
-        <section aria-labelledby="health-summary-heading" className={cn(panel, 'flex flex-col gap-3 p-4')}>
+        <section aria-labelledby="health-summary-heading" className="card-surface flex flex-col gap-3 p-4">
           <h2 id="health-summary-heading" className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Sport status summary
           </h2>
@@ -129,7 +128,7 @@ function Health() {
         </section>
       </div>
 
-      <section aria-labelledby="health-attention-heading" className={cn(panel, 'flex flex-col gap-3 p-4')}>
+      <section aria-labelledby="health-attention-heading" className="card-surface flex flex-col gap-3 p-4">
         <h2 id="health-attention-heading" className="text-base font-semibold">
           Needs attention
         </h2>
@@ -165,7 +164,7 @@ function Health() {
         <h2 id="health-details-heading" className="text-base font-semibold">
           Per-sport details
         </h2>
-        <div className={cn(panel, 'overflow-hidden')}>
+        <div className="card-surface overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -208,7 +207,7 @@ function Health() {
         </div>
       </section>
 
-      <section aria-labelledby="health-context-heading" className={cn(panel, 'flex flex-col gap-2 p-4')}>
+      <section aria-labelledby="health-context-heading" className="card-surface flex flex-col gap-2 p-4">
         <h2 id="health-context-heading" className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
           Snapshot context
         </h2>

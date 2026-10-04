@@ -194,6 +194,14 @@
     --focus: oklch(0.87 0 0); /* neutral-300 */
 }
 
+/*
+ * The raised card surface for panels, lists and tables that are not a `ui/card` Card
+ * (an <article>, <ul> or table wrapper): the same fill, radius and hairline ring.
+ */
+@utility card-surface {
+  @apply rounded-xl bg-card ring-1 ring-foreground/10;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
