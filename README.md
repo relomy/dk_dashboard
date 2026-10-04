@@ -3,9 +3,9 @@
 Static React dashboard for viewing DraftKings snapshot data from `dk_results`.
 
 ## Key routes
-- `/latest`: cross-sport overview.
+- `/`: landing view; opens Live for the last-viewed sport (otherwise the first sport with a live primary contest, then the first available sport). `/latest` redirects here.
 - `/live/:sport`: single-sport, primary-contest sweat page (VIP board, ownership remaining, train finder, secondary standings).
-- `/sport/:sport`: broader per-sport drilldown across contests.
+- `/sport/:sport`: broader per-sport drilldown across contests ("All contests" in the user menu).
 - `/history` and `/history/:timestamp`: manifest-driven history list and snapshot deep links.
 - `/health`: freshness and error diagnostics.
 - `/settings`: account info + local profile management.
