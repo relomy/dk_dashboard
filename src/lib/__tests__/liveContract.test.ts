@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { buildLiveModel, resolvePrimaryContest, type LiveModel, type LiveVip } from '../liveModel'
 import { haveOrFade } from '../livePresentation'
+import { LIVE_UNREAD_ALLOWLIST, liveUnreadPaths } from '../liveUnreadPaths'
 import { resolveVipMetricMatchKey } from '../perVipKeys'
 import type { Contest, Snapshot } from '../types'
+import { staleAllowlistEntries, unallowlistedPaths } from '../unreadPaths'
 
 /**
  * The Live contract test (#37): build the Live model from real producer output and check
@@ -11,6 +13,8 @@ import type { Contest, Snapshot } from '../types'
  * - Add an input: add a glob below. Every captured prod fixture in `public/mock/snapshots/`
  *   (provenance in public/mock/PRODUCER_FIXTURE.md) is already an input.
  * - Add an invariant: add an entry to INVARIANTS.
+ * - Every field an input emits must be read by the Live model or listed, with its reason, in
+ *   src/lib/liveUnreadAllowlist.json (the unread-field detector, src/lib/unreadPaths.ts).
  */
 const INPUTS: Record<string, unknown> = {
   ...import.meta.glob('../../../public/mock/snapshots/*.json', { eager: true, import: 'default' }),
@@ -180,6 +184,11 @@ it('has inputs to check', () => {
   expect(CASES.length).toBeGreaterThan(0)
 })
 
+it('allowlists only fields some input still emits and the Live model leaves unread', () => {
+  const unread = CASES.map(({ snapshot, sport }) => liveUnreadPaths(snapshot, sport))
+  expect(staleAllowlistEntries(unread, LIVE_UNREAD_ALLOWLIST)).toEqual([])
+})
+
 describe.each(CASES)('Live contract: $input / $sport', (contractCase) => {
   function modelOf(): LiveModel {
     const result = buildLiveModel(contractCase.snapshot, contractCase.sport)
@@ -193,5 +202,10 @@ describe.each(CASES)('Live contract: $input / $sport', (contractCase) => {
 
   it.each(Object.entries(INVARIANTS))('%s', (_name, invariant) => {
     expect(invariant(modelOf(), contractCase)).toEqual([])
+  })
+
+  it('reads every field the feed emits, or allowlists it', () => {
+    const unread = liveUnreadPaths(contractCase.snapshot, contractCase.sport)
+    expect(unallowlistedPaths(unread, LIVE_UNREAD_ALLOWLIST)).toEqual([])
   })
 })
