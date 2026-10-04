@@ -1,17 +1,19 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { useState, type ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 // Exported by the dk_results producer; provenance in public/mock/PRODUCER_FIXTURE.md.
 import producerSnapshot from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
+import { TopBarSlotContext } from '../context/TopBarSlotContext'
 import Live from '../routes/Live'
 
-// Variants of the producer fixture. cfb carries `metrics.threat`; mlb carries no `metrics` at all.
-// The producer fixture has no VIP lineups, so tests that need one inject it with addVip().
+// The Live route as a whole: states where there is nothing to render, the plain-language rules,
+// and edge cases of the producer fixture (no primary contest, missing sections, empty standings).
+// cfb carries `metrics.threat`; mlb carries no `metrics` at all (the missing-metrics variant).
+// The producer fixture has no VIP lineups, so tests that need them inject minimal ones.
 
 const SNAPSHOT_PATH = 'snapshots/live-2026-10-03T20-48-31Z.json'
-const VIP_KEY = '5067365318'
-const VIP_NAME = 'cglenn91'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Json = any
@@ -24,22 +26,68 @@ function contestOf(snapshot: Json, sport = 'cfb'): Json {
   return snapshot.sports[sport].contests[0]
 }
 
-function addVip(snapshot: Json, sport = 'cfb', overrides: Json = {}): Json {
-  const vip = {
-    entry_key: VIP_KEY,
-    display_name: VIP_NAME,
-    slots: [{ slot: 'QB', player_name: 'Ashton Daniels' }],
-    payout_cents: null,
-    ...overrides,
-  }
-  contestOf(snapshot, sport).vip_lineups = [vip]
-  return vip
+function setPlayers(snapshot: Json, players: Json[], sport = 'cfb') {
+  snapshot.sports[sport].players = players.map((row, index) => ({
+    player_key: `test:${index}`,
+    team: 'FSU',
+    position: 'QB',
+    roster_positions: ['QB'],
+    matchup: 'vs. MIZZ',
+    salary: 5000,
+    ownership_pct: 10,
+    fantasy_points: 10,
+    value: 2,
+    game_status: 'In-Progress',
+    ...row,
+  }))
 }
 
-function setPlayers(snapshot: Json, players: Json[], sport = 'cfb') {
-  snapshot.sports[sport].players = players
+interface VipSpec {
+  key: string
+  name: string
+  /** Lineup player names; each becomes a players_live row unless `liveRows` is given. */
+  players?: string[]
+  liveRows?: Json[]
+  ownLeft?: number
+}
+
+function setVips(snapshot: Json, vips: VipSpec[]) {
+  contestOf(snapshot).vip_lineups = vips.map((vip) => ({
+    entry_key: vip.key,
+    display_name: vip.name,
+    slots: (vip.players ?? []).map((player_name) => ({ slot: 'FLEX', player_name })),
+    players_live:
+      vip.liveRows ?? (vip.players ?? []).map((player_name) => ({ slot: 'FLEX', player_name, game_status: 'In-Progress' })),
+    payout_cents: null,
+    live: { updated_at: '2026-10-03T20:48:00Z', ownership_remaining_pct: vip.ownLeft },
+  }))
+}
+
+function setTrains(snapshot: Json, trains: Array<{ id: string; size: number; players: string[] }>) {
+  contestOf(snapshot).train_clusters = trains.map((train, index) => ({
+    cluster_id: train.id,
+    user_count: train.size,
+    rank: index + 1,
+    points: 100,
+    pmr: 50,
+    lineup_signature: train.players.join('|'),
+    entry_keys: [],
+  }))
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+function stubPhone() {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: query.includes('max-width'),
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  }))
+}
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -47,7 +95,19 @@ afterEach(() => {
   cleanup()
 })
 
-async function renderLive(snapshot: unknown, sport = 'cfb') {
+function TopBar({ children }: { children: ReactNode }) {
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
+  return (
+    <>
+      <header>
+        <div ref={setSlot} />
+      </header>
+      <TopBarSlotContext.Provider value={slot}>{children}</TopBarSlotContext.Provider>
+    </>
+  )
+}
+
+async function renderLive(snapshot: unknown, path = '/live/cfb') {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -71,370 +131,517 @@ async function renderLive(snapshot: unknown, sport = 'cfb') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[`/live/${sport}`]}>
-        <Routes>
-          <Route path="/live/:sport" element={<Live />} />
-        </Routes>
+      <MemoryRouter initialEntries={[path]}>
+        <TopBar>
+          <Routes>
+            <Route path="/live/:sport" element={<Live />} />
+          </Routes>
+        </TopBar>
       </MemoryRouter>
     </QueryClientProvider>,
   )
 
+  const sport = path.split('/')[2].split('?')[0]
   await screen.findByRole('heading', { name: new RegExp(`live: ${sport}`, 'i') })
 }
 
-function panel(headingName: RegExp, selector = '.panel') {
-  const container = screen.getByRole('heading', { name: headingName }).closest(selector)
-  if (!(container instanceof HTMLElement)) throw new Error(`No panel for ${headingName}`)
-  return container
+/** No developer notes, issue links or internal identifiers anywhere on the page. */
+function expectNoDeveloperDetails() {
+  const text = document.body.textContent ?? ''
+  expect(text).not.toMatch(/dk_results|#156|feed does not provide/i)
+  expect(text).not.toMatch(/contest key|contest id|selection reason|explicit_id|configured (key|id)/i)
+  expect(text).not.toMatch(/\/sport\//)
+  expect(text).not.toMatch(/196178015|196293731/)
+  for (const link of screen.queryAllByRole('link')) {
+    expect(link).not.toHaveAttribute('href', expect.stringContaining('github.com'))
+  }
 }
 
-it('resolves and renders the selected primary contest for live route', async () => {
-  await renderLive(load())
-  expect(screen.getByRole('heading', { name: /primary contest/i })).toBeInTheDocument()
-  expect(screen.getByText(/contest key:/i)).toBeInTheDocument()
-  expect(screen.getByText(/selection reason: explicit_id/i)).toBeInTheDocument()
+describe('nothing to render', () => {
+  it('says the snapshot format is unsupported for a schema version other than 3', async () => {
+    const snapshot = load()
+    snapshot.schema_version = 2
+
+    await renderLive(snapshot)
+
+    expect(screen.getByText(/this snapshot uses an unsupported format \(version 2\)/i)).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expectNoDeveloperDetails()
+  })
+
+  it('says the sport is not in the snapshot', async () => {
+    await renderLive(load(), '/live/nba')
+
+    expect(screen.getByText(/this snapshot has no NBA data/i)).toBeInTheDocument()
+    expectNoDeveloperDetails()
+  })
+
+  it('says why the view is empty when the sport has no primary contest, and links to all contests', async () => {
+    const snapshot = load()
+    delete snapshot.sports.cfb.primary_contest
+
+    await renderLive(snapshot)
+
+    expect(screen.getByText(/no primary contest is set for CFB/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /all CFB contests/i })).toHaveAttribute('href', '/sport/cfb')
+    expectNoDeveloperDetails()
+  })
+
+  it('says the primary contest is missing from the snapshot without naming its key or id', async () => {
+    const snapshot = load()
+    snapshot.sports.cfb.primary_contest.contest_key = 'cfb:777'
+    snapshot.sports.cfb.primary_contest.contest_id = '777'
+
+    await renderLive(snapshot)
+
+    expect(screen.getByText(/the primary contest for CFB is not in this snapshot/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /all CFB contests/i })).toHaveAttribute('href', '/sport/cfb')
+    expect(document.body).not.toHaveTextContent('777')
+    expectNoDeveloperDetails()
+  })
 })
 
-it('shows explicit state when primary contest is not configured', async () => {
-  const snapshot = load()
-  delete snapshot.sports.cfb.primary_contest
-  await renderLive(snapshot)
-  expect(screen.getByText(/primary contest is not configured for this sport/i)).toBeInTheDocument()
-})
-
-it('prefers contest.is_primary before primary_contest key/id fallbacks', async () => {
-  const snapshot = load()
-  const primary = contestOf(snapshot)
-  primary.is_primary = true
-  const decoy = structuredClone(primary)
-  decoy.is_primary = false
-  decoy.contest_id = '1002'
-  decoy.contest_key = 'cfb:1002'
-  snapshot.sports.cfb.contests.push(decoy)
-  snapshot.sports.cfb.primary_contest = {
-    contest_id: '1002',
-    contest_key: 'cfb:1002',
-    selection_reason: 'conflict-for-test',
-    selected_at: '2026-10-03T20:48:31Z',
+describe('hot and cold markers', () => {
+  function playersTable() {
+    return screen.getByRole('table', { name: /players/i })
   }
 
-  await renderLive(snapshot)
-  expect(screen.getByText(new RegExp(`contest id: ${primary.contest_id}`, 'i'))).toBeInTheDocument()
-  expect(screen.queryByText(/contest id: 1002/i)).not.toBeInTheDocument()
-})
-
-it('renders threat metrics from the producer snapshot', async () => {
-  const snapshot = load()
-  contestOf(snapshot).metrics.threat.top_swing_players[0].vip_count = 2
-  await renderLive(snapshot)
-  const threat = panel(/threat & leverage/i)
-  const swingCard = within(threat).getByText(/Ousmane Kromah/i).closest('li')
-  if (!swingCard) throw new Error('Swing card not found')
-  expect(within(swingCard).getByText(/VIP x2/i)).toBeInTheDocument()
-})
-
-it('renders vip_vs_field_leverage rows when the feed provides them', async () => {
-  const snapshot = load()
-  contestOf(snapshot).metrics.threat.vip_vs_field_leverage = [
-    { display_name: 'Leverage Fixture VIP', vip_remaining_pct: 11.11, field_remaining_pct: 4.56, uniqueness_delta_pct: 6.55 },
-  ]
-
-  await renderLive(snapshot)
-  const leverage = panel(/vip vs field leverage/i, '.panel-subtle')
-  const rows = within(within(leverage).getByRole('table')).getAllByRole('row')
-  expect(within(rows[1]).getByText(/Leverage Fixture VIP/i)).toBeInTheDocument()
-})
-
-it('shows unavailable threat state when metrics are missing', async () => {
-  await renderLive(load(), 'mlb')
-  expect(screen.getByText(/threat metrics unavailable for this contest/i)).toBeInTheDocument()
-})
-
-it('renders ownership watchlist total and respects top_n_default', async () => {
-  const snapshot = load()
-  const watchlist = contestOf(snapshot).ownership_watchlist
-  watchlist.top_n_default = 1
-
-  await renderLive(snapshot)
-  expect(screen.getByText(/ownership remaining total:/i)).toBeInTheDocument()
-  expect(screen.getByText(/^top 1$/i)).toBeInTheDocument()
-  const leaders = panel(/^ownership leaders$/i, '.panel-subtle')
-  expect(within(within(leaders).getByRole('table')).getAllByRole('row')).toHaveLength(2)
-})
-
-it('renders ownership summary cards from metrics using stable per-vip keys', async () => {
-  const snapshot = load()
-  addVip(snapshot)
-  contestOf(snapshot).metrics.ownership_summary = {
-    source: 'vip_lineup_players',
-    scope: 'vip_lineup',
-    per_vip: [
-      { entry_key: VIP_KEY, total_ownership_pct: 189.78, ownership_in_play_pct: 116.06, is_partial: false },
-      { display_name: VIP_NAME, total_ownership_pct: 999.99, ownership_in_play_pct: 999.99, is_partial: true },
-    ],
+  function playerRow(name: string) {
+    return within(playersTable()).getByRole('row', { name: new RegExp(name) })
   }
 
-  await renderLive(snapshot)
-  const summaryTable = within(panel(/vip ownership summary/i, '.panel-subtle')).getByRole('table')
-  const rows = within(summaryTable).getAllByRole('row')
-  expect(rows).toHaveLength(2)
-  expect(within(rows[1]).getByText(VIP_NAME)).toBeInTheDocument()
-  expect(within(rows[1]).getByText('189.78%')).toBeInTheDocument()
-  expect(within(summaryTable).queryByText('999.99%')).not.toBeInTheDocument()
-})
-
-it('shows the feed-not-provided state for metrics the feed omits', async () => {
-  await renderLive(load(), 'mlb')
-  expect(screen.getAllByText(/the feed does not provide this metric yet/i).length).toBeGreaterThan(0)
-})
-
-it('shows ownership summary empty state when summary rows do not match VIP keys', async () => {
-  const snapshot = load()
-  addVip(snapshot)
-  contestOf(snapshot).metrics.ownership_summary = {
-    source: 'vip_lineup_players',
-    scope: 'vip_lineup',
-    per_vip: [{ entry_key: 'non-matching-entry-key', total_ownership_pct: 10.5, ownership_in_play_pct: 4.2 }],
+  /** A lineup player card: the list item holding the player's name. */
+  function lineupCard(name: string) {
+    const card = screen.getByText(name, { selector: 'li *' }).closest('li')
+    if (!(card instanceof HTMLElement)) throw new Error(`No lineup card for ${name}`)
+    return within(card)
   }
 
-  await renderLive(snapshot)
-  expect(screen.getByText(/no ownership summary rows available for VIP lineups/i)).toBeInTheDocument()
-})
-
-it('renders non-cashing panel with users, avg PMR, and top remaining players', async () => {
-  const snapshot = load()
-  contestOf(snapshot).metrics.non_cashing = {
-    users_not_cashing: 109,
-    avg_pmr_remaining: 342.83,
-    top_remaining_players: [
-      { player_name: 'Jalen Johnson', ownership_remaining_pct: 92.66 },
-      { player_name: 'Javon Small', ownership_remaining_pct: 88.99 },
-    ],
+  function iconSnapshot(): Json {
+    const snapshot = load()
+    setPlayers(snapshot, [
+      { name: 'Hot Guy', value_icon: 'fire' },
+      { name: 'Cold Guy', value_icon: 'ice' },
+      { name: 'Plain Guy' },
+    ])
+    setVips(snapshot, [
+      {
+        key: 'vip-a',
+        name: 'First VIP',
+        liveRows: [
+          { slot: 'QB', player_name: 'Hot Guy', game_status: 'In-Progress', value_icon: 'fire' },
+          { slot: 'RB', player_name: 'Cold Guy', game_status: 'In-Progress', value_icon: 'ice' },
+          { slot: 'WR', player_name: 'Plain Guy', game_status: 'In-Progress' },
+        ],
+      },
+    ])
+    setTrains(snapshot, [{ id: 'train-1', size: 9, players: ['Hot Guy', 'Cold Guy', 'Plain Guy'] }])
+    return snapshot
   }
 
-  await renderLive(snapshot)
-  const nonCashing = panel(/non-cashing info/i)
-  expect(within(nonCashing).getByText(/entries not cashing:\s*109/i)).toBeInTheDocument()
-  expect(within(nonCashing).getByText(/avg pmr remaining:\s*342.8$/i)).toBeInTheDocument()
-  expect(within(nonCashing).getByText(/top remaining players/i)).toBeInTheDocument()
-  expect(within(nonCashing).getByText('Jalen Johnson')).toBeInTheDocument()
-  expect(within(nonCashing).getByText('92.66%')).toBeInTheDocument()
+  it('marks players in the Players table with the DraftKings icon the feed provides', async () => {
+    await renderLive(iconSnapshot())
+
+    expect(within(playerRow('Hot Guy')).getByRole('img', { name: /hot/i })).toHaveTextContent('🔥')
+    expect(within(playerRow('Cold Guy')).getByRole('img', { name: /cold/i })).toHaveTextContent('❄️')
+    expect(within(playerRow('Plain Guy')).queryByRole('img')).not.toBeInTheDocument()
+  })
+
+  it('marks VIP lineup players with the icon the feed provides', async () => {
+    await renderLive(iconSnapshot(), '/live/cfb?view=vips')
+
+    expect(lineupCard('Hot Guy').getByRole('img', { name: /hot/i })).toHaveTextContent('🔥')
+    expect(lineupCard('Cold Guy').getByRole('img', { name: /cold/i })).toHaveTextContent('❄️')
+    expect(lineupCard('Plain Guy').queryByRole('img')).not.toBeInTheDocument()
+  })
+
+  it('marks Train lineup players with the icon from the player pool', async () => {
+    await renderLive(iconSnapshot(), '/live/cfb?view=trains')
+
+    expect(lineupCard('Hot Guy').getByRole('img', { name: /hot/i })).toHaveTextContent('🔥')
+    expect(lineupCard('Cold Guy').getByRole('img', { name: /cold/i })).toHaveTextContent('❄️')
+    expect(lineupCard('Plain Guy').queryByRole('img')).not.toBeInTheDocument()
+  })
+
+  it('shows no markers anywhere when the feed provides no value icon', async () => {
+    const snapshot = load()
+    setVips(snapshot, [{ key: 'vip-a', name: 'First VIP', players: ['Ashton Daniels', 'Ousmane Kromah'] }])
+
+    for (const path of ['/live/cfb', '/live/cfb?view=vips', '/live/cfb?view=trains']) {
+      await renderLive(snapshot, path)
+      expect(document.body.textContent).not.toMatch(/🔥|❄️/)
+      expect(screen.queryByRole('img', { name: /hot|cold/i })).not.toBeInTheDocument()
+      cleanup()
+    }
+  })
 })
 
-it('renders avg salary per player remaining from live metrics', async () => {
-  const snapshot = load()
-  contestOf(snapshot).live_metrics.avg_salary_per_player_remaining = 6158
-
-  await renderLive(snapshot)
-  const nonCashing = panel(/non-cashing info/i)
-  expect(within(nonCashing).getByText('$6,158')).toBeInTheDocument()
-  expect(within(nonCashing).getByRole('heading', { name: /avg salary per player remaining/i })).toBeInTheDocument()
-})
-
-it('shows non-cashing empty top-player state when list is present but empty', async () => {
-  const snapshot = load()
-  contestOf(snapshot).metrics.non_cashing = { users_not_cashing: 0, avg_pmr_remaining: 0, top_remaining_players: [] }
-
-  await renderLive(snapshot)
-  expect(within(panel(/non-cashing info/i)).getByText(/no top remaining players available/i)).toBeInTheDocument()
-})
-
-it('shows non-cashing top-player unavailable state when section exists but list is missing', async () => {
-  const snapshot = load()
-  contestOf(snapshot).metrics.non_cashing = { users_not_cashing: 7, avg_pmr_remaining: 123.45 }
-
-  await renderLive(snapshot)
-  expect(
-    within(panel(/non-cashing info/i)).getByText(/top remaining players unavailable for this contest/i),
-  ).toBeInTheDocument()
-})
-
-it('shows unavailable placeholders when sections are missing', async () => {
-  const snapshot = load()
-  const contest = contestOf(snapshot)
-  delete contest.ownership_watchlist
-  delete contest.train_clusters
-  delete contest.standings
-
-  await renderLive(snapshot)
-  expect(screen.getByText(/^ownership leaders unavailable for this contest\.$/i)).toBeInTheDocument()
-  expect(screen.getByText(/standings unavailable for this contest/i)).toBeInTheDocument()
-  expect(screen.queryByText(/cluster/i)).not.toBeInTheDocument()
-})
-
-it('renders standings table from the producer snapshot', async () => {
-  await renderLive(load())
-  const standings = panel(/^standings$/i)
-  expect(within(standings).getByText('Rows: 35')).toBeInTheDocument()
-  expect(within(standings).getByText('bruc0074')).toBeInTheDocument()
-  expect(within(within(standings).getByRole('table')).getAllByRole('row')).toHaveLength(1 + 35)
-})
-
-it('shows empty state when standings array has no rows', async () => {
-  const snapshot = load()
-  contestOf(snapshot).standings = []
-
-  await renderLive(snapshot)
-  expect(screen.getByText(/no standings rows available/i)).toBeInTheDocument()
-  expect(screen.queryByText(/standings unavailable for this contest/i)).not.toBeInTheDocument()
-})
-
-it('does not accept the pre-v3 standings object shape', async () => {
-  const snapshot = load()
-  contestOf(snapshot).standings = {
-    updated_at: '2026-10-03T20:48:31Z',
-    rows: [{ entry_key: 'old-row', display_name: 'Old Row', rank: 1, points: 10 }],
+describe('Leverage panel', () => {
+  function section(name: string) {
+    return within(screen.getByRole('region', { name }))
   }
 
-  await renderLive(snapshot)
-  expect(screen.queryByText('Old Row')).not.toBeInTheDocument()
-  expect(screen.getByText(/no standings rows available/i)).toBeInTheDocument()
-})
-
-it('shows payout only for paid standings rows', async () => {
-  const snapshot = load()
-  contestOf(snapshot).standings = [
-    { entry_key: 'row-paid', username: 'Paid Row', rank: 1, points: 99.5, pmr: 2, ownership_remaining_total_pct: 15, payout_cents: 1234 },
-    { entry_key: 'row-null', username: 'Null Row', rank: 2, points: 88.5, pmr: 3, ownership_remaining_total_pct: 25, payout_cents: null },
-  ]
-
-  await renderLive(snapshot)
-  const rows = within(within(panel(/^standings$/i)).getByRole('table')).getAllByRole('row')
-  expect(within(rows[1]).getByText('Paid Row')).toBeInTheDocument()
-  expect(within(rows[1]).getByText('15%')).toBeInTheDocument()
-  expect(within(rows[1]).getByText('12.34')).toBeInTheDocument()
-  expect(within(rows[2]).getByText('Null Row')).toBeInTheDocument()
-  expect(within(rows[2]).getByText('—')).toBeInTheDocument()
-})
-
-function pool(overrides: Json[] = []) {
-  return overrides.map((row, index) => ({
-    player_key: `test:${index}`,
-    team: 'FSU',
-    position: 'QB',
-    roster_positions: ['QB'],
-    matchup: 'vs. MIZZ',
-    salary: 5000,
-    ownership_pct: 0,
-    fantasy_points: 0,
-    value: 0,
-    game_status: 'In-Progress',
-    ...row,
-  }))
-}
-
-/** The Players view table (the player pool moved there from its own section, #23). */
-function playersTable() {
-  return screen.getByRole('table', { name: /players/i })
-}
-
-function playerRow(name: string) {
-  const row = within(playersTable()).getByText(name).closest('tr')
-  if (!(row instanceof HTMLTableRowElement)) throw new Error(`${name} row not found`)
-  return row
-}
-
-it('renders player pool with search and default ownership-first sort', async () => {
-  const snapshot = load()
-  setPlayers(snapshot, pool([
-    { name: 'Low Own', ownership_pct: 10, fantasy_points: 40 },
-    { name: 'High Own', ownership_pct: 30, fantasy_points: 20 },
-  ]))
-
-  await renderLive(snapshot)
-  expect(within(within(playersTable()).getAllByRole('row')[1]).getByText('High Own')).toBeInTheDocument()
-
-  fireEvent.change(screen.getByLabelText(/search player/i), { target: { value: 'Low Own' } })
-  expect(within(playersTable()).getByText('Low Own')).toBeInTheDocument()
-  expect(within(playersTable()).queryByText('High Own')).not.toBeInTheDocument()
-})
-
-it('filters irrelevant players using ownership, points, and value signals', async () => {
-  const snapshot = load()
-  setPlayers(snapshot, pool([
-    { name: 'Hidden Player' },
-    { name: 'Points Signal', fantasy_points: 1 },
-    { name: 'Ownership Signal', ownership_pct: 2 },
-    { name: 'Value Signal', value: 1 },
-  ]))
-
-  await renderLive(snapshot)
-  expect(within(playersTable()).queryByText('Hidden Player')).not.toBeInTheDocument()
-  expect(within(playersTable()).getByText('Points Signal')).toBeInTheDocument()
-  expect(within(playersTable()).getByText('Ownership Signal')).toBeInTheDocument()
-  expect(within(playersTable()).getByText('Value Signal')).toBeInTheDocument()
-})
-
-it('trims ownership precision to two decimals for player pool rows', async () => {
-  const snapshot = load()
-  setPlayers(snapshot, pool([{ name: 'Precision Pool', ownership_pct: 26.97999999999997, fantasy_points: 10, value: 4 }]))
-
-  await renderLive(snapshot)
-  expect(within(playerRow('Precision Pool')).getByRole('cell', { name: '26.98%' })).toBeInTheDocument()
-})
-
-it('renders player board parity columns position salary ownership points value', async () => {
-  const snapshot = load()
-  setPlayers(snapshot, pool([
-    {
-      name: 'Parity Player',
-      position: 'QB',
-      roster_positions: ['QB', 'S-FLEX'],
-      salary: 5100,
-      ownership_pct: 2.92,
-      fantasy_points: 12.75,
-      value: 2.5,
-    },
-  ]))
-
-  await renderLive(snapshot)
-  const table = within(playersTable())
-  for (const name of [/^pos$/i, /^player$/i, /^game$/i, /^salary$/i, /^own$/i, /^pts$/i, /^value$/i, /^vips$/i]) {
-    expect(table.getByRole('columnheader', { name })).toBeInTheDocument()
+  /** "Unfinished, most owned — vs <focused lineup>" */
+  function swingSubtitle() {
+    return section('Swing players').getByText(/unfinished, most owned/i)
   }
-  const row = within(playerRow('Parity Player'))
-  expect(row.getByRole('cell', { name: 'QB' })).toBeInTheDocument()
-  expect(row.getByRole('cell', { name: '$5,100' })).toBeInTheDocument()
-  expect(row.getByRole('cell', { name: '2.92%' })).toBeInTheDocument()
-  expect(row.getByRole('cell', { name: '12.75' })).toBeInTheDocument()
-  expect(row.getByRole('cell', { name: '2.5' })).toBeInTheDocument()
+
+  function swingRow(name: string) {
+    const row = section('Swing players').getByText(name).closest('li')
+    if (!(row instanceof HTMLElement)) throw new Error(`No swing row for ${name}`)
+    return row
+  }
+
+  // cfb swing players (most owned first): Ousmane Kromah, Duce Robinson, Cayden Lee, Jeremiah Smith, ...
+  const FIRST: VipSpec = { key: 'vip-a', name: 'First VIP', players: ['Ousmane Kromah', 'Cayden Lee'], ownLeft: 210.25 }
+  const SECOND: VipSpec = { key: 'vip-b', name: 'Second VIP', players: ['Duce Robinson'], ownLeft: 95.5 }
+
+  function withVips(): Json {
+    const snapshot = load()
+    setVips(snapshot, [FIRST, SECOND])
+    return snapshot
+  }
+
+  describe('placement', () => {
+    it('sits beside the main area on tablet and desktop, with its three sections', async () => {
+      await renderLive(load())
+
+      const aside = within(screen.getByRole('complementary', { name: /leverage/i }))
+      for (const name of ['Swing players', 'Leverage vs field', 'Ownership leaders']) {
+        expect(aside.getByRole('heading', { name })).toBeInTheDocument()
+      }
+      expect(screen.getByRole('table', { name: /players/i })).toBeInTheDocument()
+    })
+
+    it('fills the main area once, when a link opens the Leverage view on a wide screen', async () => {
+      await renderLive(load(), '/live/cfb?view=leverage')
+
+      expect(screen.getAllByRole('heading', { name: 'Swing players' })).toHaveLength(1)
+      expect(screen.queryByRole('table', { name: /players/i })).not.toBeInTheDocument()
+    })
+
+    it('is its own tab on phones and stays off the other tabs', async () => {
+      stubPhone()
+      await renderLive(load())
+
+      expect(screen.queryByRole('heading', { name: 'Swing players' })).not.toBeInTheDocument()
+      fireEvent.click(within(screen.getByRole('navigation', { name: /live tabs/i })).getByRole('link', { name: 'Leverage' }))
+
+      expect(screen.getByRole('heading', { name: 'Swing players' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Leverage vs field' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Ownership leaders' })).toBeInTheDocument()
+      expect(screen.queryByRole('table', { name: /players/i })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('swing players', () => {
+    it('lists the most-owned unfinished players with their ownership remaining', async () => {
+      await renderLive(load())
+
+      const names = section('Swing players')
+        .getAllByRole('listitem')
+        .map((row) => row.textContent)
+      expect(names[0]).toMatch(/Ousmane Kromah.*79\.11%/)
+      expect(names[1]).toMatch(/Duce Robinson.*74\.68%/)
+      expect(names).toHaveLength(10)
+    })
+
+    it('marks each HAVE or FADE against the first VIP by default', async () => {
+      await renderLive(withVips())
+
+      expect(swingSubtitle()).toHaveTextContent('vs First VIP')
+      expect(swingRow('Ousmane Kromah')).toHaveTextContent('HAVE')
+      expect(swingRow('Cayden Lee')).toHaveTextContent('HAVE')
+      expect(swingRow('Duce Robinson')).toHaveTextContent('FADE')
+    })
+
+    it('follows the VIP in focus on the VIPs view', async () => {
+      await renderLive(withVips(), '/live/cfb?view=vips&vip=vip-b')
+
+      expect(swingSubtitle()).toHaveTextContent('vs Second VIP')
+      expect(swingRow('Duce Robinson')).toHaveTextContent('HAVE')
+      expect(swingRow('Ousmane Kromah')).toHaveTextContent('FADE')
+    })
+
+    it('keeps following the VIP named in the link on the Players view', async () => {
+      await renderLive(withVips(), '/live/cfb?vip=vip-b')
+
+      expect(swingRow('Duce Robinson')).toHaveTextContent('HAVE')
+    })
+
+    it('follows the Train in focus on the Trains view', async () => {
+      const snapshot = withVips()
+      setTrains(snapshot, [
+        { id: 'big', size: 19, players: ['Jeremiah Smith', 'Duce Robinson'] },
+        { id: 'small', size: 3, players: ['Matt Fuller'] },
+      ])
+      await renderLive(snapshot, '/live/cfb?view=trains&vip=vip-a')
+
+      expect(swingSubtitle()).toHaveTextContent('vs ×19 train')
+      expect(swingRow('Jeremiah Smith')).toHaveTextContent('HAVE')
+      expect(swingRow('Duce Robinson')).toHaveTextContent('HAVE')
+      expect(swingRow('Ousmane Kromah')).toHaveTextContent('FADE')
+
+      fireEvent.click(within(screen.getByRole('navigation', { name: /live views/i })).getByRole('link', { name: /×3/ }))
+      expect(swingRow('Matt Fuller')).toHaveTextContent('HAVE')
+      expect(swingRow('Jeremiah Smith')).toHaveTextContent('FADE')
+    })
+
+    it('lists swing players without HAVE or FADE when there is no lineup to compare with', async () => {
+      await renderLive(load())
+
+      expect(swingRow('Ousmane Kromah')).not.toHaveTextContent(/HAVE|FADE/)
+      expect(swingSubtitle()).not.toHaveTextContent(/vs /)
+    })
+
+    it('says swing players are unavailable when the feed has no threat metrics', async () => {
+      await renderLive(load(), '/live/mlb')
+
+      expect(section('Swing players').getByText('Swing players are unavailable for this contest.')).toBeInTheDocument()
+    })
+
+    it('says there are none for a present but empty list', async () => {
+      const snapshot = load()
+      contestOf(snapshot).metrics.threat.top_swing_players = []
+      await renderLive(snapshot)
+
+      expect(section('Swing players').getByText('No swing players right now.')).toBeInTheDocument()
+      expect(section('Swing players').queryByText(/unavailable/i)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('leverage vs field', () => {
+    it("compares each VIP's ownership remaining with the field average", async () => {
+      await renderLive(withVips())
+
+      const leverage = section('Leverage vs field')
+      expect(leverage.getByRole('group', { name: 'First VIP' })).toHaveTextContent('210.25%')
+      expect(leverage.getByRole('group', { name: 'Second VIP' })).toHaveTextContent('95.5%')
+      expect(leverage.getByText('Field avg remaining 146.47%')).toBeInTheDocument()
+    })
+
+    it('says a VIP ownership remaining is unavailable when the feed omits it', async () => {
+      const snapshot = load()
+      setVips(snapshot, [{ key: 'vip-a', name: 'First VIP', players: [] }])
+      await renderLive(snapshot)
+
+      expect(section('Leverage vs field').getByRole('group', { name: 'First VIP' })).toHaveTextContent('Unavailable')
+    })
+
+    it('says the field average is unavailable when the feed gives none', async () => {
+      const snapshot = withVips()
+      delete contestOf(snapshot).ownership_watchlist
+      await renderLive(snapshot)
+
+      const leverage = section('Leverage vs field')
+      expect(leverage.getByText('Field average unavailable.')).toBeInTheDocument()
+      expect(leverage.getByRole('group', { name: 'First VIP' })).toHaveTextContent('210.25%')
+    })
+
+    it('says no VIPs are tracked when there are none', async () => {
+      await renderLive(load())
+
+      expect(section('Leverage vs field').getByText('No VIPs to compare with the field.')).toBeInTheDocument()
+    })
+  })
+
+  describe('ownership leaders', () => {
+    function leaderRows() {
+      return section('Ownership leaders').getAllByRole('row').slice(1)
+    }
+
+    it('lists the leaders with rank, PMR and rounded points', async () => {
+      await renderLive(load())
+
+      const leaders = section('Ownership leaders')
+      for (const name of [/rank/i, /entry/i, /pmr/i, /pts/i]) {
+        expect(leaders.getByRole('columnheader', { name })).toBeInTheDocument()
+      }
+      expect(leaderRows()).toHaveLength(10)
+      expect(within(leaderRows()[0]).getAllByRole('cell').map((cell) => cell.textContent)).toEqual([
+        '#142',
+        'bruc0074',
+        '231.8',
+        '113.18',
+      ])
+    })
+
+    it("respects the producer's top_n_default", async () => {
+      const snapshot = load()
+      contestOf(snapshot).ownership_watchlist.top_n_default = 3
+      await renderLive(snapshot)
+
+      expect(leaderRows()).toHaveLength(3)
+    })
+
+    it('says there are none for a present but empty list, never "watchlist"', async () => {
+      const snapshot = load()
+      contestOf(snapshot).ownership_watchlist.entries = []
+      await renderLive(snapshot)
+
+      expect(section('Ownership leaders').getByText('No ownership leaders yet.')).toBeInTheDocument()
+      expect(document.body.textContent).not.toMatch(/watchlist/i)
+    })
+
+    it('says the leaders are unavailable when the contest has none', async () => {
+      const snapshot = load()
+      delete contestOf(snapshot).ownership_watchlist
+      await renderLive(snapshot)
+
+      expect(section('Ownership leaders').getByText('Ownership leaders are unavailable for this contest.')).toBeInTheDocument()
+    })
+  })
 })
 
-it('falls back to roster_positions when position is missing', async () => {
-  const snapshot = load()
-  setPlayers(snapshot, pool([{ name: 'Roster Only', position: undefined, roster_positions: ['RB', 'S-FLEX'], ownership_pct: 5 }]))
+describe('the producer snapshot', () => {
+  it('renders the missing-metrics sport in plain language, with no developer notes', async () => {
+    await renderLive(load(), '/live/mlb')
 
-  await renderLive(snapshot)
-  expect(within(playerRow('Roster Only')).getByRole('cell', { name: 'RB/S-FLEX' })).toBeInTheDocument()
+    const bar = within(screen.getByRole('banner'))
+    expect(bar.getByText('MLB Single Entry $5 Double Up')).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: /players/i })).toBeInTheDocument()
+    expect(screen.getByText('Swing players are unavailable for this contest.')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Ownership leaders' })).getAllByRole('row').length).toBeGreaterThan(1)
+    expectNoDeveloperDetails()
+  })
+
+  it('shows no internal identifiers or developer notes on any view', async () => {
+    const snapshot = load()
+    setVips(snapshot, [{ key: 'vip-a', name: 'First VIP', players: ['Ashton Daniels'] }])
+
+    for (const path of ['/live/cfb', '/live/cfb?view=vips', '/live/cfb?view=trains', '/live/cfb?view=leverage']) {
+      await renderLive(snapshot, path)
+      expectNoDeveloperDetails()
+      cleanup()
+    }
+  })
+
+  it('never says unknown for values the snapshot does not carry', async () => {
+    const snapshot = load()
+    snapshot.sports.cfb.primary_contest.selection_reason = {}
+    delete contestOf(snapshot).live_metrics.updated_at
+
+    await renderLive(snapshot)
+
+    expect(document.body.textContent).not.toMatch(/unknown/i)
+  })
+
+  it('follows a contest flagged is_primary over the configured key and id', async () => {
+    const snapshot = load()
+    const primary = contestOf(snapshot)
+    primary.is_primary = true
+    const decoy = structuredClone(primary)
+    decoy.is_primary = false
+    decoy.contest_id = '1002'
+    decoy.contest_key = 'cfb:1002'
+    decoy.name = 'Decoy Contest'
+    snapshot.sports.cfb.contests.push(decoy)
+    snapshot.sports.cfb.primary_contest.contest_id = '1002'
+    snapshot.sports.cfb.primary_contest.contest_key = 'cfb:1002'
+
+    await renderLive(snapshot)
+
+    const bar = within(screen.getByRole('banner'))
+    expect(bar.getByText('CFB Single Entry $25 Double Up')).toBeInTheDocument()
+    expect(bar.queryByText('Decoy Contest')).not.toBeInTheDocument()
+  })
 })
 
-it('renders player pool value badges from thresholds with unknown fallback', async () => {
-  const snapshot = load()
-  const base = { ownership_pct: 2.92, fantasy_points: 12.75 }
-  setPlayers(snapshot, pool([
-    { ...base, name: 'Tier Elite', value: 8, salary: 5100 },
-    { ...base, name: 'Tier Strong', value: 5, salary: 5200 },
-    { ...base, name: 'Tier Medium', value: 3, salary: 5300 },
-    { ...base, name: 'Tier Low', value: 2.9, salary: 5400 },
-    { ...base, name: 'Tier Unknown', value: '', salary: 5500 },
-  ]))
+describe('missing and empty sections', () => {
+  it('says each missing section is unavailable and still renders the rest', async () => {
+    const snapshot = load()
+    const contest = contestOf(snapshot)
+    delete contest.ownership_watchlist
+    delete contest.train_clusters
+    delete contest.standings
+    delete contest.metrics
 
-  await renderLive(snapshot)
-  expect(within(playerRow('Tier Elite')).getByText('8')).toBeInTheDocument()
-  expect(within(playerRow('Tier Strong')).getByText('5')).toBeInTheDocument()
-  expect(within(playerRow('Tier Medium')).getByText('3')).toBeInTheDocument()
-  expect(within(playerRow('Tier Low')).getByText('2.9')).toBeInTheDocument()
-  expect(within(playerRow('Tier Unknown')).getAllByRole('cell')[6]).toHaveTextContent('—')
+    await renderLive(snapshot)
+
+    expect(screen.getByRole('table', { name: /players/i })).toBeInTheDocument()
+    expect(screen.getByText('Swing players are unavailable for this contest.')).toBeInTheDocument()
+    expect(screen.getByText('Ownership leaders are unavailable for this contest.')).toBeInTheDocument()
+    const rail = within(screen.getByRole('navigation', { name: /live views/i }))
+    expect(rail.getByRole('link', { name: /trains/i })).toHaveTextContent(/unavailable/i)
+    expect(document.body.textContent).not.toMatch(/cluster/i)
+    expectNoDeveloperDetails()
+  })
+
+  it('renders trains without naming riders when the standings are empty', async () => {
+    const snapshot = load()
+    contestOf(snapshot).standings = []
+
+    await renderLive(snapshot, '/live/cfb?view=trains')
+
+    expect(screen.getByRole('heading', { name: /^×17/ })).toBeInTheDocument()
+    expect(screen.queryByText(/riding it/i)).not.toBeInTheDocument()
+  })
+
+  it('reads no rows from the pre-v3 standings object shape', async () => {
+    const snapshot = load()
+    contestOf(snapshot).standings = {
+      updated_at: '2026-10-03T20:48:31Z',
+      rows: [{ entry_key: 'old-row', username: 'Old Row', rank: 1, points: 10 }],
+    }
+
+    await renderLive(snapshot, '/live/cfb?view=trains')
+
+    expect(screen.getByRole('heading', { name: /^×17/ })).toBeInTheDocument()
+    expect(screen.queryByText(/old row/i)).not.toBeInTheDocument()
+  })
 })
 
-it("shows each player's team next to their name", async () => {
-  const snapshot = load()
-  setPlayers(snapshot, pool([
-    { name: 'Florida Player', team: 'FSU', ownership_pct: 1.25 },
-    { name: 'Missouri Player', team: 'MIZZ', ownership_pct: 1.25 },
-  ]))
+describe('Players table edge cases', () => {
+  function playersTable() {
+    return screen.getByRole('table', { name: /players/i })
+  }
 
-  await renderLive(snapshot)
-  expect(within(playerRow('Florida Player')).getByText('FSU')).toBeInTheDocument()
-  expect(within(playerRow('Missouri Player')).getByText('MIZZ')).toBeInTheDocument()
+  function playerRow(name: string) {
+    return within(playersTable()).getByRole('row', { name: new RegExp(name) })
+  }
+
+  it('drops players with no ownership, points or value', async () => {
+    const snapshot = load()
+    const zero = { ownership_pct: 0, fantasy_points: 0, value: 0 }
+    setPlayers(snapshot, [
+      { ...zero, name: 'Hidden Player' },
+      { ...zero, name: 'Points Signal', fantasy_points: 1 },
+      { ...zero, name: 'Ownership Signal', ownership_pct: 2 },
+      { ...zero, name: 'Value Signal', value: 1 },
+    ])
+
+    await renderLive(snapshot)
+
+    expect(within(playersTable()).queryByText('Hidden Player')).not.toBeInTheDocument()
+    for (const name of ['Points Signal', 'Ownership Signal', 'Value Signal']) {
+      expect(within(playersTable()).getByText(name)).toBeInTheDocument()
+    }
+  })
+
+  it('trims ownership to two decimals', async () => {
+    const snapshot = load()
+    setPlayers(snapshot, [{ name: 'Precision Pool', ownership_pct: 26.97999999999997 }])
+
+    await renderLive(snapshot)
+
+    expect(within(playerRow('Precision Pool')).getByRole('cell', { name: '26.98%' })).toBeInTheDocument()
+  })
+
+  it('falls back to roster positions when position is missing', async () => {
+    const snapshot = load()
+    setPlayers(snapshot, [{ name: 'Roster Only', position: undefined, roster_positions: ['RB', 'S-FLEX'] }])
+
+    await renderLive(snapshot)
+
+    expect(within(playerRow('Roster Only')).getByRole('cell', { name: 'RB/S-FLEX' })).toBeInTheDocument()
+  })
+
+  it('shows a dash for a value the feed does not give as a number', async () => {
+    const snapshot = load()
+    setPlayers(snapshot, [{ name: 'Tier Unknown', value: '' }])
+
+    await renderLive(snapshot)
+
+    expect(within(playerRow('Tier Unknown')).getAllByRole('cell')[6]).toHaveTextContent('—')
+  })
 })

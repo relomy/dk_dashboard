@@ -425,7 +425,11 @@ describe('lineup', () => {
     expect(within(group(/^yet to play/i)).getByText('Later Guy')).toBeInTheDocument()
     expect(within(group(/^done/i)).getByText('Finished Guy')).toBeInTheDocument()
     expect(within(group(/^done/i)).queryByText('Live Guy')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('region').map((region) => within(region).getByRole('heading').textContent)).toEqual(['Playing now · 1', 'Yet to play · 1', 'Done · 1'])
+    const groupHeadings = screen
+      .getAllByRole('region')
+      .map((region) => within(region).getByRole('heading').textContent)
+      .filter((heading) => /^(playing now|yet to play|done)/i.test(heading ?? ''))
+    expect(groupHeadings).toEqual(['Playing now · 1', 'Yet to play · 1', 'Done · 1'])
   })
 
   it('shows each player slot, points, projection, game clock, ownership, value and stat line', async () => {

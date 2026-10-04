@@ -1,6 +1,6 @@
 import { parseLineupSignature, type LineupSlot } from './lineup'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from './perVipKeys'
-import { buildPlayerPool, type PlayerPoolRow } from './playerPool'
+import { buildPlayerPool, readValueIcon, type PlayerPoolRow } from './playerPool'
 import type {
   Contest,
   ContestMetricsDistanceToCash,
@@ -8,13 +8,15 @@ import type {
   Player,
   Snapshot,
   SportSnapshot,
+  ValueIcon,
   VipLineup,
 } from './types'
 
 export type LiveNotRenderableReason =
+  | { kind: 'unsupported-schema'; version: number | null }
   | { kind: 'sport-missing' }
   | { kind: 'no-primary-contest' }
-  | { kind: 'primary-contest-missing'; contestKey: string; contestId: string }
+  | { kind: 'primary-contest-missing' }
 
 /**
  * A section the feed may omit. A missing object is `unavailable`; a present one is
@@ -30,10 +32,6 @@ function available<T>(data: T): Section<T> {
 
 export interface LiveContestHeader {
   name: string
-  contestKey: string
-  contestId: string
-  /** The producer's selection reason (a string, or the `mode` of the reason object); null when blank. */
-  selectionReason: string | null
 }
 
 export interface LiveCashLine {
@@ -99,6 +97,8 @@ export interface LiveLineupPlayer {
   clock: string | null
   ownershipPct: number | null
   value: number | null
+  /** DraftKings' hot/cold marker; null when the feed sends none. */
+  valueIcon: ValueIcon | null
   stats: string | null
 }
 
@@ -174,20 +174,10 @@ export interface LiveOwnershipLeader {
 }
 
 export interface LiveOwnershipLeaders {
-  totalPct: number | null
   /** The producer's `top_n_default`, or 10. */
   topN: number
   /** The first `topN` watchlist entries. */
   entries: LiveOwnershipLeader[]
-}
-
-export interface LiveOwnershipSummaryRow {
-  /** The per-VIP metric key the row was matched on. */
-  key: string
-  name: string
-  totalOwnershipPct: number | null
-  ownershipInPlayPct: number | null
-  partial: boolean
 }
 
 export interface LiveSwingPlayer {
@@ -199,27 +189,6 @@ export interface LiveSwingPlayer {
 
 export interface LiveThreat {
   swingPlayers: LiveSwingPlayer[]
-}
-
-export interface LiveLeverageRow {
-  key: string
-  /** Display name, then entry key. */
-  name: string | null
-  vipRemainingPct: number | null
-  fieldRemainingPct: number | null
-  uniquenessDeltaPct: number | null
-}
-
-export interface LiveLeverage {
-  /** Null when the feed lacks the field total. */
-  fieldRemaining: { pct: number; contestField: boolean; partial: boolean } | null
-  rows: LiveLeverageRow[]
-}
-
-export interface LiveNonCashing {
-  entriesNotCashing: number | null
-  avgPmrRemaining: number | null
-  topRemainingPlayers: Section<Array<{ name: string; ownershipRemainingPct: number | null }>>
 }
 
 /**
@@ -262,15 +231,16 @@ export interface LiveModel {
   pool: LivePoolPlayer[]
   /** Computed over the whole pool, before the relevance filter. */
   totalOwnership: LiveTotalOwnership
+  /**
+   * The field's average ownership remaining per entry: the ownership leaders total (the producer averages
+   * every standings row), else the threat metrics' field remaining figure; null when the feed gives neither.
+   */
+  fieldOwnershipRemainingPct: number | null
   trains: Section<LiveTrains>
   standings: Section<LiveStandingsRow[]>
   ownershipLeaders: Section<LiveOwnershipLeaders>
-  /** One row per VIP lineup with a matching per-VIP summary row. */
-  ownershipSummary: Section<LiveOwnershipSummaryRow[]>
+  /** Swing players from the threat metrics: the most-owned players whose games are not final. */
   threat: Section<LiveThreat>
-  leverage: Section<LiveLeverage>
-  nonCashing: Section<LiveNonCashing>
-  avgSalaryPerPlayerRemaining: Section<number>
 }
 
 export type LiveModelResult =
@@ -279,19 +249,6 @@ export type LiveModelResult =
 
 function numberOrNull(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
-function resolveSelectionReason(value: unknown): string | null {
-  if (typeof value === 'string' && value.trim()) {
-    return value
-  }
-  if (value && typeof value === 'object') {
-    const mode = (value as { mode?: unknown }).mode
-    if (typeof mode === 'string' && mode.trim()) {
-      return mode
-    }
-  }
-  return null
 }
 
 function notRenderable(reason: LiveNotRenderableReason): LiveModelResult {
@@ -348,6 +305,7 @@ function buildLineupPlayers(lineup: VipLineup): LiveLineupPlayer[] {
       clock: nonEmptyString(player.time_remaining_display) ?? nonEmptyString(player.game_status),
       ownershipPct: numberOrNull(player.ownership_pct),
       value: numberOrNull(player.value),
+      valueIcon: readValueIcon(player.value_icon),
       stats: nonEmptyString(player.stats_text),
     }))
   }
@@ -361,6 +319,7 @@ function buildLineupPlayers(lineup: VipLineup): LiveLineupPlayer[] {
     clock: null,
     ownershipPct: null,
     value: null,
+    valueIcon: null,
     stats: null,
   }))
 }
@@ -432,6 +391,7 @@ function buildTrainPlayers(lineup: LineupSlot[], poolByName: Map<string, Player>
       clock: nonEmptyString(player?.game_status),
       ownershipPct: numberOrNull(player?.ownership_pct),
       value: numberOrNull(player?.value),
+      valueIcon: readValueIcon(player?.value_icon),
       stats: null,
     }
   })
@@ -580,7 +540,6 @@ function buildOwnershipLeaders(contest: Contest): Section<LiveOwnershipLeaders> 
   }
   const topN = watchlist.top_n_default ?? 10
   return available({
-    totalPct: numberOrNull(watchlist.ownership_remaining_total_pct),
     topN,
     entries: watchlist.entries.slice(0, Math.max(0, topN)).map((entry, index) => ({
       key: entry.entry_key || `watch-${index}`,
@@ -591,28 +550,6 @@ function buildOwnershipLeaders(contest: Contest): Section<LiveOwnershipLeaders> 
       points: numberOrNull(entry.current_points),
     })),
   })
-}
-
-function buildOwnershipSummary(contest: Contest): Section<LiveOwnershipSummaryRow[]> {
-  const summary = contest.metrics?.ownership_summary
-  if (!summary) {
-    return UNAVAILABLE
-  }
-  const summaryByKey = buildPerVipIndex(summary.per_vip ?? [])
-  const rows: LiveOwnershipSummaryRow[] = []
-  for (const lineup of contest.vip_lineups) {
-    const key = resolveVipMetricMatchKey(lineup)
-    const row = key ? summaryByKey.get(key) : undefined
-    if (!key || !row) continue
-    rows.push({
-      key,
-      name: lineup.display_name,
-      totalOwnershipPct: lineupOwnershipOf(row),
-      ownershipInPlayPct: numberOrNull(row.ownership_in_play_pct),
-      partial: Boolean(row.is_partial),
-    })
-  }
-  return available(rows)
 }
 
 function buildThreat(contest: Contest): Section<LiveThreat> {
@@ -627,52 +564,6 @@ function buildThreat(contest: Contest): Section<LiveThreat> {
       ownershipRemainingPct: numberOrNull(player.ownership_remaining_pct ?? player.remaining_ownership_pct),
       vipCount: player.vip_count ?? 0,
     })),
-  })
-}
-
-function buildLeverage(contest: Contest): Section<LiveLeverage> {
-  const threat = contest.metrics?.threat
-  const leverage = threat?.vip_vs_field_leverage
-  if (!threat || !leverage) {
-    return UNAVAILABLE
-  }
-  const fieldPct = numberOrNull(threat.field_remaining_pct)
-  return available({
-    fieldRemaining:
-      fieldPct === null
-        ? null
-        : {
-            pct: fieldPct,
-            contestField: threat.field_remaining_scope === 'contest_field',
-            partial: Boolean(threat.field_remaining_is_partial),
-          },
-    rows: leverage.map((entry, index) => ({
-      key: entry.vip_entry_key ?? entry.entry_key ?? `${entry.display_name}-${index}`,
-      name: entry.display_name ?? entry.entry_key ?? null,
-      vipRemainingPct: numberOrNull(entry.vip_remaining_pct),
-      fieldRemainingPct: numberOrNull(entry.field_remaining_pct),
-      uniquenessDeltaPct: numberOrNull(entry.uniqueness_delta_pct),
-    })),
-  })
-}
-
-function buildNonCashing(contest: Contest): Section<LiveNonCashing> {
-  const nonCashing = contest.metrics?.non_cashing
-  if (!nonCashing) {
-    return UNAVAILABLE
-  }
-  const topRemaining: unknown = nonCashing.top_remaining_players
-  return available({
-    entriesNotCashing: numberOrNull(nonCashing.users_not_cashing),
-    avgPmrRemaining: numberOrNull(nonCashing.avg_pmr_remaining),
-    topRemainingPlayers: Array.isArray(topRemaining)
-      ? available(
-          (topRemaining as NonNullable<typeof nonCashing.top_remaining_players>).map((player) => ({
-            name: player.player_name,
-            ownershipRemainingPct: numberOrNull(player.ownership_remaining_pct),
-          })),
-        )
-      : UNAVAILABLE,
   })
 }
 
@@ -767,9 +658,13 @@ export function groupLineup(players: LiveLineupPlayer[]): LineupGroup[] {
   return groups.filter((group) => group.players.length > 0)
 }
 
-function buildAvgSalaryPerPlayerRemaining(contest: Contest): Section<number> {
-  const avgSalary = numberOrNull(contest.live_metrics?.avg_salary_per_player_remaining)
-  return avgSalary === null ? UNAVAILABLE : available(avgSalary)
+/**
+ * A swing player against the lineup in focus (a VIP, or a Train on the Trains view): HAVE when the
+ * lineup rosters them, FADE when it does not, matched by name; null without a focused lineup.
+ */
+export function haveOrFade(lineup: LiveLineupPlayer[] | null, playerName: string): 'have' | 'fade' | null {
+  if (!lineup) return null
+  return lineup.some((player) => player.name === playerName) ? 'have' : 'fade'
 }
 
 export type PoolSortKey = 'own' | 'points' | 'value' | 'salary' | 'name'
@@ -830,7 +725,13 @@ export function queryPool(
     })
 }
 
+/** The only snapshot schema the dashboard reads (ADR 0002). */
+export const SUPPORTED_SCHEMA_VERSION = 3
+
 export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelResult {
+  if (snapshot.schema_version !== SUPPORTED_SCHEMA_VERSION) {
+    return notRenderable({ kind: 'unsupported-schema', version: numberOrNull(snapshot.schema_version) })
+  }
   const sportData = snapshot.sports[sportKey]
   if (!sportData) {
     return notRenderable({ kind: 'sport-missing' })
@@ -841,11 +742,7 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
   }
   const contest = resolvePrimaryContest(sportData.contests, configured)
   if (!contest) {
-    return notRenderable({
-      kind: 'primary-contest-missing',
-      contestKey: configured.contest_key,
-      contestId: configured.contest_id,
-    })
+    return notRenderable({ kind: 'primary-contest-missing' })
   }
   const cashLine = contest.live_metrics?.cash_line
   const standings = buildStandings(contest)
@@ -855,25 +752,19 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
     model: {
       sport: sportKey,
       snapshotAt: snapshot.snapshot_at,
-      contest: {
-        name: contest.name,
-        contestKey: contest.contest_key,
-        contestId: contest.contest_id,
-        selectionReason: resolveSelectionReason(configured.selection_reason),
-      },
+      contest: { name: contest.name },
       fieldSize: numberOrNull(contest.entries_count) ?? numberOrNull(contest.max_entries),
       cashLine: { points: numberOrNull(cashLine?.points_cutoff), rank: numberOrNull(cashLine?.rank_cutoff) },
       vips: buildVips(contest, trains),
       pool: buildPool(sportData, contest),
       totalOwnership: buildTotalOwnership(sportData.players),
+      fieldOwnershipRemainingPct:
+        numberOrNull(contest.ownership_watchlist?.ownership_remaining_total_pct) ??
+        numberOrNull(contest.metrics?.threat?.field_remaining_pct),
       trains,
       standings,
       ownershipLeaders: buildOwnershipLeaders(contest),
-      ownershipSummary: buildOwnershipSummary(contest),
       threat: buildThreat(contest),
-      leverage: buildLeverage(contest),
-      nonCashing: buildNonCashing(contest),
-      avgSalaryPerPlayerRemaining: buildAvgSalaryPerPlayerRemaining(contest),
     },
   }
 }

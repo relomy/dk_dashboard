@@ -4,6 +4,7 @@ import { DASH } from '../../lib/format'
 import type { GameStatus } from '../../lib/liveModel'
 import { formatOwnership } from '../../lib/playerPool'
 import { classifyValueTier, type ValueTier } from '../../lib/playerPresentation'
+import type { ValueIcon } from '../../lib/types'
 import { vipColorClass, vipInitials } from './presentation'
 
 /** A small dot for a player's game status; it pulses while the game is in progress. */
@@ -145,5 +146,16 @@ export function Stat({ label, value, sub, tone }: { label: string; value: string
       <div className={cn('font-mono text-2xl font-semibold tabular-nums', tone)}>{value}</div>
       {sub ? <div className="text-[11px] text-muted-foreground">{sub}</div> : null}
     </div>
+  )
+}
+
+/** DraftKings' hot/cold marker, shown only when the feed provides one. */
+export function ValueIconMark({ icon, className }: { icon: ValueIcon | null; className?: string }) {
+  if (!icon) return null
+  const label = icon === 'fire' ? 'Hot (DraftKings)' : 'Cold (DraftKings)'
+  return (
+    <span role="img" aria-label={label} title={label} className={cn('shrink-0', className)}>
+      {icon === 'fire' ? '🔥' : '❄️'}
+    </span>
   )
 }

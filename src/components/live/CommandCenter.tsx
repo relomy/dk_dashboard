@@ -6,7 +6,7 @@ import { useIsPhone } from '../../hooks/useMediaQuery'
 import { formatPoints } from '../../lib/format'
 import type { LiveModel, LiveTrain, LiveVip } from '../../lib/liveModel'
 import TopBarSlot from '../TopBarSlot'
-import { LegacyLeverageSections, LegacySurface } from './LegacySections'
+import LeveragePanel, { type LeverageFocus } from './LeveragePanel'
 import { railTrains, resolveFocusedTrain, resolveFocusedVip, useLiveView, type LiveView } from './liveView'
 import PlayersView from './PlayersView'
 import { NoTrains, TrainChips, TrainRailRows, TrainView } from './TrainView'
@@ -111,9 +111,8 @@ function PhoneTabBar({ view, searchFor }: { view: LiveView; searchFor: (view: Li
 
 /**
  * The Live Command center: a rail (tablet and up) or bottom tab bar (phones) picks what fills
- * the main area, and the view (and focused VIP or Train) lives in the URL. Players is the default. Until
- * the redesigned Leverage view lands, it hosts today's sections; on tablet and desktop the
- * leverage sections sit beside (desktop) or below (tablet) the main area.
+ * the main area, and the view (and focused VIP or Train) lives in the URL. Players is the default.
+ * The Leverage panel sits beside (desktop) or below (tablet) the main area, and is its own tab on phones.
  */
 function CommandCenter({ model, title }: { model: LiveModel; title: ReactNode }) {
   const isPhone = useIsPhone()
@@ -124,6 +123,14 @@ function CommandCenter({ model, title }: { model: LiveModel; title: ReactNode })
   const listedTrains = trainRows ? railTrains(trainRows, focusedTrain) : []
   const vipHref = (vip: LiveVip) => searchFor('vips', { vip: vip.key })
   const trainHref = (train: LiveTrain) => searchFor('trains', { train: train.id })
+  // HAVE/FADE follow the focused Train on the Trains view and the focused VIP (the URL's, else the first) everywhere else.
+  const leverageFocus: LeverageFocus | null =
+    view === 'trains' && focusedTrain
+      ? { label: `×${focusedTrain.entries} train`, vipKey: null, lineup: focusedTrain.players }
+      : focusedVip
+        ? { label: focusedVip.name, vipKey: focusedVip.key, lineup: focusedVip.players }
+        : null
+  const leveragePanel = <LeveragePanel model={model} focus={leverageFocus} />
 
   const main =
     view === 'vips' ? (
@@ -145,9 +152,7 @@ function CommandCenter({ model, title }: { model: LiveModel; title: ReactNode })
         <NoTrains unavailable={trainRows === null} />
       )
     ) : view === 'leverage' ? (
-      <LegacySurface>
-        <LegacyLeverageSections model={model} />
-      </LegacySurface>
+      leveragePanel
     ) : (
       <PlayersView model={model} isPhone={isPhone} vipHref={(key) => searchFor('vips', { vip: key })} />
     )
@@ -205,9 +210,7 @@ function CommandCenter({ model, title }: { model: LiveModel; title: ReactNode })
             aria-label="Leverage"
             className="min-w-0 border-t p-4 md:col-span-2 xl:col-span-1 xl:overflow-y-auto xl:border-t-0 xl:border-l"
           >
-            <LegacySurface>
-              <LegacyLeverageSections model={model} />
-            </LegacySurface>
+            {leveragePanel}
           </aside>
         )}
       </div>
