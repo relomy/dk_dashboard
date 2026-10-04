@@ -42,7 +42,7 @@ function SwingPlayers({ model, focus }: { model: LiveModel; focus: LeverageFocus
           </>
         ) : null}
       </p>
-      {threat.status === 'unavailable' ? (
+      {threat.availability === 'unavailable' ? (
         <Note>Swing players are unavailable for this contest.</Note>
       ) : threat.data.swingPlayers.length === 0 ? (
         <Note>No swing players right now.</Note>
@@ -137,7 +137,7 @@ function OwnershipLeaders({ model }: { model: LiveModel }) {
   const leaders = model.ownershipLeaders
   return (
     <PanelSection title="Ownership leaders">
-      {leaders.status === 'unavailable' ? (
+      {leaders.availability === 'unavailable' ? (
         <Note>Ownership leaders are unavailable for this contest.</Note>
       ) : leaders.data.entries.length === 0 ? (
         <Note>No ownership leaders yet.</Note>

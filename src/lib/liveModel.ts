@@ -21,13 +21,14 @@ export type LiveNotRenderableReason =
 /**
  * A section the feed may omit. A missing object is `unavailable`; a present one is
  * `available`, and a present but empty list inside it is the section's empty state.
+ * The discriminant is `availability`, not `status`: Status means data freshness (CONTEXT.md).
  */
-export type Section<T> = { status: 'unavailable' } | { status: 'available'; data: T }
+export type Section<T> = { availability: 'unavailable' } | { availability: 'available'; data: T }
 
-const UNAVAILABLE = { status: 'unavailable' } as const
+const UNAVAILABLE = { availability: 'unavailable' } as const
 
 function available<T>(data: T): Section<T> {
-  return { status: 'available', data }
+  return { availability: 'available', data }
 }
 
 export interface LiveContestHeader {
@@ -384,7 +385,7 @@ function lineupSlotCount(lineup: VipLineup): number {
 
 /** The train a VIP shares the most players with (ties: the larger train), if that reaches the notice threshold. */
 function closestTrain(trains: Section<LiveTrains>, vipIndex: number, slotCount: number): LiveVipTrainOverlap | null {
-  if (trains.status !== 'available') return null
+  if (trains.availability !== 'available') return null
   let best: { train: LiveTrain; shared: number } | null = null
   for (const train of trains.data.rows) {
     const shared = train.vipOverlaps[vipIndex]?.shared ?? 0
@@ -437,7 +438,7 @@ function buildTrains(
   }
 
   const namesByEntryKey = new Map<string, string>()
-  if (standings.status === 'available') {
+  if (standings.availability === 'available') {
     for (const row of standings.data) {
       if (row.name !== null) namesByEntryKey.set(row.key, row.name)
     }

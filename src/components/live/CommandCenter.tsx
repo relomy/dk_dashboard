@@ -111,7 +111,7 @@ function PhoneTabBar({ view, searchFor }: { view: LiveView; searchFor: (view: Li
 function CommandCenter({ model, title }: { model: LiveModel; title: ReactNode }) {
   const isPhone = useIsPhone()
   const { view, vipKey, trainId, searchFor } = useLiveView()
-  const trainRows = model.trains.status === 'available' ? model.trains.data.rows : null
+  const trainRows = model.trains.availability === 'available' ? model.trains.data.rows : null
   const focusedVip = resolveFocusedVip(model.vips, vipKey)
   const focusedTrain = trainRows ? resolveFocusedTrain(trainRows, trainId) : null
   const listedTrains = trainRows ? railTrains(trainRows, focusedTrain) : []

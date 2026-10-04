@@ -509,7 +509,7 @@ describe('lineup grouping', () => {
 describe('trains', () => {
   function trainsOf(snapshot: unknown, sport = 'cfb') {
     const trains = modelOf(snapshot, sport).trains
-    if (trains.status !== 'available') throw new Error('Expected trains to be available')
+    if (trains.availability !== 'available') throw new Error('Expected trains to be available')
     return trains.data
   }
 
@@ -745,7 +745,7 @@ describe('trains', () => {
     const snapshot = load()
     delete contestOf(snapshot).train_clusters
 
-    expect(modelOf(snapshot).trains).toEqual({ status: 'unavailable' })
+    expect(modelOf(snapshot).trains).toEqual({ availability: 'unavailable' })
   })
 
   it('is empty, not unavailable, when train_clusters is an empty list', () => {
@@ -759,7 +759,7 @@ describe('trains', () => {
     const snapshot = load()
     contestOf(snapshot).train_clusters = [null, 'invalid-row', { cluster_id: 123, user_count: 'x' }, { entry_keys: [42] }]
 
-    expect(modelOf(snapshot).trains).toEqual({ status: 'unavailable' })
+    expect(modelOf(snapshot).trains).toEqual({ availability: 'unavailable' })
   })
 
   it('does not accept the pre-v3 train_clusters object shape', () => {
@@ -769,14 +769,14 @@ describe('trains', () => {
       clusters: [{ cluster_key: 'old', entry_count: 9 }],
     }
 
-    expect(modelOf(snapshot).trains).toEqual({ status: 'unavailable' })
+    expect(modelOf(snapshot).trains).toEqual({ availability: 'unavailable' })
   })
 })
 
 describe('standings', () => {
   function standingsOf(snapshot: unknown) {
     const standings = modelOf(snapshot).standings
-    if (standings.status !== 'available') throw new Error('Expected standings to be available')
+    if (standings.availability !== 'available') throw new Error('Expected standings to be available')
     return standings.data
   }
 
@@ -825,7 +825,7 @@ describe('standings', () => {
     const snapshot = load()
     delete contestOf(snapshot).standings
 
-    expect(modelOf(snapshot).standings).toEqual({ status: 'unavailable' })
+    expect(modelOf(snapshot).standings).toEqual({ availability: 'unavailable' })
   })
 
   it('is empty, not unavailable, when standings is an empty list', () => {
@@ -846,7 +846,7 @@ describe('standings', () => {
 describe('ownership leaders', () => {
   function leadersOf(snapshot: unknown) {
     const leaders = modelOf(snapshot).ownershipLeaders
-    if (leaders.status !== 'available') throw new Error('Expected ownership leaders to be available')
+    if (leaders.availability !== 'available') throw new Error('Expected ownership leaders to be available')
     return leaders.data
   }
 
@@ -892,14 +892,14 @@ describe('ownership leaders', () => {
     const snapshot = load()
     delete contestOf(snapshot).ownership_watchlist
 
-    expect(modelOf(snapshot).ownershipLeaders).toEqual({ status: 'unavailable' })
+    expect(modelOf(snapshot).ownershipLeaders).toEqual({ availability: 'unavailable' })
   })
 })
 
 describe('swing players', () => {
   it('lists swing players from the canonical fixture', () => {
     const threat = modelOf(load()).threat
-    if (threat.status !== 'available') throw new Error('Expected threat to be available')
+    if (threat.availability !== 'available') throw new Error('Expected threat to be available')
 
     expect(threat.data.swingPlayers).toHaveLength(10)
     expect(threat.data.swingPlayers[0]).toEqual({
@@ -916,20 +916,20 @@ describe('swing players', () => {
 
     const threat = modelOf(snapshot).threat
     expect(threat).toEqual({
-      status: 'available',
+      availability: 'available',
       data: { swingPlayers: [{ key: 'Alt Field-0', name: 'Alt Field', ownershipRemainingPct: 12.5, vipCount: 0 }] },
     })
   })
 
   it('is unavailable for the missing-metrics fixture', () => {
-    expect(modelOf(load(), 'mlb').threat).toEqual({ status: 'unavailable' })
+    expect(modelOf(load(), 'mlb').threat).toEqual({ availability: 'unavailable' })
   })
 
   it('is empty, not unavailable, when the threat metrics list no swing players', () => {
     const snapshot = load()
     contestOf(snapshot).metrics.threat.top_swing_players = []
 
-    expect(modelOf(snapshot).threat).toEqual({ status: 'available', data: { swingPlayers: [] } })
+    expect(modelOf(snapshot).threat).toEqual({ availability: 'available', data: { swingPlayers: [] } })
   })
 
 })
@@ -1100,7 +1100,7 @@ describe('value icon', () => {
       { cluster_id: 't1', user_count: 3, rank: 1, lineup_signature: 'Hot Guy|Plain Guy|LOCKED 🔒' },
     ]
     const trains = modelOf(snapshot).trains
-    if (trains.status !== 'available') throw new Error('Expected trains')
+    if (trains.availability !== 'available') throw new Error('Expected trains')
 
     expect(trains.data.rows[0].players.map((player) => player.valueIcon)).toEqual(['fire', null, null])
   })
