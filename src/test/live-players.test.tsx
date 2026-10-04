@@ -287,7 +287,7 @@ describe('Players view', () => {
     fireEvent.click(within(playerRow('Rostered Guy')).getByRole('link', { name: 'First VIP' }))
 
     expect(location()).toBe('/live/cfb?view=vips&vip=vip-a')
-    expect(screen.getByRole('heading', { name: /vip board/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'First VIP' })).toBeInTheDocument()
     expect(screen.queryByRole('table', { name: /players/i })).not.toBeInTheDocument()
   })
 })
@@ -331,7 +331,7 @@ describe('views and URL state', () => {
 
     fireEvent.click(within(rail()).getByRole('link', { name: /^vips/i }))
     expect(location()).toBe('/live/cfb?view=vips')
-    expect(screen.getByRole('heading', { name: /vip board/i })).toBeInTheDocument()
+    expect(screen.getByText(/no vips are tracked in this contest/i)).toBeInTheDocument()
 
     fireEvent.click(within(rail()).getByRole('link', { name: /^players/i }))
     expect(location()).toBe('/live/cfb')
@@ -393,7 +393,7 @@ describe('phones', () => {
     expect(screen.getByRole('heading', { name: /threat & leverage/i })).toBeInTheDocument()
 
     fireEvent.click(within(tabBar()).getByRole('link', { name: 'VIPs' }))
-    expect(screen.getByRole('heading', { name: /vip board/i })).toBeInTheDocument()
+    expect(screen.getByText(/no vips are tracked in this contest/i)).toBeInTheDocument()
   })
 
   it('condenses rows and expands one on tap to show salary, game and the VIPs who roster the player', async () => {

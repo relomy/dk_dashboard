@@ -129,6 +129,11 @@ The sum of ownership across every player in the pool — about one hundred
 percent per lineup slot. Broken down by game status into final, in play, and
 pre-game.
 
+**Lineup ownership**:
+The sum of ownership across one lineup's players; high means chalky, low means
+contrarian.
+_Avoid_: total ownership (for a single lineup)
+
 ### Cash and scoring
 
 **Cash line**:

@@ -87,6 +87,8 @@ export interface ContestMetricsOwnershipSummary {
     vip_entry_key?: string | null
     entry_key?: string | null
     display_name?: string
+    /** Lineup ownership under its current name; `dk_results` is renaming it (relomy/dk_results#165). */
+    lineup_ownership_pct?: number
     total_ownership_pct?: number
     ownership_in_play_pct?: number
     is_partial?: boolean
