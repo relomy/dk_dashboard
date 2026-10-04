@@ -1,15 +1,17 @@
-import { parseLineupSignature, type LineupSlot } from './lineup'
+import { LOCKED_LABEL, parseLineupSignature, type LineupSlot } from './lineup'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from './perVipKeys'
 import { buildPlayerPool, numberOrNull, readValueIcon, type PlayerPoolRow } from './playerPool'
 import type {
   Contest,
   ContestMetricsDistanceToCash,
   ContestMetricsOwnershipSummary,
+  ContestMetricsThreat,
   Player,
   Snapshot,
   SportSnapshot,
   ValueIcon,
   VipLineup,
+  VipLineupPlayerLive,
 } from './types'
 
 export type LiveNotRenderableReason =
@@ -53,15 +55,15 @@ export interface LiveVip {
   distanceToCash: LiveDistanceToCash
   /** The VIP's live block update time; null when absent. */
   updatedAt: string | null
-  /** The live block's current rank, then the lineup's rank. */
+  /** The live block's current rank, then the lineup's rank, then the standings row's. */
   rank: number | null
-  /** The live block's current points, then lineup points or the producer's `pts`. */
+  /** The live block's current points, then the lineup's `points` or `pts`, then the standings row's. */
   points: number | null
   /** Points if the lineup scores as projected: final points for finished players, else the real-time projection. */
   projectedPoints: number | null
-  /** The live block's PMR, then the producer's lineup PMR. */
+  /** The live block's PMR, then the lineup's, then the standings row's. */
   pmr: number | null
-  /** The live block's ownership remaining, else the complete per-VIP field leverage metric. */
+  /** The live block's, then the standings row's, then the VIP's `vip_vs_field_leverage` row's `vip_remaining_pct`. */
   ownershipRemainingPct: number | null
   /**
    * Lineup ownership: the summed ownership of the lineup's players, from the per-VIP ownership
@@ -72,6 +74,28 @@ export interface LiveVip {
   players: LiveLineupPlayer[]
   /** The train this VIP's lineup shares the most players with, when that is at least `TRAIN_NOTICE_MIN_SHARED`. */
   trainOverlap: LiveVipTrainOverlap | null
+  /** The VIP's `vip_vs_field_leverage` row, matched by entry key; unavailable when the feed has none for them. */
+  leverage: Section<LiveVipLeverage>
+}
+
+/**
+ * One VIP's ownership leverage against the field, as the producer computes it. The uniqueness delta is the
+ * field figure less the VIP figure, so the leverage panel compares the VIP with the field on these two.
+ */
+export interface LiveVipLeverage {
+  vipRemainingPct: number | null
+  fieldRemainingPct: number | null
+  /** Positive means the VIP is more unique than the field. */
+  uniquenessDeltaPct: number | null
+  /** The VIP's lineup has a locked or unresolved slot, so their remaining ownership is undercounted. */
+  partial: boolean
+}
+
+/** The field's average ownership remaining per entry, and what the producer averaged over. */
+export interface LiveFieldRemaining {
+  pct: number
+  /** The threat metrics' `field_remaining_scope`; null for the ownership leaders total, which states none. */
+  scope: ContestMetricsThreat['field_remaining_scope'] | null
 }
 
 /** A VIP shares this many players or more with a Train before the VIP view points at it. */
@@ -93,12 +117,16 @@ export interface LiveLineupPlayer {
   key: string
   slot: string
   name: string
+  /** The player's `player_key`: the row's own on a VIP lineup, the matched pool player's on a train; null when neither has one. */
+  playerKey: string | null
+  /** A locked slot: the player is hidden, so the card shows only the slot and nothing from the pool. */
+  locked: boolean
   gameStatus: GameStatus | null
   points: number | null
   projection: number | null
   /** Game clock: the time remaining display, then the raw game status. */
   clock: string | null
-  /** The player's game ("MIL@OKC"), from the player pool by name; null when the pool has no real matchup for them. */
+  /** The player's game ("MIL@OKC"), from the player pool; null when the pool has no real matchup for them. */
   matchup: string | null
   ownershipPct: number | null
   value: number | null
@@ -139,7 +167,7 @@ export interface LiveTrain {
   minSharedSlots: number | null
   /** Null unless `minSharedSlots` is known and the train has a lineup. */
   closeness: LiveTrainCloseness | null
-  /** The lineup as cards: game status, points and ownership come from the player pool, matched by name. */
+  /** The lineup as cards: what a row lacks (game status, points, ownership, value) comes from the player pool, matched by `player_key`, else by name. */
   players: LiveLineupPlayer[]
   /** Display names of the entries riding the train that the standings list, in `entry_keys` order. */
   ridingNames: string[]
@@ -188,6 +216,7 @@ export interface LiveOwnershipLeaders {
 export interface LiveSwingPlayer {
   key: string
   name: string
+  playerKey: string | null
   ownershipRemainingPct: number | null
   vipCount: number
 }
@@ -237,10 +266,10 @@ export interface LiveModel {
   /** Computed over the whole pool, before the relevance filter. */
   totalOwnership: LiveTotalOwnership
   /**
-   * The field's average ownership remaining per entry: the ownership leaders total (the producer averages
-   * every standings row), else the threat metrics' field remaining figure; null when the feed gives neither.
+   * The field's average ownership remaining per entry: the threat metrics' field remaining figure with its
+   * scope, else the ownership leaders total; null when the feed gives neither.
    */
-  fieldOwnershipRemainingPct: number | null
+  fieldOwnershipRemaining: LiveFieldRemaining | null
   trains: Section<LiveTrains>
   standings: Section<LiveStandingsRow[]>
   ownershipLeaders: Section<LiveOwnershipLeaders>
@@ -274,19 +303,27 @@ function nonEmptyString(value: unknown): string | null {
 }
 
 type DistanceToCashRow = ContestMetricsDistanceToCash['per_vip'][number]
+type StandingsRow = NonNullable<Contest['standings']>[number]
 
 /**
  * Metrics first: a matched distance-to-cash row decides by points delta, then rank delta.
- * Without one, any payout on the lineup (or its live block) means cashing.
+ * Without one, any payout on the lineup (or its live block) means cashing, then the standings row decides.
  */
-function resolveVipCashing(lineup: VipLineup, distance: DistanceToCashRow | undefined): boolean {
+function resolveVipCashing(
+  lineup: VipLineup,
+  distance: DistanceToCashRow | undefined,
+  standing: StandingsRow | undefined,
+): boolean {
   if (typeof distance?.points_delta === 'number') {
     return distance.points_delta >= 0
   }
   if (typeof distance?.rank_delta === 'number') {
     return distance.rank_delta >= 0
   }
-  return lineup.payout_cents != null || lineup.live?.payout_cents != null
+  if (lineup.payout_cents != null || lineup.live?.payout_cents != null) {
+    return true
+  }
+  return standing?.is_cashing === true
 }
 
 /** Lineup ownership under either name: `lineup_ownership_pct`, else the older `total_ownership_pct`. */
@@ -294,21 +331,28 @@ function lineupOwnershipOf(row: ContestMetricsOwnershipSummary['per_vip'][number
   return numberOrNull(row?.lineup_ownership_pct) ?? numberOrNull(row?.total_ownership_pct)
 }
 
-/** VIP summaries carry decimal strings for rank and PMR in the v3 producer feed. */
-function vipSummaryNumber(value: unknown): number | null {
-  if (typeof value === 'string' && /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value.trim())) {
-    return numberOrNull(Number(value.trim()))
+/** The player pool keyed by `keyOf`; the first row wins when a key repeats. */
+function indexPool(players: Player[], keyOf: (player: Player) => string | undefined): Map<string, Player> {
+  const index = new Map<string, Player>()
+  for (const player of players) {
+    const key = keyOf(player)
+    if (key && !index.has(key)) index.set(key, player)
   }
-  return numberOrNull(value)
+  return index
 }
 
-/** The player pool by name; the first row wins when a name repeats. */
-function indexPoolByName(players: Player[]): Map<string, Player> {
-  const poolByName = new Map<string, Player>()
-  for (const player of players) {
-    if (!poolByName.has(player.name)) poolByName.set(player.name, player)
-  }
-  return poolByName
+interface PoolIndex {
+  byName: Map<string, Player>
+  byKey: Map<string, Player>
+}
+
+/**
+ * The pool player behind an unlocked `players_live` row. A row with a `player_key` matches by key alone: a key
+ * the pool lacks is a miss, not a reason to guess by name. Only a keyless row matches by name.
+ */
+function poolPlayerOf(row: VipLineupPlayerLive, pool: PoolIndex): Player | undefined {
+  if (row.player_key) return pool.byKey.get(row.player_key)
+  return pool.byName.get(row.player_name)
 }
 
 /**
@@ -321,32 +365,61 @@ function matchupOf(player: Player | undefined): string | null {
   return matchup.trim().toLowerCase() === player?.game_status?.trim().toLowerCase() ? null : matchup
 }
 
-function buildLineupPlayers(lineup: VipLineup, poolByName: Map<string, Player>): LiveLineupPlayer[] {
+/** A locked slot's player details: all empty, since the player is hidden and nothing comes from the pool. */
+export const LOCKED_SLOT_DETAIL = {
+  playerKey: null,
+  gameStatus: null,
+  points: null,
+  projection: null,
+  clock: null,
+  matchup: null,
+  ownershipPct: null,
+  value: null,
+  valueIcon: null,
+  stats: null,
+} as const satisfies Partial<LiveLineupPlayer>
+
+/** A locked slot's card: its slot and the locked label, with every player detail empty. */
+function lockedPlayer(key: string, slot: string): LiveLineupPlayer {
+  return { key, slot, name: LOCKED_LABEL, locked: true, ...LOCKED_SLOT_DETAIL }
+}
+
+/** Fields on the row itself come first; the pool player fills in what the row lacks. A locked row is a locked slot. */
+function buildLineupPlayers(lineup: VipLineup, pool: PoolIndex): LiveLineupPlayer[] {
   if (Array.isArray(lineup.players_live)) {
-    return lineup.players_live.map((player, index) => ({
-      key: `${player.slot}-${index}`,
-      slot: player.slot,
-      name: player.player_name,
-      gameStatus: classifyGameStatus(player.game_status),
-      points: numberOrNull(player.points),
-      projection: numberOrNull(player.rt_projection),
-      clock: nonEmptyString(player.time_remaining_display) ?? nonEmptyString(player.game_status),
-      matchup: matchupOf(poolByName.get(player.player_name)),
-      ownershipPct: numberOrNull(player.ownership_pct),
-      value: numberOrNull(player.value),
-      valueIcon: readValueIcon(player.value_icon),
-      stats: nonEmptyString(player.stats_text),
-    }))
+    return lineup.players_live.map((player, index) => {
+      if (player.is_locked) return lockedPlayer(`${player.slot ?? 'row'}-${index}`, player.slot ?? '')
+      const pooled = poolPlayerOf(player, pool)
+      const gameStatus = player.game_status ?? pooled?.game_status
+      return {
+        key: `${player.slot ?? 'row'}-${index}`,
+        slot: player.slot ?? '',
+        name: player.player_name,
+        playerKey: player.player_key ?? null,
+        locked: false,
+        gameStatus: classifyGameStatus(gameStatus),
+        points: numberOrNull(player.points) ?? numberOrNull(pooled?.fantasy_points),
+        projection: numberOrNull(player.rt_projection),
+        clock: nonEmptyString(player.time_remaining_display) ?? nonEmptyString(gameStatus),
+        matchup: matchupOf(pooled),
+        ownershipPct: numberOrNull(player.ownership_pct) ?? numberOrNull(pooled?.ownership_pct),
+        value: numberOrNull(player.value) ?? numberOrNull(pooled?.value),
+        valueIcon: readValueIcon(player.value_icon),
+        stats: nonEmptyString(player.stats_text),
+      }
+    })
   }
   return (lineup.slots ?? []).map((slot, index) => ({
     key: `${slot.slot}-${index}`,
     slot: slot.slot,
     name: slot.player_name,
+    playerKey: null,
+    locked: false,
     gameStatus: null,
     points: null,
     projection: null,
     clock: null,
-    matchup: matchupOf(poolByName.get(slot.player_name)),
+    matchup: matchupOf(pool.byName.get(slot.player_name)),
     ownershipPct: null,
     value: null,
     valueIcon: null,
@@ -354,42 +427,84 @@ function buildLineupPlayers(lineup: VipLineup, poolByName: Map<string, Player>):
   }))
 }
 
-/** Final players count their points; the rest count their real-time projection, or the points so far. */
-function projectLineup(lineup: VipLineup): number | null {
-  const rows = Array.isArray(lineup.players_live) ? lineup.players_live : []
-  if (rows.length === 0) return null
-  return rows.reduce((sum, row) => {
-    const points = numberOrNull(row.points) ?? 0
-    const projection = numberOrNull(row.rt_projection)
-    return sum + (classifyGameStatus(row.game_status) === 'final' ? points : (projection ?? points))
+/**
+ * Final players count their points; the rest count their real-time projection, or the points so far.
+ * Null when no player carries a projection: the sum would only repeat the points already scored.
+ */
+function projectLineup(players: LiveLineupPlayer[]): number | null {
+  if (!players.some((player) => player.projection !== null)) return null
+  return players.reduce((sum, player) => {
+    const points = player.points ?? 0
+    return sum + (player.gameStatus === 'final' ? points : (player.projection ?? points))
   }, 0)
 }
 
-function buildVips(contest: Contest, trains: Section<LiveTrains>, poolByName: Map<string, Player>): LiveVip[] {
+/**
+ * A figure on the VIP's lineup row: a finite number, or a numeric string as the producer sends
+ * `rank` and `pmr` (`"879"`). Anything else (blank, junk, absent) is null.
+ */
+function parseLineupNumber(value: unknown): number | null {
+  if (typeof value === 'string' && /^\s*-?\d+(\.\d+)?\s*$/.test(value)) return Number(value)
+  return numberOrNull(value)
+}
+
+/** The contest's raw standings rows: v3 `standings` is a bare array, and any other shape has none. */
+function standingsRowsOf(contest: Contest): StandingsRow[] {
+  const raw: unknown = contest.standings
+  return Array.isArray(raw) ? raw.filter((row): row is StandingsRow => Boolean(row && typeof row === 'object')) : []
+}
+
+function buildVips(contest: Contest, trains: Section<LiveTrains>, pool: PoolIndex): LiveVip[] {
+  const standingsByKey = buildPerVipIndex(standingsRowsOf(contest))
   const distanceByKey = buildPerVipIndex(contest.metrics?.distance_to_cash?.per_vip ?? [])
   const summaryByKey = buildPerVipIndex(contest.metrics?.ownership_summary?.per_vip ?? [])
   const leverageByKey = buildPerVipIndex(contest.metrics?.threat?.vip_vs_field_leverage ?? [])
   return contest.vip_lineups.map((lineup, vipIndex) => {
     const metricKey = resolveVipMetricMatchKey(lineup)
     const distance = metricKey ? distanceByKey.get(metricKey) : undefined
+    const standing = metricKey ? standingsByKey.get(metricKey) : undefined
     const leverage = metricKey ? leverageByKey.get(metricKey) : undefined
+    const players = buildLineupPlayers(lineup, pool)
     return {
       key: lineup.entry_key || lineup.vip_entry_key || lineup.display_name,
       name: lineup.display_name,
-      cashing: resolveVipCashing(lineup, distance),
+      cashing: resolveVipCashing(lineup, distance, standing),
       distanceToCash: { points: numberOrNull(distance?.points_delta), rank: numberOrNull(distance?.rank_delta) },
       updatedAt: lineup.live?.updated_at || null,
-      rank: numberOrNull(lineup.live?.current_rank) ?? vipSummaryNumber(lineup.rank),
-      points: numberOrNull(lineup.live?.current_points) ?? numberOrNull(lineup.points) ?? numberOrNull(lineup.pts),
-      projectedPoints: projectLineup(lineup),
-      pmr: numberOrNull(lineup.live?.pmr) ?? vipSummaryNumber(lineup.pmr),
-      ownershipRemainingPct: numberOrNull(lineup.live?.ownership_remaining_pct) ??
-        (leverage?.is_partial ? null : numberOrNull(leverage?.vip_remaining_pct)),
+      rank: numberOrNull(lineup.live?.current_rank) ?? parseLineupNumber(lineup.rank) ?? numberOrNull(standing?.rank),
+      points:
+        numberOrNull(lineup.live?.current_points) ??
+        parseLineupNumber(lineup.points) ??
+        parseLineupNumber(lineup.pts) ??
+        numberOrNull(standing?.points),
+      projectedPoints: projectLineup(players),
+      pmr: numberOrNull(lineup.live?.pmr) ?? parseLineupNumber(lineup.pmr) ?? numberOrNull(standing?.pmr),
+      ownershipRemainingPct:
+        numberOrNull(lineup.live?.ownership_remaining_pct) ??
+        numberOrNull(standing?.ownership_remaining_total_pct) ??
+        numberOrNull(leverage?.vip_remaining_pct),
       lineupOwnershipPct: lineupOwnershipOf(metricKey ? summaryByKey.get(metricKey) : undefined),
-      players: buildLineupPlayers(lineup, poolByName),
+      players,
       trainOverlap: closestTrain(trains, vipIndex, lineupSlotCount(lineup)),
+      leverage: leverage
+        ? available({
+            vipRemainingPct: numberOrNull(leverage.vip_remaining_pct),
+            fieldRemainingPct: numberOrNull(leverage.field_remaining_pct),
+            uniquenessDeltaPct: numberOrNull(leverage.uniqueness_delta_pct),
+            partial: leverage.is_partial === true,
+          })
+        : UNAVAILABLE,
     }
   })
+}
+
+/** The threat metrics' contest figure first (captioned by its scope), then the ownership leaders total. */
+function buildFieldRemaining(contest: Contest): LiveFieldRemaining | null {
+  const threat = contest.metrics?.threat
+  const threatPct = numberOrNull(threat?.field_remaining_pct)
+  if (threatPct !== null) return { pct: threatPct, scope: threat?.field_remaining_scope ?? null }
+  const leadersPct = numberOrNull(contest.ownership_watchlist?.ownership_remaining_total_pct)
+  return leadersPct === null ? null : { pct: leadersPct, scope: null }
 }
 
 /** The lineup's size, counted as `buildLineupPlayers` would list it: `players_live` when present, else the slots. */
@@ -419,6 +534,8 @@ function buildTrainPlayers(lineup: LineupSlot[], poolByName: Map<string, Player>
       key: `${index}-${slot.label}`,
       slot: player ? (player.position ?? player.roster_positions?.join('/') ?? '') : '',
       name: slot.label,
+      playerKey: player?.player_key ?? null,
+      locked: slot.locked,
       gameStatus: classifyGameStatus(player?.game_status),
       points: numberOrNull(player?.fantasy_points),
       projection: null,
@@ -586,6 +703,7 @@ function buildThreat(contest: Contest): Section<LiveThreat> {
     swingPlayers: (threat.top_swing_players ?? []).map((player, index) => ({
       key: player.player_key ?? `${player.player_name}-${index}`,
       name: player.player_name,
+      playerKey: player.player_key ?? null,
       ownershipRemainingPct: numberOrNull(player.ownership_remaining_pct ?? player.remaining_ownership_pct),
       vipCount: player.vip_count ?? 0,
     })),
@@ -610,21 +728,46 @@ export function classifyGameStatus(raw: string | null | undefined): GameStatus |
   return null
 }
 
-/** The player names on a VIP's lineup: its slots plus any `players_live` rows. VIP slots carry names only. */
+/** A player as two lists are matched on: the `player_key` when there is one, and the name. */
+export interface PlayerRef {
+  playerKey: string | null
+  name: string
+}
+
+/**
+ * Whether two lists name the same player: by `player_key` when both carry one, else by name with
+ * surrounding whitespace ignored (the feed pads some names, such as DSTs: "Rams ").
+ */
+export function isSamePlayer(a: PlayerRef, b: PlayerRef): boolean {
+  if (a.playerKey && b.playerKey) return a.playerKey === b.playerKey
+  return a.name.trim() === b.name.trim()
+}
+
+/** The players on a VIP's lineup: its slots plus any `players_live` rows, leaving out locked slots. */
+function lineupPlayerRefs(lineup: VipLineup): PlayerRef[] {
+  const slots = (lineup.slots ?? []).map((slot) => ({ playerKey: null, name: slot.player_name }))
+  const live = (Array.isArray(lineup.players_live) ? lineup.players_live : [])
+    .filter((player) => !player.is_locked)
+    .map((player) => ({ playerKey: player.player_key ?? null, name: player.player_name }))
+  return [...slots, ...live]
+}
+
+/** The trimmed player names on a VIP's lineup, for matching against a train's name-only lineup. */
 function lineupPlayerNames(lineup: VipLineup): Set<string> {
-  const names = new Set<string>()
-  for (const slot of lineup.slots ?? []) names.add(slot.player_name)
-  for (const player of Array.isArray(lineup.players_live) ? lineup.players_live : []) names.add(player.player_name)
-  return names
+  return new Set(lineupPlayerRefs(lineup).map((player) => player.name.trim()))
 }
 
 function buildPool(sportData: SportSnapshot, contest: Contest): LivePoolPlayer[] {
-  const lineups = contest.vip_lineups.map(lineupPlayerNames)
-  return buildPlayerPool(sportData.players, '').map((row) => ({
-    ...row,
-    gameStatus: classifyGameStatus(row.status),
-    vipIndexes: lineups.flatMap((names, index) => (names.has(row.name) ? [index] : [])),
-  }))
+  const lineups = contest.vip_lineups.map(lineupPlayerRefs)
+  const playerKeys = new Set(sportData.players.flatMap((player) => (player.player_key ? [player.player_key] : [])))
+  return buildPlayerPool(sportData.players, '').map((row) => {
+    const ref = { playerKey: playerKeys.has(row.key) ? row.key : null, name: row.name }
+    return {
+      ...row,
+      gameStatus: classifyGameStatus(row.status),
+      vipIndexes: lineups.flatMap((players, index) => (players.some((player) => isSamePlayer(player, ref)) ? [index] : [])),
+    }
+  })
 }
 
 function buildTotalOwnership(players: Player[]): LiveTotalOwnership {
@@ -667,8 +810,11 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
   }
   const cashLine = contest.live_metrics?.cash_line
   const standings = buildStandings(contest)
-  const poolByName = indexPoolByName(sportData.players)
-  const trains = buildTrains(contest, poolByName, standings)
+  const pool = {
+    byName: indexPool(sportData.players, (player) => player.name),
+    byKey: indexPool(sportData.players, (player) => player.player_key),
+  }
+  const trains = buildTrains(contest, pool.byName, standings)
   return {
     kind: 'ready',
     model: {
@@ -677,12 +823,10 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
       contest: { name: contest.name },
       fieldSize: numberOrNull(contest.entries_count) ?? numberOrNull(contest.max_entries),
       cashLine: { points: numberOrNull(cashLine?.points_cutoff), rank: numberOrNull(cashLine?.rank_cutoff) },
-      vips: buildVips(contest, trains, poolByName),
+      vips: buildVips(contest, trains, pool),
       pool: buildPool(sportData, contest),
       totalOwnership: buildTotalOwnership(sportData.players),
-      fieldOwnershipRemainingPct:
-        numberOrNull(contest.ownership_watchlist?.ownership_remaining_total_pct) ??
-        numberOrNull(contest.metrics?.threat?.field_remaining_pct),
+      fieldOwnershipRemaining: buildFieldRemaining(contest),
       trains,
       standings,
       ownershipLeaders: buildOwnershipLeaders(contest),

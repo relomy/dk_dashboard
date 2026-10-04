@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import snapshot from './fixtures/nfl-live-2026-10-04T20-41-34Z.json'
+import snapshot from '../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
 import Live from '../routes/Live'
 
 afterEach(() => {

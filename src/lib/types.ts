@@ -12,8 +12,12 @@ export interface VipLineupSlot {
 }
 
 export interface VipLineupPlayerLive {
-  slot: string
+  /** Missing from the producer's rows until relomy/dk_results#174 ships. */
+  slot?: string
+  /** Matches `Player.player_key`; absent on locked rows. */
+  player_key?: string
   player_name: string
+  is_locked?: boolean
   game_status?: string
   ownership_pct?: number
   salary?: number
@@ -32,13 +36,14 @@ export interface VipLineup {
   entry_id?: string
   username?: string
   display_name: string
-  slots: VipLineupSlot[]
+  /** The producer sends `players_live` only. */
+  slots?: VipLineupSlot[]
   players_live?: VipLineupPlayerLive[]
+  /** The producer sends rank and PMR as strings; numeric strings are read as numbers. */
   rank?: number | string
-  /** Producer summary fields; rank and PMR may be decimal strings. */
+  points?: number
   pts?: number
   pmr?: number | string
-  points?: number
   payout_cents?: number | null
   live?: {
     updated_at: string
@@ -67,7 +72,7 @@ export interface ContestMetricsDistanceToCash {
 export interface ContestMetricsThreat {
   leverage_semantics: 'positive=unique'
   field_remaining_scope: 'watchlist' | 'contest_field'
-  field_remaining_source: 'ownership_watchlist_total' | 'watchlist_entries_sum'
+  field_remaining_source: 'ownership_watchlist_total' | 'watchlist_entries_sum' | 'contest_standings_mean'
   field_remaining_is_partial?: boolean
   field_remaining_pct?: number | null
   top_swing_players?: Array<{
@@ -84,6 +89,7 @@ export interface ContestMetricsThreat {
     vip_remaining_pct?: number | null
     field_remaining_pct?: number | null
     uniqueness_delta_pct?: number | null
+    /** Set when the VIP's lineup has a locked or unresolved slot, which undercounts their remaining ownership. */
     is_partial?: boolean
   }>
 }
@@ -182,6 +188,7 @@ export interface Contest {
     pmr?: number
     payout_cents?: number | null
     ownership_remaining_total_pct?: number
+    is_cashing?: boolean
   }>
   metrics?: ContestMetrics
 }
