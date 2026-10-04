@@ -1,6 +1,6 @@
 import { resolvePrimaryContest, type LiveModel, type LiveVip } from './liveModel'
 import { haveOrFade } from './livePresentation'
-import { resolveVipMetricMatchKey } from './perVipKeys'
+import { buildPerVipIndex, resolveVipMetricMatchKey } from './perVipKeys'
 import type { Contest, Snapshot } from './types'
 
 /**
@@ -91,6 +91,27 @@ const leverageRowsAreRead: Invariant = (model, { contest }) => {
   return violations
 }
 
+/**
+ * A VIP whose feed gives their ownership remaining (their standings row's total, or their leverage row's VIP
+ * figure) shows a numeric ownership remaining on their card.
+ */
+const vipOwnershipRemainingIsShown: Invariant = (model, { contest }) => {
+  const standings = Array.isArray(contest?.standings) ? contest.standings : []
+  const standingsByKey = buildPerVipIndex(standings)
+  const leverageByKey = buildPerVipIndex(contest?.metrics?.threat?.vip_vs_field_leverage ?? [])
+  const violations: string[] = []
+  contest?.vip_lineups.forEach((lineup, index) => {
+    const key = resolveVipMetricMatchKey(lineup)
+    if (!key) return
+    const hasSource =
+      isFiniteNumber(standingsByKey.get(key)?.ownership_remaining_total_pct) ||
+      isFiniteNumber(leverageByKey.get(key)?.vip_remaining_pct)
+    const own = model.vips[index]?.ownershipRemainingPct
+    if (hasSource && !isFiniteNumber(own)) violations.push(`VIP ${lineup.display_name}: ownership remaining is ${String(own)}`)
+  })
+  return violations
+}
+
 /** A VIP whose feed lineup rosters a swing player (same `player_key`) sees that swing player marked HAVE. */
 const rosteredSwingPlayersAreHave: Invariant = (model, { contest }) => {
   if (model.threat.availability !== 'available') return []
@@ -149,6 +170,7 @@ const lockedSlotsRenderLocked: Invariant = (model, { contest }) => {
 export const INVARIANTS: Record<string, Invariant> = {
   'every VIP card has a numeric rank, points and PMR': vipCardHasFigures,
   'every leverage row becomes an available model leverage row': leverageRowsAreRead,
+  'every VIP with a source for ownership remaining shows one': vipOwnershipRemainingIsShown,
   'a VIP rostering a swing player is marked HAVE for it': rosteredSwingPlayersAreHave,
   'every pool player a VIP rosters lists that VIP': poolPlayersListTheirVips,
   'locked VIP slots render as locked, with no pool lookup': lockedSlotsRenderLocked,
