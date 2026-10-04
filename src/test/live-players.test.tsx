@@ -352,11 +352,12 @@ describe('views and URL state', () => {
     expect(playersTable()).toBeInTheDocument()
   })
 
-  it('keeps the leverage sections beside the main area on wide screens', async () => {
+  it('keeps the Leverage panel beside the main area on wide screens', async () => {
     await renderLive(load())
 
-    expect(screen.getByRole('heading', { name: /threat & leverage/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /ownership leaders/i })).toBeInTheDocument()
+    const aside = within(screen.getByRole('complementary', { name: /leverage/i }))
+    expect(aside.getByRole('heading', { name: /swing players/i })).toBeInTheDocument()
+    expect(aside.getByRole('heading', { name: /ownership leaders/i })).toBeInTheDocument()
   })
 })
 
@@ -387,11 +388,11 @@ describe('phones', () => {
       'Trains',
       'Leverage',
     ])
-    expect(screen.queryByRole('heading', { name: /threat & leverage/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /swing players/i })).not.toBeInTheDocument()
 
     fireEvent.click(within(tabBar()).getByRole('link', { name: 'Leverage' }))
     expect(location()).toBe('/live/cfb?view=leverage')
-    expect(screen.getByRole('heading', { name: /threat & leverage/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /swing players/i })).toBeInTheDocument()
 
     fireEvent.click(within(tabBar()).getByRole('link', { name: 'VIPs' }))
     expect(screen.getByText(/no vips are tracked in this contest/i)).toBeInTheDocument()

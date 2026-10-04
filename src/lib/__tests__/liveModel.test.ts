@@ -6,6 +6,7 @@ import { formatSigned } from '../format'
 import {
   buildLiveModel,
   groupLineup,
+  haveOrFade,
   largestTrains,
   lineupOwnershipHint,
   type LiveLineupPlayer,
@@ -93,12 +94,8 @@ describe('primary contest', () => {
 
     expect(model.sport).toBe('cfb')
     expect(model.snapshotAt).toBe('2026-10-03T20:48:31Z')
-    expect(model.contest).toEqual({
-      name: 'CFB Single Entry $25 Double Up',
-      contestKey: 'cfb:196178015',
-      contestId: '196178015',
-      selectionReason: 'explicit_id',
-    })
+    // Only the name: contest key, id and selection reason are internal and never shown.
+    expect(model.contest).toEqual({ name: 'CFB Single Entry $25 Double Up' })
     expect(model.cashLine).toEqual({ points: 129.04001, rank: 98 })
   })
 
@@ -110,27 +107,19 @@ describe('primary contest', () => {
     decoy.is_primary = false
     decoy.contest_id = '1002'
     decoy.contest_key = 'cfb:1002'
+    decoy.name = 'Decoy Contest'
     snapshot.sports.cfb.contests.push(decoy)
     snapshot.sports.cfb.primary_contest.contest_id = '1002'
     snapshot.sports.cfb.primary_contest.contest_key = 'cfb:1002'
 
-    expect(modelOf(snapshot).contest.contestId).toBe('196178015')
+    expect(modelOf(snapshot).contest.name).toBe('CFB Single Entry $25 Double Up')
   })
 
   it('falls back to the configured contest id when the key does not match', () => {
     const snapshot = load()
     snapshot.sports.cfb.primary_contest.contest_key = 'cfb:renamed'
 
-    expect(modelOf(snapshot).contest.contestKey).toBe('cfb:196178015')
-  })
-
-  it('accepts a plain-string selection reason and omits a blank one', () => {
-    const snapshot = load()
-    snapshot.sports.cfb.primary_contest.selection_reason = 'manual pick'
-    expect(modelOf(snapshot).contest.selectionReason).toBe('manual pick')
-
-    snapshot.sports.cfb.primary_contest.selection_reason = { mode: '  ' }
-    expect(modelOf(snapshot).contest.selectionReason).toBeNull()
+    expect(modelOf(snapshot).contest.name).toBe('CFB Single Entry $25 Double Up')
   })
 
   it('leaves cash line values empty when the feed omits them', () => {
@@ -425,15 +414,6 @@ describe('VIP standing and ownership', () => {
     expect(vipOf(snapshot, 'mlb').lineupOwnershipPct).toBeNull()
   })
 
-  it('reads the renamed field in the VIP ownership summary rows too', () => {
-    const snapshot = load()
-    addVip(snapshot)
-    setSummary(snapshot, [{ entry_key: VIP_KEY, lineup_ownership_pct: 301.5 }])
-
-    const summary = modelOf(snapshot).ownershipSummary
-    if (summary.status !== 'available') throw new Error('Expected the summary')
-    expect(summary.data[0]?.totalOwnershipPct).toBe(301.5)
-  })
 })
 
 describe('field size', () => {
@@ -858,10 +838,9 @@ describe('ownership leaders', () => {
     return leaders.data
   }
 
-  it('lists the top ten leaders and the remaining total from the canonical fixture', () => {
+  it('lists the top ten leaders from the canonical fixture', () => {
     const leaders = leadersOf(load())
 
-    expect(leaders.totalPct).toBeCloseTo(146.4668, 4)
     expect(leaders.topN).toBe(10)
     expect(leaders.entries).toHaveLength(10)
     expect(leaders.entries[0]).toEqual({
@@ -905,42 +884,7 @@ describe('ownership leaders', () => {
   })
 })
 
-describe('VIP ownership summary', () => {
-  function setSummary(snapshot: Json, perVip: Json[]) {
-    contestOf(snapshot).metrics.ownership_summary = { source: 'vip_lineup_players', scope: 'vip_lineup', per_vip: perVip }
-  }
-
-  it('is unavailable when the metrics omit it', () => {
-    const snapshot = load()
-    addVip(snapshot, 'mlb')
-
-    expect(modelOf(snapshot, 'mlb').ownershipSummary).toEqual({ status: 'unavailable' })
-  })
-
-  it('joins summary rows to VIP lineups on the per-VIP key, never display_name', () => {
-    const snapshot = load()
-    addVip(snapshot)
-    setSummary(snapshot, [
-      { entry_key: VIP_KEY, total_ownership_pct: 189.78, ownership_in_play_pct: 116.06, is_partial: false },
-      { display_name: VIP_NAME, total_ownership_pct: 999.99, ownership_in_play_pct: 999.99, is_partial: true },
-    ])
-
-    expect(modelOf(snapshot).ownershipSummary).toEqual({
-      status: 'available',
-      data: [{ key: VIP_KEY, name: VIP_NAME, totalOwnershipPct: 189.78, ownershipInPlayPct: 116.06, partial: false }],
-    })
-  })
-
-  it('is empty when no summary row matches a VIP', () => {
-    const snapshot = load()
-    addVip(snapshot)
-    setSummary(snapshot, [{ entry_key: 'non-matching-entry-key', total_ownership_pct: 10.5 }])
-
-    expect(modelOf(snapshot).ownershipSummary).toEqual({ status: 'available', data: [] })
-  })
-})
-
-describe('threat and leverage', () => {
+describe('swing players', () => {
   it('lists swing players from the canonical fixture', () => {
     const threat = modelOf(load()).threat
     if (threat.status !== 'available') throw new Error('Expected threat to be available')
@@ -965,88 +909,65 @@ describe('threat and leverage', () => {
     })
   })
 
-  it('is unavailable for the missing-metrics fixture, leverage included', () => {
-    const model = modelOf(load(), 'mlb')
-
-    expect(model.threat).toEqual({ status: 'unavailable' })
-    expect(model.leverage).toEqual({ status: 'unavailable' })
+  it('is unavailable for the missing-metrics fixture', () => {
+    expect(modelOf(load(), 'mlb').threat).toEqual({ status: 'unavailable' })
   })
 
-  it('treats leverage as unavailable when the threat metrics omit it', () => {
-    expect(modelOf(load()).leverage).toEqual({ status: 'unavailable' })
-  })
-
-  it('lists VIP vs field leverage rows with the field remaining line', () => {
+  it('is empty, not unavailable, when the threat metrics list no swing players', () => {
     const snapshot = load()
-    const threat = contestOf(snapshot).metrics.threat
-    threat.field_remaining_pct = 4.56
-    threat.field_remaining_scope = 'contest_field'
-    threat.field_remaining_is_partial = true
-    threat.vip_vs_field_leverage = [
-      { vip_entry_key: 'vip-1', display_name: 'Leverage VIP', vip_remaining_pct: 11.11, field_remaining_pct: 4.56, uniqueness_delta_pct: 6.55 },
-    ]
+    contestOf(snapshot).metrics.threat.top_swing_players = []
 
-    expect(modelOf(snapshot).leverage).toEqual({
-      status: 'available',
-      data: {
-        fieldRemaining: { pct: 4.56, contestField: true, partial: true },
-        rows: [
-          { key: 'vip-1', name: 'Leverage VIP', vipRemainingPct: 11.11, fieldRemainingPct: 4.56, uniquenessDeltaPct: 6.55 },
-        ],
-      },
-    })
+    expect(modelOf(snapshot).threat).toEqual({ status: 'available', data: { swingPlayers: [] } })
   })
 
-  it('omits the field remaining line when the feed lacks the field total', () => {
-    const snapshot = load()
-    contestOf(snapshot).metrics.threat.vip_vs_field_leverage = []
+})
 
-    expect(modelOf(snapshot).leverage).toEqual({ status: 'available', data: { fieldRemaining: null, rows: [] } })
+describe('field ownership remaining', () => {
+  it("reads the field's average ownership remaining from the ownership leaders total", () => {
+    expect(modelOf(load()).fieldOwnershipRemainingPct).toBeCloseTo(146.4668, 4)
+  })
+
+  it('falls back to the threat field remaining figure when the leaders carry no total', () => {
+    const snapshot = load()
+    delete contestOf(snapshot).ownership_watchlist.ownership_remaining_total_pct
+    contestOf(snapshot).metrics.threat.field_remaining_pct = 150.5
+
+    expect(modelOf(snapshot).fieldOwnershipRemainingPct).toBe(150.5)
+  })
+
+  it('is null when the feed gives neither', () => {
+    const snapshot = load()
+    delete contestOf(snapshot, 'mlb').ownership_watchlist
+
+    expect(modelOf(snapshot, 'mlb').fieldOwnershipRemainingPct).toBeNull()
   })
 })
 
-describe('non-cashing', () => {
-  it('reads entries not cashing, average PMR and top remaining players', () => {
-    const snapshot = load()
-    contestOf(snapshot).metrics.non_cashing = {
-      users_not_cashing: 109,
-      avg_pmr_remaining: 342.83,
-      top_remaining_players: [{ player_name: 'Jalen Johnson', ownership_remaining_pct: 92.66 }],
-    }
+describe('HAVE or FADE', () => {
+  const lineup = (...names: string[]): LiveLineupPlayer[] =>
+    names.map((name) => ({
+      key: name,
+      slot: 'FLEX',
+      name,
+      gameStatus: null,
+      points: null,
+      projection: null,
+      clock: null,
+      ownershipPct: null,
+      value: null,
+      valueIcon: null,
+      stats: null,
+    }))
 
-    expect(modelOf(snapshot).nonCashing).toEqual({
-      status: 'available',
-      data: {
-        entriesNotCashing: 109,
-        avgPmrRemaining: 342.83,
-        topRemainingPlayers: { status: 'available', data: [{ name: 'Jalen Johnson', ownershipRemainingPct: 92.66 }] },
-      },
-    })
+  it('is HAVE when the focused lineup rosters the player and FADE when it does not', () => {
+    const focused = lineup('Ousmane Kromah', 'Cayden Lee')
+
+    expect(haveOrFade(focused, 'Ousmane Kromah')).toBe('have')
+    expect(haveOrFade(focused, 'Duce Robinson')).toBe('fade')
   })
 
-  it('tells an empty top remaining list apart from a missing one', () => {
-    const snapshot = load()
-    const contest = contestOf(snapshot)
-    contest.metrics.non_cashing = { users_not_cashing: 0, avg_pmr_remaining: 0, top_remaining_players: [] }
-    const empty = modelOf(snapshot).nonCashing
-    expect(empty.status === 'available' && empty.data.topRemainingPlayers).toEqual({ status: 'available', data: [] })
-
-    contest.metrics.non_cashing = { users_not_cashing: 7, avg_pmr_remaining: 123.45 }
-    const missing = modelOf(snapshot).nonCashing
-    expect(missing.status === 'available' && missing.data.topRemainingPlayers).toEqual({ status: 'unavailable' })
-  })
-
-  it('is unavailable when the metrics omit it', () => {
-    expect(modelOf(load()).nonCashing).toEqual({ status: 'unavailable' })
-    expect(modelOf(load(), 'mlb').nonCashing).toEqual({ status: 'unavailable' })
-  })
-
-  it('reads average salary per player remaining from live metrics', () => {
-    const snapshot = load()
-    expect(modelOf(snapshot).avgSalaryPerPlayerRemaining).toEqual({ status: 'unavailable' })
-
-    contestOf(snapshot).live_metrics.avg_salary_per_player_remaining = 6158
-    expect(modelOf(snapshot).avgSalaryPerPlayerRemaining).toEqual({ status: 'available', data: 6158 })
+  it('is neither without a focused lineup', () => {
+    expect(haveOrFade(null, 'Ousmane Kromah')).toBeNull()
   })
 })
 

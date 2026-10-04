@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { useState, type ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -75,6 +75,19 @@ function setTrains(snapshot: Json, trains: Array<{ id: string; size: number; pla
   }))
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+function stubPhone() {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: query.includes('max-width'),
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  }))
+}
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -260,5 +273,375 @@ describe('hot and cold markers', () => {
       expect(screen.queryByRole('img', { name: /hot|cold/i })).not.toBeInTheDocument()
       cleanup()
     }
+  })
+})
+
+describe('Leverage panel', () => {
+  function section(name: string) {
+    return within(screen.getByRole('region', { name }))
+  }
+
+  /** "Unfinished, most owned — vs <focused lineup>" */
+  function swingSubtitle() {
+    return section('Swing players').getByText(/unfinished, most owned/i)
+  }
+
+  function swingRow(name: string) {
+    const row = section('Swing players').getByText(name).closest('li')
+    if (!(row instanceof HTMLElement)) throw new Error(`No swing row for ${name}`)
+    return row
+  }
+
+  // cfb swing players (most owned first): Ousmane Kromah, Duce Robinson, Cayden Lee, Jeremiah Smith, ...
+  const FIRST: VipSpec = { key: 'vip-a', name: 'First VIP', players: ['Ousmane Kromah', 'Cayden Lee'], ownLeft: 210.25 }
+  const SECOND: VipSpec = { key: 'vip-b', name: 'Second VIP', players: ['Duce Robinson'], ownLeft: 95.5 }
+
+  function withVips(): Json {
+    const snapshot = load()
+    setVips(snapshot, [FIRST, SECOND])
+    return snapshot
+  }
+
+  describe('placement', () => {
+    it('sits beside the main area on tablet and desktop, with its three sections', async () => {
+      await renderLive(load())
+
+      const aside = within(screen.getByRole('complementary', { name: /leverage/i }))
+      for (const name of ['Swing players', 'Leverage vs field', 'Ownership leaders']) {
+        expect(aside.getByRole('heading', { name })).toBeInTheDocument()
+      }
+      expect(screen.getByRole('table', { name: /players/i })).toBeInTheDocument()
+    })
+
+    it('fills the main area once, when a link opens the Leverage view on a wide screen', async () => {
+      await renderLive(load(), '/live/cfb?view=leverage')
+
+      expect(screen.getAllByRole('heading', { name: 'Swing players' })).toHaveLength(1)
+      expect(screen.queryByRole('table', { name: /players/i })).not.toBeInTheDocument()
+    })
+
+    it('is its own tab on phones and stays off the other tabs', async () => {
+      stubPhone()
+      await renderLive(load())
+
+      expect(screen.queryByRole('heading', { name: 'Swing players' })).not.toBeInTheDocument()
+      fireEvent.click(within(screen.getByRole('navigation', { name: /live tabs/i })).getByRole('link', { name: 'Leverage' }))
+
+      expect(screen.getByRole('heading', { name: 'Swing players' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Leverage vs field' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Ownership leaders' })).toBeInTheDocument()
+      expect(screen.queryByRole('table', { name: /players/i })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('swing players', () => {
+    it('lists the most-owned unfinished players with their ownership remaining', async () => {
+      await renderLive(load())
+
+      const names = section('Swing players')
+        .getAllByRole('listitem')
+        .map((row) => row.textContent)
+      expect(names[0]).toMatch(/Ousmane Kromah.*79\.11%/)
+      expect(names[1]).toMatch(/Duce Robinson.*74\.68%/)
+      expect(names).toHaveLength(10)
+    })
+
+    it('marks each HAVE or FADE against the first VIP by default', async () => {
+      await renderLive(withVips())
+
+      expect(swingSubtitle()).toHaveTextContent('vs First VIP')
+      expect(swingRow('Ousmane Kromah')).toHaveTextContent('HAVE')
+      expect(swingRow('Cayden Lee')).toHaveTextContent('HAVE')
+      expect(swingRow('Duce Robinson')).toHaveTextContent('FADE')
+    })
+
+    it('follows the VIP in focus on the VIPs view', async () => {
+      await renderLive(withVips(), '/live/cfb?view=vips&vip=vip-b')
+
+      expect(swingSubtitle()).toHaveTextContent('vs Second VIP')
+      expect(swingRow('Duce Robinson')).toHaveTextContent('HAVE')
+      expect(swingRow('Ousmane Kromah')).toHaveTextContent('FADE')
+    })
+
+    it('keeps following the VIP named in the link on the Players view', async () => {
+      await renderLive(withVips(), '/live/cfb?vip=vip-b')
+
+      expect(swingRow('Duce Robinson')).toHaveTextContent('HAVE')
+    })
+
+    it('follows the Train in focus on the Trains view', async () => {
+      const snapshot = withVips()
+      setTrains(snapshot, [
+        { id: 'big', size: 19, players: ['Jeremiah Smith', 'Duce Robinson'] },
+        { id: 'small', size: 3, players: ['Matt Fuller'] },
+      ])
+      await renderLive(snapshot, '/live/cfb?view=trains&vip=vip-a')
+
+      expect(swingSubtitle()).toHaveTextContent('vs ×19 train')
+      expect(swingRow('Jeremiah Smith')).toHaveTextContent('HAVE')
+      expect(swingRow('Duce Robinson')).toHaveTextContent('HAVE')
+      expect(swingRow('Ousmane Kromah')).toHaveTextContent('FADE')
+
+      fireEvent.click(within(screen.getByRole('navigation', { name: /live views/i })).getByRole('link', { name: /×3/ }))
+      expect(swingRow('Matt Fuller')).toHaveTextContent('HAVE')
+      expect(swingRow('Jeremiah Smith')).toHaveTextContent('FADE')
+    })
+
+    it('lists swing players without HAVE or FADE when there is no lineup to compare with', async () => {
+      await renderLive(load())
+
+      expect(swingRow('Ousmane Kromah')).not.toHaveTextContent(/HAVE|FADE/)
+      expect(swingSubtitle()).not.toHaveTextContent(/vs /)
+    })
+
+    it('says swing players are unavailable when the feed has no threat metrics', async () => {
+      await renderLive(load(), '/live/mlb')
+
+      expect(section('Swing players').getByText('Swing players are unavailable for this contest.')).toBeInTheDocument()
+    })
+
+    it('says there are none for a present but empty list', async () => {
+      const snapshot = load()
+      contestOf(snapshot).metrics.threat.top_swing_players = []
+      await renderLive(snapshot)
+
+      expect(section('Swing players').getByText('No swing players right now.')).toBeInTheDocument()
+      expect(section('Swing players').queryByText(/unavailable/i)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('leverage vs field', () => {
+    it("compares each VIP's ownership remaining with the field average", async () => {
+      await renderLive(withVips())
+
+      const leverage = section('Leverage vs field')
+      expect(leverage.getByRole('group', { name: 'First VIP' })).toHaveTextContent('210.25%')
+      expect(leverage.getByRole('group', { name: 'Second VIP' })).toHaveTextContent('95.5%')
+      expect(leverage.getByText('Field avg remaining 146.47%')).toBeInTheDocument()
+    })
+
+    it('says a VIP ownership remaining is unavailable when the feed omits it', async () => {
+      const snapshot = load()
+      setVips(snapshot, [{ key: 'vip-a', name: 'First VIP', players: [] }])
+      await renderLive(snapshot)
+
+      expect(section('Leverage vs field').getByRole('group', { name: 'First VIP' })).toHaveTextContent('Unavailable')
+    })
+
+    it('says the field average is unavailable when the feed gives none', async () => {
+      const snapshot = withVips()
+      delete contestOf(snapshot).ownership_watchlist
+      await renderLive(snapshot)
+
+      const leverage = section('Leverage vs field')
+      expect(leverage.getByText('Field average unavailable.')).toBeInTheDocument()
+      expect(leverage.getByRole('group', { name: 'First VIP' })).toHaveTextContent('210.25%')
+    })
+
+    it('says no VIPs are tracked when there are none', async () => {
+      await renderLive(load())
+
+      expect(section('Leverage vs field').getByText('No VIPs to compare with the field.')).toBeInTheDocument()
+    })
+  })
+
+  describe('ownership leaders', () => {
+    function leaderRows() {
+      return section('Ownership leaders').getAllByRole('row').slice(1)
+    }
+
+    it('lists the leaders with rank, PMR and rounded points', async () => {
+      await renderLive(load())
+
+      const leaders = section('Ownership leaders')
+      for (const name of [/rank/i, /entry/i, /pmr/i, /pts/i]) {
+        expect(leaders.getByRole('columnheader', { name })).toBeInTheDocument()
+      }
+      expect(leaderRows()).toHaveLength(10)
+      expect(within(leaderRows()[0]).getAllByRole('cell').map((cell) => cell.textContent)).toEqual([
+        '#142',
+        'bruc0074',
+        '231.8',
+        '113.18',
+      ])
+    })
+
+    it("respects the producer's top_n_default", async () => {
+      const snapshot = load()
+      contestOf(snapshot).ownership_watchlist.top_n_default = 3
+      await renderLive(snapshot)
+
+      expect(leaderRows()).toHaveLength(3)
+    })
+
+    it('says there are none for a present but empty list, never "watchlist"', async () => {
+      const snapshot = load()
+      contestOf(snapshot).ownership_watchlist.entries = []
+      await renderLive(snapshot)
+
+      expect(section('Ownership leaders').getByText('No ownership leaders yet.')).toBeInTheDocument()
+      expect(document.body.textContent).not.toMatch(/watchlist/i)
+    })
+
+    it('says the leaders are unavailable when the contest has none', async () => {
+      const snapshot = load()
+      delete contestOf(snapshot).ownership_watchlist
+      await renderLive(snapshot)
+
+      expect(section('Ownership leaders').getByText('Ownership leaders are unavailable for this contest.')).toBeInTheDocument()
+    })
+  })
+})
+
+describe('the producer snapshot', () => {
+  it('renders the missing-metrics sport in plain language, with no developer notes', async () => {
+    await renderLive(load(), '/live/mlb')
+
+    const bar = within(screen.getByRole('banner'))
+    expect(bar.getByText('MLB Single Entry $5 Double Up')).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: /players/i })).toBeInTheDocument()
+    expect(screen.getByText('Swing players are unavailable for this contest.')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Ownership leaders' })).getAllByRole('row').length).toBeGreaterThan(1)
+    expectNoDeveloperDetails()
+  })
+
+  it('shows no internal identifiers or developer notes on any view', async () => {
+    const snapshot = load()
+    setVips(snapshot, [{ key: 'vip-a', name: 'First VIP', players: ['Ashton Daniels'] }])
+
+    for (const path of ['/live/cfb', '/live/cfb?view=vips', '/live/cfb?view=trains', '/live/cfb?view=leverage']) {
+      await renderLive(snapshot, path)
+      expectNoDeveloperDetails()
+      cleanup()
+    }
+  })
+
+  it('never says unknown for values the snapshot does not carry', async () => {
+    const snapshot = load()
+    snapshot.sports.cfb.primary_contest.selection_reason = {}
+    delete contestOf(snapshot).live_metrics.updated_at
+
+    await renderLive(snapshot)
+
+    expect(document.body.textContent).not.toMatch(/unknown/i)
+  })
+
+  it('follows a contest flagged is_primary over the configured key and id', async () => {
+    const snapshot = load()
+    const primary = contestOf(snapshot)
+    primary.is_primary = true
+    const decoy = structuredClone(primary)
+    decoy.is_primary = false
+    decoy.contest_id = '1002'
+    decoy.contest_key = 'cfb:1002'
+    decoy.name = 'Decoy Contest'
+    snapshot.sports.cfb.contests.push(decoy)
+    snapshot.sports.cfb.primary_contest.contest_id = '1002'
+    snapshot.sports.cfb.primary_contest.contest_key = 'cfb:1002'
+
+    await renderLive(snapshot)
+
+    const bar = within(screen.getByRole('banner'))
+    expect(bar.getByText('CFB Single Entry $25 Double Up')).toBeInTheDocument()
+    expect(bar.queryByText('Decoy Contest')).not.toBeInTheDocument()
+  })
+})
+
+describe('missing and empty sections', () => {
+  it('says each missing section is unavailable and still renders the rest', async () => {
+    const snapshot = load()
+    const contest = contestOf(snapshot)
+    delete contest.ownership_watchlist
+    delete contest.train_clusters
+    delete contest.standings
+    delete contest.metrics
+
+    await renderLive(snapshot)
+
+    expect(screen.getByRole('table', { name: /players/i })).toBeInTheDocument()
+    expect(screen.getByText('Swing players are unavailable for this contest.')).toBeInTheDocument()
+    expect(screen.getByText('Ownership leaders are unavailable for this contest.')).toBeInTheDocument()
+    const rail = within(screen.getByRole('navigation', { name: /live views/i }))
+    expect(rail.getByRole('link', { name: /trains/i })).toHaveTextContent(/unavailable/i)
+    expect(document.body.textContent).not.toMatch(/cluster/i)
+    expectNoDeveloperDetails()
+  })
+
+  it('renders trains without naming riders when the standings are empty', async () => {
+    const snapshot = load()
+    contestOf(snapshot).standings = []
+
+    await renderLive(snapshot, '/live/cfb?view=trains')
+
+    expect(screen.getByRole('heading', { name: /^×17/ })).toBeInTheDocument()
+    expect(screen.queryByText(/riding it/i)).not.toBeInTheDocument()
+  })
+
+  it('reads no rows from the pre-v3 standings object shape', async () => {
+    const snapshot = load()
+    contestOf(snapshot).standings = {
+      updated_at: '2026-10-03T20:48:31Z',
+      rows: [{ entry_key: 'old-row', username: 'Old Row', rank: 1, points: 10 }],
+    }
+
+    await renderLive(snapshot, '/live/cfb?view=trains')
+
+    expect(screen.getByRole('heading', { name: /^×17/ })).toBeInTheDocument()
+    expect(screen.queryByText(/old row/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('Players table edge cases', () => {
+  function playersTable() {
+    return screen.getByRole('table', { name: /players/i })
+  }
+
+  function playerRow(name: string) {
+    return within(playersTable()).getByRole('row', { name: new RegExp(name) })
+  }
+
+  it('drops players with no ownership, points or value', async () => {
+    const snapshot = load()
+    const zero = { ownership_pct: 0, fantasy_points: 0, value: 0 }
+    setPlayers(snapshot, [
+      { ...zero, name: 'Hidden Player' },
+      { ...zero, name: 'Points Signal', fantasy_points: 1 },
+      { ...zero, name: 'Ownership Signal', ownership_pct: 2 },
+      { ...zero, name: 'Value Signal', value: 1 },
+    ])
+
+    await renderLive(snapshot)
+
+    expect(within(playersTable()).queryByText('Hidden Player')).not.toBeInTheDocument()
+    for (const name of ['Points Signal', 'Ownership Signal', 'Value Signal']) {
+      expect(within(playersTable()).getByText(name)).toBeInTheDocument()
+    }
+  })
+
+  it('trims ownership to two decimals', async () => {
+    const snapshot = load()
+    setPlayers(snapshot, [{ name: 'Precision Pool', ownership_pct: 26.97999999999997 }])
+
+    await renderLive(snapshot)
+
+    expect(within(playerRow('Precision Pool')).getByRole('cell', { name: '26.98%' })).toBeInTheDocument()
+  })
+
+  it('falls back to roster positions when position is missing', async () => {
+    const snapshot = load()
+    setPlayers(snapshot, [{ name: 'Roster Only', position: undefined, roster_positions: ['RB', 'S-FLEX'] }])
+
+    await renderLive(snapshot)
+
+    expect(within(playerRow('Roster Only')).getByRole('cell', { name: 'RB/S-FLEX' })).toBeInTheDocument()
+  })
+
+  it('shows a dash for a value the feed does not give as a number', async () => {
+    const snapshot = load()
+    setPlayers(snapshot, [{ name: 'Tier Unknown', value: '' }])
+
+    await renderLive(snapshot)
+
+    expect(within(playerRow('Tier Unknown')).getAllByRole('cell')[6]).toHaveTextContent('—')
   })
 })
