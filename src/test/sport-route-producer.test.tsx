@@ -3,7 +3,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 // Exported by the dk_results producer; provenance in public/mock/PRODUCER_FIXTURE.md.
-import producerSnapshot from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
+import producerSnapshot from '../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
 import Live from '../routes/Live'
 import Sport from '../routes/Sport'
 
@@ -11,7 +11,7 @@ vi.mock('../context/ProfileContext', () => ({
   useProfiles: () => ({ activeProfile: { id: 'p1', name: 'Me', rules: {} } }),
 }))
 
-const SNAPSHOT_PATH = 'snapshots/live-2026-10-03T20-48-31Z.json'
+const SNAPSHOT_PATH = 'snapshots/live-2026-10-04T18-41-34Z.json'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -27,11 +27,11 @@ async function renderRoute(path: string, headingName: RegExp) {
       if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
         return new Response(
           JSON.stringify({
-            available_sports: ['cfb', 'golf', 'mlb'],
-            generated_at: '2026-10-03T20:48:31Z',
+            available_sports: ['golf', 'nfl'],
+            generated_at: '2026-10-04T18:41:34Z',
             latest_snapshot_path: SNAPSHOT_PATH,
-            manifest_today_path: 'manifest/2026-10-03.json',
-            snapshot_at: '2026-10-03T20:48:31Z',
+            manifest_today_path: 'manifest/2026-10-04.json',
+            snapshot_at: '2026-10-04T18:41:34Z',
           }),
           { status: 200 },
         )
@@ -84,22 +84,22 @@ function livePlayersRecords() {
 }
 
 it('Sport pool shows real positions, actual points and ownership with no Projected column', async () => {
-  await renderRoute('/sport/mlb', /sport: mlb/i)
+  await renderRoute('/sport/golf', /sport: golf/i)
 
   const { headers, records } = poolRecords()
   expect(headers).toEqual(['Name', 'Team', 'Positions', 'Actual', 'Ownership'])
 
-  const fry = records.find((r) => r.Name === 'David Fry')
-  expect(fry).toMatchObject({ Team: 'CLE', Positions: '1B', Actual: '0.00', Ownership: '13.25%' })
+  const kohles = records.find((r) => r.Name === 'Ben Kohles')
+  expect(kohles).toMatchObject({ Team: 'Golf', Positions: 'G', Actual: '81.50', Ownership: '60.53%' })
   expect(records.every((r) => r.Positions !== '-' && r.Positions !== '—')).toBe(true)
 })
 
 it('Sport pool and Live pool agree on position, points and ownership for the same players', async () => {
-  await renderRoute('/sport/cfb', /sport: cfb/i)
+  await renderRoute('/sport/nfl', /sport: nfl/i)
   const sport = poolRecords().records
   cleanup()
 
-  await renderRoute('/live/cfb', /live: cfb/i)
+  await renderRoute('/live/nfl', /live: nfl/i)
   const live = livePlayersRecords()
 
   expect(live.length).toBeGreaterThan(0)
@@ -112,6 +112,6 @@ it('Sport pool and Live pool agree on position, points and ownership for the sam
       Ownership: row.Own,
     })
   }
-  const daniels = sport.find((r) => r.Name === 'Ashton Daniels')
-  expect(daniels).toMatchObject({ Positions: 'QB', Actual: '18.16', Ownership: '24.02%' })
+  const lawrence = sport.find((r) => r.Name === 'Trevor Lawrence')
+  expect(lawrence).toMatchObject({ Positions: 'QB', Actual: '9.44', Ownership: '70.86%' })
 })
