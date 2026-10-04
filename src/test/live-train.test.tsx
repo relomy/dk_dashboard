@@ -1,28 +1,9 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { useState, type ReactNode } from 'react'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-// Exported by the dk_results producer; provenance in public/mock/PRODUCER_FIXTURE.md.
-import producerSnapshot from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
-import { TopBarSlotContext } from '../context/TopBarSlotContext'
-import Live from '../routes/Live'
+import { fireEvent, screen, within } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import { contestOf, load, location, rail, renderLive, setPlayers, setVips, stubPhone, type Json } from './liveHarness'
 
 // The Live Train view: rail rows, the focused Train's stats, VIP overlap, riding entries and grouped
 // lineup, plus the VIP view's overlap notice. Trains are injected over the producer fixture (cfb).
-
-const SNAPSHOT_PATH = 'snapshots/live-2026-10-03T20-48-31Z.json'
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-type Json = any
-
-function load(): Json {
-  return structuredClone(producerSnapshot)
-}
-
-function contestOf(snapshot: Json, sport = 'cfb'): Json {
-  return snapshot.sports[sport].contests[0]
-}
 
 const LINEUP = 'Live Guy|Later Guy|Finished Guy|Fourth Guy|Fifth Guy|Sixth Guy|Seventh Guy|Eighth Guy'
 
@@ -51,22 +32,13 @@ function setTrains(snapshot: Json, trains: Json[]) {
   contestOf(snapshot).train_clusters = trains
 }
 
-function setPlayers(snapshot: Json) {
-  snapshot.sports.cfb.players = [
-    { name: 'Live Guy', team: 'FSU', position: 'QB', salary: 1, game_status: 'In-Progress', fantasy_points: 12.5, ownership_pct: 31.5, value: 4.5 },
-    { name: 'Later Guy', team: 'MIZZ', position: 'RB', salary: 1, game_status: 'FSU@MIZZ 07:30PM ET', fantasy_points: 0, ownership_pct: 12 },
-    { name: 'Finished Guy', team: 'FSU', position: 'WR', salary: 1, game_status: 'Final', fantasy_points: 30, ownership_pct: 55, value: 6.5 },
-  ]
-}
-
-function setVips(snapshot: Json, vips: Array<{ key: string; name: string; players: string[]; rank?: number }>) {
-  contestOf(snapshot).vip_lineups = vips.map((vip) => ({
-    entry_key: vip.key,
-    display_name: vip.name,
-    slots: vip.players.map((player_name) => ({ slot: 'X', player_name })),
-    payout_cents: null,
-    live: { updated_at: '2026-10-03T20:48:00Z', current_rank: vip.rank },
-  }))
+/** The pool behind the first three players of `LINEUP`. */
+function setLineupPool(snapshot: Json) {
+  setPlayers(snapshot, [
+    { name: 'Live Guy', team: 'FSU', position: 'QB', game_status: 'In-Progress', fantasy_points: 12.5, ownership_pct: 31.5, value: 4.5 },
+    { name: 'Later Guy', team: 'MIZZ', position: 'RB', game_status: 'FSU@MIZZ 07:30PM ET', fantasy_points: 0, ownership_pct: 12, value: null },
+    { name: 'Finished Guy', team: 'FSU', position: 'WR', game_status: 'Final', fantasy_points: 30, ownership_pct: 55, value: 6.5 },
+  ])
 }
 
 function setStandings(snapshot: Json) {
@@ -76,90 +48,8 @@ function setStandings(snapshot: Json) {
     rank: index + 1,
   }))
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
-afterEach(() => {
-  vi.unstubAllGlobals()
-  vi.restoreAllMocks()
-  cleanup()
-})
-
-function stubPhone() {
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: query.includes('max-width'),
-    media: query,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-  }))
-}
-
-function TopBar({ children }: { children: ReactNode }) {
-  const [slot, setSlot] = useState<HTMLElement | null>(null)
-  return (
-    <>
-      <header>
-        <div ref={setSlot} />
-      </header>
-      <TopBarSlotContext.Provider value={slot}>{children}</TopBarSlotContext.Provider>
-    </>
-  )
-}
-
-function LocationProbe() {
-  const location = useLocation()
-  return <output data-testid="location">{`${location.pathname}${location.search}`}</output>
-}
-
-async function renderLive(snapshot: unknown, path = '/live/cfb?view=trains') {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input)
-      if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
-        return new Response(
-          JSON.stringify({
-            latest_snapshot_path: SNAPSHOT_PATH,
-            snapshot_at: '2026-10-03T20:48:31Z',
-            generated_at: '2026-10-03T20:48:31Z',
-            available_sports: ['cfb', 'golf', 'mlb'],
-            manifest_today_path: 'manifest/2026-10-03.json',
-          }),
-          { status: 200 },
-        )
-      }
-      return new Response(JSON.stringify(snapshot), { status: 200 })
-    }),
-  )
-
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[path]}>
-        <TopBar>
-          <Routes>
-            <Route path="/live/:sport" element={<Live />} />
-          </Routes>
-          <LocationProbe />
-        </TopBar>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  )
-
-  const sport = path.split('/')[2].split('?')[0]
-  await screen.findByRole('heading', { name: new RegExp(`live: ${sport}`, 'i') })
-}
-
-function location() {
-  return screen.getByTestId('location').textContent
-}
-
-function rail() {
-  return screen.getByRole('navigation', { name: /live views/i })
-}
+const TRAINS = '/live/cfb?view=trains'
 
 function chips() {
   return screen.getByRole('navigation', { name: /^trains$/i })
@@ -252,7 +142,7 @@ describe('Train view focus', () => {
   it('focuses the largest train when the URL names none', async () => {
     const snapshot = load()
     setTrains(snapshot, [SMALL, BIG])
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(trainHeading()).toHaveTextContent('×19')
   })
@@ -290,7 +180,7 @@ describe('Train stats', () => {
   it('shows size with the closeness label', async () => {
     const snapshot = load()
     setTrains(snapshot, [{ ...BIG, min_shared_slots: 8 }])
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(trainHeading()).toHaveTextContent('×19 · identical')
   })
@@ -298,7 +188,7 @@ describe('Train stats', () => {
   it('shows size with "share N of M"', async () => {
     const snapshot = load()
     setTrains(snapshot, [{ ...BIG, min_shared_slots: 5 }])
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(trainHeading()).toHaveTextContent('×19 · share 5 of 8')
   })
@@ -306,7 +196,7 @@ describe('Train stats', () => {
   it('shows size alone when the producer sends no min_shared_slots', async () => {
     const snapshot = load()
     setTrains(snapshot, [BIG])
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(trainHeading()).toHaveTextContent(/^×19$/)
   })
@@ -314,7 +204,7 @@ describe('Train stats', () => {
   it('shows best rank out of the field size, points and PMR with rounded numbers', async () => {
     const snapshot = load()
     setTrains(snapshot, [BIG])
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(stat('Best rank').getByText('#16')).toBeInTheDocument()
     expect(stat('Best rank').getByText('of 229')).toBeInTheDocument()
@@ -325,7 +215,7 @@ describe('Train stats', () => {
   it('shows dashes for values the feed omits', async () => {
     const snapshot = load()
     setTrains(snapshot, [{ cluster_id: 'bare', user_count: 4, lineup_signature: LINEUP }])
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(stat('Best rank').getByText('—')).toBeInTheDocument()
     expect(stat('Points').getByText('—')).toBeInTheDocument()
@@ -335,7 +225,7 @@ describe('Train stats', () => {
   it('never says unknown', async () => {
     const snapshot = load()
     setTrains(snapshot, [{ cluster_id: 'bare', user_count: 4 }])
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(screen.queryByText(/unknown/i)).not.toBeInTheDocument()
   })
@@ -349,7 +239,7 @@ describe('VIP overlap', () => {
       { key: 'v1', name: 'First VIP', players: ['Live Guy', 'Later Guy', 'Finished Guy', 'Fourth Guy', 'Fifth Guy', 'Other'] },
       { key: 'v2', name: 'Second VIP', players: ['Live Guy', 'Nobody'] },
     ])
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     const overlaps = screen.getByRole('list', { name: /vips sharing this train/i })
     expect(within(overlaps).getByText(/First VIP/)).toBeInTheDocument()
@@ -362,7 +252,7 @@ describe('VIP overlap', () => {
   it('omits the overlap row when there are no VIPs', async () => {
     const snapshot = load()
     setTrains(snapshot, [BIG])
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(screen.queryByRole('list', { name: /vips sharing this train/i })).not.toBeInTheDocument()
   })
@@ -372,8 +262,8 @@ describe('lineup', () => {
   it('groups the train lineup by game status, with points and ownership from the pool', async () => {
     const snapshot = load()
     setTrains(snapshot, [BIG])
-    setPlayers(snapshot)
-    await renderLive(snapshot)
+    setLineupPool(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     const playing = screen.getByRole('region', { name: /^playing now/i })
     expect(within(playing).getByText('Live Guy')).toBeInTheDocument()
@@ -390,8 +280,8 @@ describe('lineup', () => {
   it('shows locked slots as locked, not as a pipe-joined signature', async () => {
     const snapshot = load()
     setTrains(snapshot, [{ ...BIG, lineup_signature: 'LOCKED 🔒|Live Guy' }])
-    setPlayers(snapshot)
-    await renderLive(snapshot)
+    setLineupPool(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(screen.getByText('Locked 🔒')).toBeInTheDocument()
     expect(screen.queryByText(/LOCKED/)).not.toBeInTheDocument()
@@ -400,7 +290,7 @@ describe('lineup', () => {
   it('says so when the train has no lineup', async () => {
     const snapshot = load()
     setTrains(snapshot, [{ ...BIG, lineup_signature: ' | ' }])
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(screen.getByText(/no lineup is available for this train/i)).toBeInTheDocument()
   })
@@ -411,7 +301,7 @@ describe('riding entries', () => {
     const snapshot = load()
     setTrains(snapshot, [BIG])
     setStandings(snapshot)
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(screen.getByText(/riding it: rider-k1, rider-k2, rider-k3 \+16 more/i)).toBeInTheDocument()
   })
@@ -421,7 +311,7 @@ describe('riding entries', () => {
     const keys = Array.from({ length: 12 }, (_, index) => `e${index}`)
     setTrains(snapshot, [{ ...BIG, user_count: 12, entry_keys: keys }])
     contestOf(snapshot).standings = keys.map((entry_key, index) => ({ entry_key, username: `name${index}`, rank: index + 1 }))
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(screen.getByText(/name0, name1, name2, name3, name4, name5, name6, name7 \+4 more/)).toBeInTheDocument()
   })
@@ -430,7 +320,7 @@ describe('riding entries', () => {
     const snapshot = load()
     setTrains(snapshot, [BIG])
     delete contestOf(snapshot).standings
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(screen.queryByText(/riding it/i)).not.toBeInTheDocument()
   })
@@ -440,7 +330,7 @@ describe('unavailable and empty states', () => {
   it('says train data is unavailable when the contest has no train_clusters', async () => {
     const snapshot = load()
     delete contestOf(snapshot).train_clusters
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(screen.getByText(/train data unavailable for this contest/i)).toBeInTheDocument()
     expect(within(rail()).getByRole('link', { name: /^trains/i })).toHaveTextContent('unavailable')
@@ -449,7 +339,7 @@ describe('unavailable and empty states', () => {
   it('says train data is unavailable when every row is malformed', async () => {
     const snapshot = load()
     setTrains(snapshot, [null, 'invalid-row', { cluster_id: 123, user_count: 'x' }, { entry_keys: [42] }])
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(screen.getByText(/train data unavailable for this contest/i)).toBeInTheDocument()
   })
@@ -457,7 +347,7 @@ describe('unavailable and empty states', () => {
   it('says there are no trains for a present but empty list', async () => {
     const snapshot = load()
     setTrains(snapshot, [])
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(screen.getByText(/no trains available/i)).toBeInTheDocument()
     expect(screen.queryByText(/unavailable for this contest/i)).not.toBeInTheDocument()
@@ -470,7 +360,7 @@ describe('unavailable and empty states', () => {
       cluster_rule: { type: 'shared_slots', min_shared: 8 },
       clusters: [{ cluster_key: 'old', entry_count: 9, composition: [{ slot: 'QB', player_name: 'Old Shape' }] }],
     }
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(screen.getByText(/train data unavailable for this contest/i)).toBeInTheDocument()
     expect(screen.queryByText(/Old Shape/)).not.toBeInTheDocument()
@@ -479,7 +369,7 @@ describe('unavailable and empty states', () => {
   it('has no cluster wording anywhere', async () => {
     const snapshot = load()
     setTrains(snapshot, [BIG])
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(screen.queryByText(/cluster/i)).not.toBeInTheDocument()
   })
@@ -490,7 +380,7 @@ describe('on a phone', () => {
     stubPhone()
     const snapshot = load()
     setTrains(snapshot, [{ ...BIG, min_shared_slots: 8 }, SMALL])
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(screen.queryByRole('navigation', { name: /live views/i })).not.toBeInTheDocument()
     expect(trainHeading()).toHaveTextContent('×19')
@@ -508,7 +398,7 @@ describe('on a phone', () => {
     stubPhone()
     const snapshot = load()
     setTrains(snapshot, [BIG, SMALL])
-    await renderLive(snapshot)
+    await renderLive(snapshot, TRAINS)
 
     expect(within(chips()).getByRole('link', { name: /×19/ })).not.toHaveTextContent(/identical|share/i)
   })

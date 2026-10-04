@@ -1,133 +1,9 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { useState, type ReactNode } from 'react'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-// Exported by the dk_results producer; provenance in public/mock/PRODUCER_FIXTURE.md.
-import producerSnapshot from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
-import { TopBarSlotContext } from '../context/TopBarSlotContext'
-import Live from '../routes/Live'
+import { fireEvent, screen, within } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import { load, location, rail, renderLive, setPlayers, setVips, stubPhone } from './liveHarness'
 
 // The Live Command center: Players view, rail, phone tab bar and URL state.
 // The producer fixture has no VIP lineups; tests that need them inject minimal ones.
-
-const SNAPSHOT_PATH = 'snapshots/live-2026-10-03T20-48-31Z.json'
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-type Json = any
-
-function load(): Json {
-  return structuredClone(producerSnapshot)
-}
-
-function contestOf(snapshot: Json, sport = 'cfb'): Json {
-  return snapshot.sports[sport].contests[0]
-}
-
-function setVips(snapshot: Json, vips: Array<{ key: string; name: string; players: string[] }>) {
-  contestOf(snapshot).vip_lineups = vips.map((vip) => ({
-    entry_key: vip.key,
-    display_name: vip.name,
-    slots: vip.players.map((player_name) => ({ slot: 'FLEX', player_name })),
-    payout_cents: null,
-  }))
-}
-
-function setPlayers(snapshot: Json, players: Json[], sport = 'cfb') {
-  snapshot.sports[sport].players = players.map((row, index) => ({
-    player_key: `test:${index}`,
-    team: 'FSU',
-    position: 'QB',
-    roster_positions: ['QB'],
-    matchup: 'vs. MIZZ',
-    salary: 5000,
-    ownership_pct: 10,
-    fantasy_points: 10,
-    value: 2,
-    game_status: 'In-Progress',
-    ...row,
-  }))
-}
-/* eslint-enable @typescript-eslint/no-explicit-any */
-
-afterEach(() => {
-  vi.unstubAllGlobals()
-  vi.restoreAllMocks()
-  cleanup()
-})
-
-function stubPhone() {
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: query.includes('max-width'),
-    media: query,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-  }))
-}
-
-function TopBar({ children }: { children: ReactNode }) {
-  const [slot, setSlot] = useState<HTMLElement | null>(null)
-  return (
-    <>
-      <header>
-        <div ref={setSlot} />
-      </header>
-      <TopBarSlotContext.Provider value={slot}>{children}</TopBarSlotContext.Provider>
-    </>
-  )
-}
-
-function LocationProbe() {
-  const location = useLocation()
-  return <output data-testid="location">{`${location.pathname}${location.search}`}</output>
-}
-
-async function renderLive(snapshot: unknown, path = '/live/cfb') {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input)
-      if (url.includes('/api/latest') || url.includes('/mock/latest.json')) {
-        return new Response(
-          JSON.stringify({
-            latest_snapshot_path: SNAPSHOT_PATH,
-            snapshot_at: '2026-10-03T20:48:31Z',
-            generated_at: '2026-10-03T20:48:31Z',
-            available_sports: ['cfb', 'golf', 'mlb'],
-            manifest_today_path: 'manifest/2026-10-03.json',
-          }),
-          { status: 200 },
-        )
-      }
-      return new Response(JSON.stringify(snapshot), { status: 200 })
-    }),
-  )
-
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[path]}>
-        <TopBar>
-          <Routes>
-            <Route path="/live/:sport" element={<Live />} />
-          </Routes>
-          <LocationProbe />
-        </TopBar>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  )
-
-  const sport = path.split('/')[2].split('?')[0]
-  await screen.findByRole('heading', { name: new RegExp(`live: ${sport}`, 'i') })
-}
-
-function location() {
-  return screen.getByTestId('location').textContent
-}
 
 function playersTable() {
   return screen.getByRole('table', { name: /players/i })
@@ -143,10 +19,6 @@ function playerNames() {
     .getAllByRole('row')
     .slice(1)
     .map((row) => (within(row).getAllByRole('cell')[1].textContent ?? '').replace(/^(FSU|MIZZ)/, ''))
-}
-
-function rail() {
-  return screen.getByRole('navigation', { name: /live views/i })
 }
 
 describe('Players view', () => {
