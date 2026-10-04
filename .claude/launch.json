@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "proto-live",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "proto:live"],
+      "port": 5179
+    }
+  ]
+}

@@ -10,6 +10,7 @@ import Health from './routes/Health'
 import History from './routes/History'
 import Latest from './routes/Latest'
 import Live from './routes/Live'
+import LivePrototype from './routes/live-prototype/LivePrototype'
 import Login from './routes/Login'
 import Settings from './routes/Settings'
 import Sport from './routes/Sport'
@@ -30,11 +31,19 @@ function RequireAuthenticatedLayout() {
     return <Navigate to="/change-password" replace />
   }
 
+  // PROTOTYPE: Live variants bring their own shell.
+  if (location.pathname.startsWith('/live/') && new URLSearchParams(location.search).has('variant')) {
+    return <Outlet />
+  }
+
   return <AppShell />
 }
 
 function LiveRoute() {
   const location = useLocation()
+  if (new URLSearchParams(location.search).has('variant')) {
+    return <LivePrototype />
+  }
   return (
     <ErrorBoundary key={location.pathname} label="Live">
       <Live />
