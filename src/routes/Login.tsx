@@ -24,7 +24,7 @@ function Login() {
     if (user.must_change_password) {
       return <Navigate to="/change-password" replace />
     }
-    return <Navigate to="/latest" replace />
+    return <Navigate to="/" replace />
   }
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -38,7 +38,7 @@ function Login() {
     try {
       await login(username.trim(), password)
       const fromPath = (location.state as { from?: string } | null)?.from
-      navigate(fromPath && fromPath !== '/login' ? fromPath : '/latest', { replace: true })
+      navigate(fromPath && fromPath !== '/login' ? fromPath : '/', { replace: true })
     } catch (loginError) {
       if (loginError instanceof AuthApiError) {
         setError(loginError.message)

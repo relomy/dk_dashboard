@@ -39,7 +39,7 @@ function ChangePassword() {
     setError(null)
     try {
       await changePassword(user.must_change_password ? undefined : currentPassword, newPassword)
-      navigate('/latest', { replace: true })
+      navigate('/', { replace: true })
     } catch (changeError) {
       if (changeError instanceof AuthApiError) {
         setError(changeError.message)

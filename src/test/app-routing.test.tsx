@@ -8,7 +8,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-it('renders latest route', async () => {
+it('sends unauthenticated visitors to sign in from the retired /latest URL', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
