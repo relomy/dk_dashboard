@@ -12,8 +12,12 @@ export interface VipLineupSlot {
 }
 
 export interface VipLineupPlayerLive {
-  slot: string
+  /** Missing from the producer's rows until relomy/dk_results#174 ships. */
+  slot?: string
+  /** Matches `Player.player_key`; absent on locked rows. */
+  player_key?: string
   player_name: string
+  is_locked?: boolean
   game_status?: string
   ownership_pct?: number
   salary?: number
@@ -32,10 +36,14 @@ export interface VipLineup {
   entry_id?: string
   username?: string
   display_name: string
-  slots: VipLineupSlot[]
+  /** The producer sends `players_live` only. */
+  slots?: VipLineupSlot[]
   players_live?: VipLineupPlayerLive[]
-  rank?: number
+  /** The producer sends rank and PMR as strings; only numbers are read. */
+  rank?: number | string
   points?: number
+  pts?: number
+  pmr?: number | string
   payout_cents?: number | null
   live?: {
     updated_at: string
@@ -178,6 +186,7 @@ export interface Contest {
     pmr?: number
     payout_cents?: number | null
     ownership_remaining_total_pct?: number
+    is_cashing?: boolean
   }>
   metrics?: ContestMetrics
 }

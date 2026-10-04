@@ -90,6 +90,11 @@ _Avoid_: account, preset
 A single paid submission to a contest, with its own rank, payout, and lineup.
 _Avoid_: ticket
 
+**Standings**:
+A contest's ranked list of entries, each with its rank, points, PMR, and whether
+it is cashing. The authority for a VIP's header figures when its lineup row
+carries none.
+
 **Lineup**:
 The roster of player slots that makes up an entry. An entry has exactly one
 lineup.
@@ -102,8 +107,8 @@ multiplier.
 ### Players
 
 **Player**:
-An athlete available in a sport's pool, carrying a salary, projected and actual
-points, and ownership.
+An athlete available in a sport's pool, carrying a salary, actual points, and
+ownership.
 _Avoid_: VIP
 
 **Player pool**:
