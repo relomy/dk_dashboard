@@ -22,6 +22,7 @@ describe('lineup grouping', () => {
     key: name,
     slot: 'FLEX',
     name,
+    playerKey: null,
     gameStatus,
     points: null,
     projection: null,
@@ -56,11 +57,13 @@ describe('lineup grouping', () => {
 })
 
 describe('HAVE or FADE', () => {
-  const lineup = (...names: string[]): LiveLineupPlayer[] =>
-    names.map((name) => ({
+  const lineup = (...names: string[]): LiveLineupPlayer[] => keyedLineup(...names.map((name) => [name, null] as const))
+  const keyedLineup = (...rows: ReadonlyArray<readonly [string, string | null]>): LiveLineupPlayer[] =>
+    rows.map(([name, playerKey]) => ({
       key: name,
       slot: 'FLEX',
       name,
+      playerKey,
       gameStatus: null,
       points: null,
       projection: null,
@@ -75,11 +78,22 @@ describe('HAVE or FADE', () => {
   it('is HAVE when the focused lineup rosters the player and FADE when it does not', () => {
     const focused = lineup('Ousmane Kromah', 'Cayden Lee')
 
-    expect(haveOrFade(focused, 'Ousmane Kromah')).toBe('have')
-    expect(haveOrFade(focused, 'Duce Robinson')).toBe('fade')
+    expect(haveOrFade(focused, { name: 'Ousmane Kromah', playerKey: null })).toBe('have')
+    expect(haveOrFade(focused, { name: 'Duce Robinson', playerKey: null })).toBe('fade')
+  })
+
+  it('matches by player_key when both sides carry one, whatever the names', () => {
+    const focused = keyedLineup(['Rams ', 'nfl:rams'], ['Jets', 'nfl:jets'])
+
+    expect(haveOrFade(focused, { name: 'LA Rams', playerKey: 'nfl:rams' })).toBe('have')
+    expect(haveOrFade(focused, { name: 'Jets', playerKey: 'nfl:jets-2' })).toBe('fade')
+  })
+
+  it('falls back to the name with surrounding whitespace ignored', () => {
+    expect(haveOrFade(lineup('Rams '), { name: 'Rams', playerKey: 'nfl:rams' })).toBe('have')
   })
 
   it('is neither without a focused lineup', () => {
-    expect(haveOrFade(null, 'Ousmane Kromah')).toBeNull()
+    expect(haveOrFade(null, { name: 'Ousmane Kromah', playerKey: null })).toBeNull()
   })
 })

@@ -50,7 +50,7 @@ function SwingPlayers({ model, focus }: { model: LiveModel; focus: LeverageFocus
       ) : (
         <ul className="mt-3 space-y-1">
           {threat.data.swingPlayers.map((player) => {
-            const mark = haveOrFade(focus?.lineup ?? null, player.name)
+            const mark = haveOrFade(focus?.lineup ?? null, player)
             return (
               <li key={player.key} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-card">
                 {mark ? (

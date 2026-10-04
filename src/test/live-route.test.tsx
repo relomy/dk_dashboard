@@ -264,6 +264,16 @@ describe('Leverage panel', () => {
       expect(swingRow('Jeremiah Smith')).toHaveTextContent('FADE')
     })
 
+    it('marks a padded DST name HAVE for the VIP rostering it', async () => {
+      // The feed pads the VIP lineup's DST ("Rams ") but not the swing player ("Rams").
+      const vip = contestOf(nflSnapshot, 'nfl').vip_lineups.find((row: Json) => row.display_name === 'EmpireMaker2')
+      await renderLive(nflSnapshot, `/live/nfl?view=vips&vip=${String(vip.entry_key)}`)
+
+      expect(swingSubtitle()).toHaveTextContent('vs EmpireMaker2')
+      expect(swingRow('Rams')).toHaveTextContent('HAVE')
+      expect(swingRow('Cardinals')).toHaveTextContent('FADE')
+    })
+
     it('lists swing players without HAVE or FADE when there is no lineup to compare with', async () => {
       await renderLive(load())
 

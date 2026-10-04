@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildLiveModel, resolvePrimaryContest, type LiveModel, type LiveVip } from '../liveModel'
+import { haveOrFade } from '../livePresentation'
 import { resolveVipMetricMatchKey } from '../perVipKeys'
 import type { Contest, Snapshot } from '../types'
 
@@ -95,7 +96,41 @@ const leverageRowsAreRead: Invariant = (model, { contest }) => {
   return violations
 }
 
+/** A VIP whose feed lineup rosters a swing player (same `player_key`) sees that swing player marked HAVE. */
+const rosteredSwingPlayersAreHave: Invariant = (model, { contest }) => {
+  if (model.threat.availability !== 'available') return []
+  const violations: string[] = []
+  contest?.vip_lineups.forEach((lineup, index) => {
+    const vip = model.vips[index]
+    const rosteredKeys = new Set((lineup.players_live ?? []).flatMap((row) => (row.player_key ? [row.player_key] : [])))
+    for (const [swingIndex, swing] of (contest.metrics?.threat?.top_swing_players ?? []).entries()) {
+      if (!swing.player_key || !rosteredKeys.has(swing.player_key)) continue
+      const modelSwing = model.threat.availability === 'available' ? model.threat.data.swingPlayers[swingIndex] : undefined
+      const mark = vip && modelSwing ? haveOrFade(vip.players, modelSwing) : null
+      if (mark !== 'have') violations.push(`VIP ${lineup.display_name}: ${swing.player_name} is ${String(mark)}`)
+    }
+  })
+  return violations
+}
+
+/** A pool player a VIP rosters (same `player_key`) lists that VIP in the player table. */
+const poolPlayersListTheirVips: Invariant = (model, { contest }) => {
+  const poolByKey = new Map(model.pool.map((row) => [row.key, row]))
+  const violations: string[] = []
+  contest?.vip_lineups.forEach((lineup, index) => {
+    for (const row of lineup.players_live ?? []) {
+      const pooled = row.player_key ? poolByKey.get(row.player_key) : undefined
+      if (pooled && !pooled.vipIndexes.includes(index)) {
+        violations.push(`${pooled.name} does not list VIP ${lineup.display_name}`)
+      }
+    }
+  })
+  return violations
+}
+
 const INVARIANTS: Record<string, Invariant> = {
+  'every pool player a VIP rosters lists that VIP': poolPlayersListTheirVips,
+  'a VIP rostering a swing player is marked HAVE for it': rosteredSwingPlayersAreHave,
   'every VIP card has a numeric rank, points and PMR': vipCardHasFigures,
   'every leverage row becomes an available model leverage row': leverageRowsAreRead,
 }

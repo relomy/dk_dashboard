@@ -237,6 +237,7 @@ describe('VIP lineup players', () => {
         key: 'QB-0',
         slot: 'QB',
         name: 'Ashton Daniels',
+        playerKey: null,
         gameStatus: 'in-progress',
         points: 7.25,
         projection: 21.11,
@@ -280,6 +281,7 @@ describe('VIP lineup players', () => {
         key: 'QB-0',
         slot: 'QB',
         name: 'Unknown Slot Name',
+        playerKey: null,
         gameStatus: null,
         points: null,
         projection: null,
@@ -1104,6 +1106,7 @@ describe('swing players', () => {
     expect(threat.data.swingPlayers[0]).toEqual({
       key: 'cfb:ousmane-kromah:fsu:5900:rb',
       name: 'Ousmane Kromah',
+      playerKey: 'cfb:ousmane-kromah:fsu:5900:rb',
       ownershipRemainingPct: 79.11,
       vipCount: 0,
     })
@@ -1116,7 +1119,7 @@ describe('swing players', () => {
     const threat = modelOf(snapshot).threat
     expect(threat).toEqual({
       availability: 'available',
-      data: { swingPlayers: [{ key: 'Alt Field-0', name: 'Alt Field', ownershipRemainingPct: 12.5, vipCount: 0 }] },
+      data: { swingPlayers: [{ key: 'Alt Field-0', name: 'Alt Field', playerKey: null, ownershipRemainingPct: 12.5, vipCount: 0 }] },
     })
   })
 

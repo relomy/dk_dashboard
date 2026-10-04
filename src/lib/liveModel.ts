@@ -114,6 +114,8 @@ export interface LiveLineupPlayer {
   key: string
   slot: string
   name: string
+  /** The player's `player_key`: the row's own on a VIP lineup, the matched pool player's on a train; null when neither has one. */
+  playerKey: string | null
   gameStatus: GameStatus | null
   points: number | null
   projection: number | null
@@ -209,6 +211,7 @@ export interface LiveOwnershipLeaders {
 export interface LiveSwingPlayer {
   key: string
   name: string
+  playerKey: string | null
   ownershipRemainingPct: number | null
   vipCount: number
 }
@@ -368,6 +371,7 @@ function buildLineupPlayers(lineup: VipLineup, pool: PoolIndex): LiveLineupPlaye
         key: `${player.slot ?? 'row'}-${index}`,
         slot: player.slot ?? '',
         name: player.player_name,
+        playerKey: player.player_key ?? null,
         gameStatus: classifyGameStatus(gameStatus),
         points: numberOrNull(player.points) ?? numberOrNull(pooled?.fantasy_points),
         projection: numberOrNull(player.rt_projection),
@@ -384,6 +388,7 @@ function buildLineupPlayers(lineup: VipLineup, pool: PoolIndex): LiveLineupPlaye
     key: `${slot.slot}-${index}`,
     slot: slot.slot,
     name: slot.player_name,
+    playerKey: null,
     gameStatus: null,
     points: null,
     projection: null,
@@ -503,6 +508,7 @@ function buildTrainPlayers(lineup: LineupSlot[], poolByName: Map<string, Player>
       key: `${index}-${slot.label}`,
       slot: player ? (player.position ?? player.roster_positions?.join('/') ?? '') : '',
       name: slot.label,
+      playerKey: player?.player_key ?? null,
       gameStatus: classifyGameStatus(player?.game_status),
       points: numberOrNull(player?.fantasy_points),
       projection: null,
@@ -670,6 +676,7 @@ function buildThreat(contest: Contest): Section<LiveThreat> {
     swingPlayers: (threat.top_swing_players ?? []).map((player, index) => ({
       key: player.player_key ?? `${player.player_name}-${index}`,
       name: player.player_name,
+      playerKey: player.player_key ?? null,
       ownershipRemainingPct: numberOrNull(player.ownership_remaining_pct ?? player.remaining_ownership_pct),
       vipCount: player.vip_count ?? 0,
     })),
@@ -694,21 +701,46 @@ export function classifyGameStatus(raw: string | null | undefined): GameStatus |
   return null
 }
 
-/** The player names on a VIP's lineup: its slots plus any `players_live` rows. VIP slots carry names only. */
+/** A player as two lists are matched on: the `player_key` when there is one, and the name. */
+export interface PlayerRef {
+  playerKey: string | null
+  name: string
+}
+
+/**
+ * Whether two lists name the same player: by `player_key` when both carry one, else by name with
+ * surrounding whitespace ignored (the feed pads some names, such as DSTs: "Rams ").
+ */
+export function isSamePlayer(a: PlayerRef, b: PlayerRef): boolean {
+  if (a.playerKey && b.playerKey) return a.playerKey === b.playerKey
+  return a.name.trim() === b.name.trim()
+}
+
+/** The players on a VIP's lineup: its slots plus any `players_live` rows, leaving out locked slots. */
+function lineupPlayerRefs(lineup: VipLineup): PlayerRef[] {
+  const slots = (lineup.slots ?? []).map((slot) => ({ playerKey: null, name: slot.player_name }))
+  const live = (Array.isArray(lineup.players_live) ? lineup.players_live : [])
+    .filter((player) => !player.is_locked)
+    .map((player) => ({ playerKey: player.player_key ?? null, name: player.player_name }))
+  return [...slots, ...live]
+}
+
+/** The trimmed player names on a VIP's lineup, for matching against a train's name-only lineup. */
 function lineupPlayerNames(lineup: VipLineup): Set<string> {
-  const names = new Set<string>()
-  for (const slot of lineup.slots ?? []) names.add(slot.player_name)
-  for (const player of Array.isArray(lineup.players_live) ? lineup.players_live : []) names.add(player.player_name)
-  return names
+  return new Set(lineupPlayerRefs(lineup).map((player) => player.name.trim()))
 }
 
 function buildPool(sportData: SportSnapshot, contest: Contest): LivePoolPlayer[] {
-  const lineups = contest.vip_lineups.map(lineupPlayerNames)
-  return buildPlayerPool(sportData.players, '').map((row) => ({
-    ...row,
-    gameStatus: classifyGameStatus(row.status),
-    vipIndexes: lineups.flatMap((names, index) => (names.has(row.name) ? [index] : [])),
-  }))
+  const lineups = contest.vip_lineups.map(lineupPlayerRefs)
+  const playerKeys = new Set(sportData.players.flatMap((player) => (player.player_key ? [player.player_key] : [])))
+  return buildPlayerPool(sportData.players, '').map((row) => {
+    const ref = { playerKey: playerKeys.has(row.key) ? row.key : null, name: row.name }
+    return {
+      ...row,
+      gameStatus: classifyGameStatus(row.status),
+      vipIndexes: lineups.flatMap((players, index) => (players.some((player) => isSamePlayer(player, ref)) ? [index] : [])),
+    }
+  })
 }
 
 function buildTotalOwnership(players: Player[]): LiveTotalOwnership {
