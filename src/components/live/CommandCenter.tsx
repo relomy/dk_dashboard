@@ -4,11 +4,12 @@ import { Radar, Star, Table2, TrainFront, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useIsPhone } from '../../hooks/useMediaQuery'
 import { formatPoints } from '../../lib/format'
-import type { LiveModel, LiveVip } from '../../lib/liveModel'
+import type { LiveModel, LiveTrain, LiveVip } from '../../lib/liveModel'
 import TopBarSlot from '../TopBarSlot'
-import { LegacyLeverageSections, LegacySurface, LegacyTrainFinder } from './LegacySections'
-import { resolveFocusedVip, useLiveView, type LiveView } from './liveView'
+import { LegacyLeverageSections, LegacySurface } from './LegacySections'
+import { railTrains, resolveFocusedTrain, resolveFocusedVip, useLiveView, type LiveView } from './liveView'
 import PlayersView from './PlayersView'
+import { NoTrains, TrainChips, TrainRailRows, TrainView } from './TrainView'
 import { NoVips, VipChips, VipRailRows, VipView } from './VipView'
 
 function formatSnapshotTime(iso: string): string {
@@ -108,37 +109,41 @@ function PhoneTabBar({ view, searchFor }: { view: LiveView; searchFor: (view: Li
   )
 }
 
-function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`
-}
-
 /**
  * The Live Command center: a rail (tablet and up) or bottom tab bar (phones) picks what fills
- * the main area, and the view (and focused VIP) lives in the URL. Players is the default. Until
- * the redesigned views land, Trains and Leverage host today's sections; on tablet and desktop the
+ * the main area, and the view (and focused VIP or Train) lives in the URL. Players is the default. Until
+ * the redesigned Leverage view lands, it hosts today's sections; on tablet and desktop the
  * leverage sections sit beside (desktop) or below (tablet) the main area.
  */
 function CommandCenter({ model, title }: { model: LiveModel; title: ReactNode }) {
   const isPhone = useIsPhone()
-  const { view, vipKey, searchFor } = useLiveView()
-  const trainCount = model.trains.status === 'available' ? model.trains.data.rows.length : null
+  const { view, vipKey, trainId, searchFor } = useLiveView()
+  const trainRows = model.trains.status === 'available' ? model.trains.data.rows : null
   const focusedVip = resolveFocusedVip(model.vips, vipKey)
+  const focusedTrain = trainRows ? resolveFocusedTrain(trainRows, trainId) : null
+  const listedTrains = trainRows ? railTrains(trainRows, focusedTrain) : []
   const vipHref = (vip: LiveVip) => searchFor('vips', { vip: vip.key })
+  const trainHref = (train: LiveTrain) => searchFor('trains', { train: train.id })
 
   const main =
     view === 'vips' ? (
       focusedVip ? (
         <>
           {isPhone ? <VipChips vips={model.vips} activeKey={focusedVip.key} hrefFor={vipHref} /> : null}
-          <VipView model={model} vip={focusedVip} />
+          <VipView model={model} vip={focusedVip} trainHref={(id) => searchFor('trains', { train: id })} />
         </>
       ) : (
         <NoVips />
       )
     ) : view === 'trains' ? (
-      <LegacySurface>
-        <LegacyTrainFinder trains={model.trains} />
-      </LegacySurface>
+      focusedTrain ? (
+        <>
+          {isPhone ? <TrainChips trains={listedTrains} activeId={focusedTrain.id} hrefFor={trainHref} /> : null}
+          <TrainView model={model} train={focusedTrain} />
+        </>
+      ) : (
+        <NoTrains unavailable={trainRows === null} />
+      )
     ) : view === 'leverage' ? (
       <LegacySurface>
         <LegacyLeverageSections model={model} />
@@ -172,13 +177,24 @@ function CommandCenter({ model, title }: { model: LiveModel; title: ReactNode })
                 <VipRailRows vips={model.vips} activeKey={view === 'vips' ? focusedVip?.key ?? null : null} hrefFor={vipHref} />
               </>
             )}
-            <RailLink
-              to={searchFor('trains')}
-              active={view === 'trains'}
-              icon={TrainFront}
-              label="Trains"
-              detail={trainCount === null ? 'unavailable' : plural(trainCount, 'train', 'trains')}
-            />
+            {focusedTrain ? (
+              <>
+                <RailHeading>Trains</RailHeading>
+                <TrainRailRows
+                  trains={listedTrains}
+                  activeId={view === 'trains' ? focusedTrain.id : null}
+                  hrefFor={trainHref}
+                />
+              </>
+            ) : (
+              <RailLink
+                to={searchFor('trains')}
+                active={view === 'trains'}
+                icon={TrainFront}
+                label="Trains"
+                detail={trainRows === null ? 'unavailable' : 'none'}
+              />
+            )}
           </nav>
         )}
 

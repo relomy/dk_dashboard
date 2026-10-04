@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom'
-import type { LiveVip } from '../../lib/liveModel'
+import { largestTrains, type LiveTrain, type LiveVip } from '../../lib/liveModel'
 
 /**
  * Live URL state: `?view=players|vips|trains|leverage&vip=<key>&train=<id>`.
@@ -18,6 +18,20 @@ function isLiveView(value: string | null): value is LiveView {
 /** The VIP the VIPs view follows: the one named in the URL, else the first VIP; null when there are none. */
 export function resolveFocusedVip(vips: LiveVip[], vipKey: string | null): LiveVip | null {
   return vips.find((vip) => vip.key === vipKey) ?? vips[0] ?? null
+}
+
+/** The Train the Trains view follows: the one named in the URL, else the largest; null when there are none. */
+export function resolveFocusedTrain(trains: LiveTrain[], trainId: string | null): LiveTrain | null {
+  return trains.find((train) => train.id === trainId) ?? largestTrains(trains, 1)[0] ?? null
+}
+
+/** The rail and phone chips list this many of the largest Trains. */
+export const RAIL_TRAIN_COUNT = 6
+
+/** The largest Trains for the rail, plus the focused Train when it is not among them. */
+export function railTrains(trains: LiveTrain[], focused: LiveTrain | null): LiveTrain[] {
+  const largest = largestTrains(trains, RAIL_TRAIN_COUNT)
+  return focused && !largest.includes(focused) ? [...largest, focused] : largest
 }
 
 export interface LiveViewState {

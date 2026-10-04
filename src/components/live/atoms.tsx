@@ -122,3 +122,28 @@ export function VipAvatars({
     </span>
   )
 }
+
+/** A VIP's initials on their identity color. */
+export function VipAvatar({ name, index, className }: { name: string; index: number; className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn('grid shrink-0 place-items-center font-bold text-white', vipColorClass(index), className)}
+    >
+      {vipInitials(name)}
+    </span>
+  )
+}
+
+/** A labelled headline number, as the VIP and Train views lead with. */
+export function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
+  return (
+    <div role="group" aria-label={label}>
+      <div className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase" aria-hidden="true">
+        {label}
+      </div>
+      <div className={cn('font-mono text-2xl font-semibold tabular-nums', tone)}>{value}</div>
+      {sub ? <div className="text-[11px] text-muted-foreground">{sub}</div> : null}
+    </div>
+  )
+}

@@ -524,6 +524,12 @@ function buildTrains(
   return available({ updatedAt: contest.live_metrics?.updated_at || null, rule, rows })
 }
 
+/** "identical" when every slot is shared, else "share N of M"; null when the producer gave no `min_shared_slots`. */
+export function trainClosenessLabel(closeness: LiveTrainCloseness | null): string | null {
+  if (!closeness) return null
+  return closeness.identical ? 'identical' : `share ${closeness.minShared} of ${closeness.slotCount}`
+}
+
 /** The `count` largest trains: most entries first, then best rank (unranked last). */
 export function largestTrains(rows: LiveTrain[], count: number): LiveTrain[] {
   return [...rows]
