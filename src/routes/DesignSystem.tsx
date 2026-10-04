@@ -56,14 +56,13 @@ const MEANING_SWATCHES: Array<{ label: string; className: string }> = [
 
 /**
  * Development-only gallery of the design system (mounted at /dev/ui only when
- * running `vite dev`). It renders primitives inside the legacy app shell and
- * behind portaled overlays, which is the place to eyeball that legacy element
- * styles do not leak into the new UI. Not part of the production bundle.
+ * running `vite dev`). It renders every primitive and meaning token in the app
+ * shell and behind portaled overlays. Not part of the production bundle.
  */
 export default function DesignSystem() {
   return (
     <TooltipProvider>
-      <div className="app-ui space-y-8 rounded-lg p-6">
+      <div className="space-y-8 rounded-lg p-6">
         <h1 className="text-2xl font-semibold">Design system</h1>
 
         <section className="space-y-3">

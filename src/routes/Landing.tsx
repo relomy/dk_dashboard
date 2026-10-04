@@ -6,7 +6,7 @@ function Message({ children, tone }: { children: string; tone?: 'error' }) {
   return (
     <div
       role={tone === 'error' ? 'alert' : 'status'}
-      className={`app-ui grid min-h-64 place-items-center p-4 text-sm ${tone === 'error' ? 'text-non-cashing' : 'text-muted-foreground'}`}
+      className={`grid min-h-64 place-items-center p-4 text-sm ${tone === 'error' ? 'text-non-cashing' : 'text-muted-foreground'}`}
     >
       {children}
     </div>

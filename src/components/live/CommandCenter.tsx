@@ -158,7 +158,7 @@ function CommandCenter({ model, title }: { model: LiveModel; title: ReactNode })
     )
 
   return (
-    <div className={cn('app-ui min-h-[calc(100vh-37px)]', isPhone && 'pb-20')}>
+    <div className={cn('min-h-[calc(100vh-37px)]', isPhone && 'pb-20')}>
       <h1 className="sr-only">{title}</h1>
       <TopBarSlot>
         <TopBarReadout model={model} />
