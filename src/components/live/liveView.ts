@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router-dom'
+import type { LiveVip } from '../../lib/liveModel'
 
 /**
  * Live URL state: `?view=players|vips|trains|leverage&vip=<key>&train=<id>`.
@@ -12,6 +13,11 @@ export const LIVE_VIEWS: readonly LiveView[] = ['players', 'vips', 'trains', 'le
 
 function isLiveView(value: string | null): value is LiveView {
   return value !== null && (LIVE_VIEWS as readonly string[]).includes(value)
+}
+
+/** The VIP the VIPs view follows: the one named in the URL, else the first VIP; null when there are none. */
+export function resolveFocusedVip(vips: LiveVip[], vipKey: string | null): LiveVip | null {
+  return vips.find((vip) => vip.key === vipKey) ?? vips[0] ?? null
 }
 
 export interface LiveViewState {

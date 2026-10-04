@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest'
 // Exported by the dk_results producer; provenance in public/mock/PRODUCER_FIXTURE.md.
 // cfb carries `metrics.threat`; mlb carries no `metrics` at all (the missing-metrics variant).
 import producerSnapshot from '../../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
-import { buildLiveModel, type LiveModel } from '../liveModel'
+import { formatSigned } from '../format'
+import {
+  buildLiveModel,
+  groupLineup,
+  lineupOwnershipHint,
+  type LiveLineupPlayer,
+  type LiveModel,
+} from '../liveModel'
 import type { Snapshot } from '../types'
 
 const VIP_KEY = '5067365318'
@@ -205,7 +212,7 @@ describe('VIP cashing and distance to cash', () => {
   })
 })
 
-describe('VIP lineup details', () => {
+describe('VIP lineup players', () => {
   const PLAYERS_LIVE_ROW = {
     slot: 'QB',
     player_name: 'Ashton Daniels',
@@ -219,34 +226,70 @@ describe('VIP lineup details', () => {
     game_status: 'In Progress',
   }
 
-  function lineupOf(snapshot: unknown) {
+  function playersOf(snapshot: unknown) {
     const [vip] = modelOf(snapshot).vips
     if (!vip) throw new Error('Expected a VIP')
-    return vip.lineup
+    return vip.players
   }
 
-  it('uses players_live rows when the feed provides them', () => {
+  it('reads each players_live row into a lineup player with its game status', () => {
     const snapshot = load()
     addVip(snapshot, 'cfb', { players_live: [PLAYERS_LIVE_ROW] })
 
-    expect(lineupOf(snapshot)).toEqual({ kind: 'players-live', players: [PLAYERS_LIVE_ROW] })
+    expect(playersOf(snapshot)).toEqual([
+      {
+        key: 'QB-0',
+        slot: 'QB',
+        name: 'Ashton Daniels',
+        gameStatus: 'in-progress',
+        points: 7.25,
+        projection: 21.11,
+        clock: '38.02',
+        ownershipPct: 84.67,
+        value: 2.07,
+        stats: '1 TD',
+      },
+    ])
   })
 
-  it('keeps a present but empty players_live list as empty rather than falling back to slots', () => {
+  it('classifies each row game status as pre-game, in progress or final', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', {
+      players_live: [
+        { ...PLAYERS_LIVE_ROW, slot: 'RB', game_status: 'Final' },
+        { ...PLAYERS_LIVE_ROW, slot: 'WR', game_status: 'FSU@MIZZ 07:30PM ET' },
+        { ...PLAYERS_LIVE_ROW, slot: 'TE', game_status: undefined },
+      ],
+    })
+
+    expect(playersOf(snapshot).map((player) => player.gameStatus)).toEqual(['final', 'pre-game', null])
+  })
+
+  it('keeps a present but empty players_live list as an empty lineup rather than falling back to slots', () => {
     const snapshot = load()
     addVip(snapshot, 'cfb', { players_live: [] })
 
-    expect(lineupOf(snapshot)).toEqual({ kind: 'players-live', players: [] })
+    expect(playersOf(snapshot)).toEqual([])
   })
 
   it('falls back to the name-only slots when players_live is missing', () => {
     const snapshot = load()
     addVip(snapshot, 'cfb', { players_live: null, slots: [{ slot: 'QB', player_name: 'Unknown Slot Name', multiplier: 1.5 }] })
 
-    expect(lineupOf(snapshot)).toEqual({
-      kind: 'slots',
-      slots: [{ slot: 'QB', player_name: 'Unknown Slot Name', multiplier: 1.5 }],
-    })
+    expect(playersOf(snapshot)).toEqual([
+      {
+        key: 'QB-0',
+        slot: 'QB',
+        name: 'Unknown Slot Name',
+        gameStatus: null,
+        points: null,
+        projection: null,
+        clock: null,
+        ownershipPct: null,
+        value: null,
+        stats: null,
+      },
+    ])
   })
 
   it('carries the VIP live update time when present', () => {
@@ -256,6 +299,210 @@ describe('VIP lineup details', () => {
 
     addVip(snapshot)
     expect(modelOf(snapshot).vips[0]?.updatedAt).toBeNull()
+  })
+
+  it('projects final points for finished players and the real-time projection for the rest', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', {
+      players_live: [
+        { ...PLAYERS_LIVE_ROW, slot: 'QB', points: 20, rt_projection: 25, game_status: 'Final' },
+        { ...PLAYERS_LIVE_ROW, slot: 'RB', points: 5, rt_projection: 12.5, game_status: 'In Progress' },
+        { ...PLAYERS_LIVE_ROW, slot: 'WR', points: 0, rt_projection: undefined, game_status: 'FSU@MIZZ 07:30PM ET' },
+      ],
+    })
+
+    expect(modelOf(snapshot).vips[0]?.projectedPoints).toBe(32.5)
+  })
+
+  it('has no projection without players_live rows', () => {
+    const snapshot = load()
+    addVip(snapshot)
+    expect(modelOf(snapshot).vips[0]?.projectedPoints).toBeNull()
+
+    addVip(snapshot, 'cfb', { players_live: [] })
+    expect(modelOf(snapshot).vips[0]?.projectedPoints).toBeNull()
+  })
+})
+
+describe('VIP standing and ownership', () => {
+  const LIVE = {
+    updated_at: '2026-10-03T20:40:00Z',
+    current_rank: 12,
+    current_points: 140.5,
+    pmr: 88.5,
+    ownership_remaining_pct: 210.25,
+  }
+
+  function vipOf(snapshot: unknown, sport = 'cfb') {
+    const [vip] = modelOf(snapshot, sport).vips
+    if (!vip) throw new Error('Expected a VIP')
+    return vip
+  }
+
+  function setSummary(snapshot: Json, perVip: Json[]) {
+    contestOf(snapshot).metrics.ownership_summary = { source: 'vip_lineup_players', scope: 'vip_lineup', per_vip: perVip }
+  }
+
+  it('reads rank, points, PMR and ownership remaining from the live block', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', { live: LIVE, rank: 99, points: 1 })
+
+    expect(vipOf(snapshot)).toMatchObject({ rank: 12, points: 140.5, pmr: 88.5, ownershipRemainingPct: 210.25 })
+  })
+
+  it('falls back to the lineup rank and points without a live block', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', { rank: 7, points: 91.25 })
+
+    expect(vipOf(snapshot)).toMatchObject({ rank: 7, points: 91.25, pmr: null, ownershipRemainingPct: null })
+  })
+
+  it('leaves standing values empty when the feed omits them', () => {
+    const snapshot = load()
+    addVip(snapshot)
+
+    expect(vipOf(snapshot)).toMatchObject({ rank: null, points: null, pmr: null, ownershipRemainingPct: null })
+  })
+
+  it('reads lineup ownership from the renamed lineup_ownership_pct', () => {
+    const snapshot = load()
+    addVip(snapshot)
+    setSummary(snapshot, [{ entry_key: VIP_KEY, lineup_ownership_pct: 301.5 }])
+
+    expect(vipOf(snapshot).lineupOwnershipPct).toBe(301.5)
+  })
+
+  it('reads lineup ownership from the older total_ownership_pct', () => {
+    const snapshot = load()
+    addVip(snapshot)
+    setSummary(snapshot, [{ entry_key: VIP_KEY, total_ownership_pct: 189.78 }])
+
+    expect(vipOf(snapshot).lineupOwnershipPct).toBe(189.78)
+  })
+
+  it('prefers lineup_ownership_pct when a row carries both names', () => {
+    const snapshot = load()
+    addVip(snapshot)
+    setSummary(snapshot, [{ entry_key: VIP_KEY, lineup_ownership_pct: 301.5, total_ownership_pct: 189.78 }])
+
+    expect(vipOf(snapshot).lineupOwnershipPct).toBe(301.5)
+  })
+
+  it('matches the lineup ownership row on vip_entry_key before entry_key, never on display_name', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', { vip_entry_key: 'vip-key' })
+    setSummary(snapshot, [
+      { entry_key: VIP_KEY, lineup_ownership_pct: 1 },
+      { display_name: VIP_NAME, lineup_ownership_pct: 2 },
+      { vip_entry_key: 'vip-key', lineup_ownership_pct: 3 },
+    ])
+    expect(vipOf(snapshot).lineupOwnershipPct).toBe(3)
+
+    addVip(snapshot)
+    setSummary(snapshot, [{ display_name: VIP_NAME, lineup_ownership_pct: 2 }])
+    expect(vipOf(snapshot).lineupOwnershipPct).toBeNull()
+  })
+
+  it('has no lineup ownership when the metrics omit the summary', () => {
+    const snapshot = load()
+    addVip(snapshot, 'mlb')
+
+    expect(vipOf(snapshot, 'mlb').lineupOwnershipPct).toBeNull()
+  })
+
+  it('reads the renamed field in the VIP ownership summary rows too', () => {
+    const snapshot = load()
+    addVip(snapshot)
+    setSummary(snapshot, [{ entry_key: VIP_KEY, lineup_ownership_pct: 301.5 }])
+
+    const summary = modelOf(snapshot).ownershipSummary
+    if (summary.status !== 'available') throw new Error('Expected the summary')
+    expect(summary.data[0]?.totalOwnershipPct).toBe(301.5)
+  })
+})
+
+describe('field size', () => {
+  it('prefers entries_count and falls back to max_entries', () => {
+    const snapshot = load()
+    expect(modelOf(snapshot).fieldSize).toBe(229)
+
+    contestOf(snapshot).entries_count = 211
+    expect(modelOf(snapshot).fieldSize).toBe(211)
+  })
+
+  it('is null when the feed gives neither', () => {
+    const snapshot = load()
+    contestOf(snapshot).max_entries = null
+    expect(modelOf(snapshot).fieldSize).toBeNull()
+  })
+})
+
+describe('signed distance to cash', () => {
+  it('writes a plus sign for cashing and a true minus sign for not cashing', () => {
+    expect(formatSigned(50.25)).toBe('+50.25')
+    expect(formatSigned(-78.5)).toBe('−78.5')
+    expect(formatSigned(0)).toBe('+0')
+  })
+
+  it('trims to two decimals without trailing zeros and has no negative zero', () => {
+    expect(formatSigned(11)).toBe('+11')
+    expect(formatSigned(3.14159)).toBe('+3.14')
+    expect(formatSigned(-0.001)).toBe('+0')
+  })
+
+  it('is a dash when the distance is missing', () => {
+    expect(formatSigned(null)).toBe('—')
+  })
+})
+
+describe('lineup ownership hint', () => {
+  it('calls an average of 50% a slot or more chalky, 20% or less contrarian, otherwise balanced', () => {
+    expect(lineupOwnershipHint(400, 8)).toBe('chalky')
+    expect(lineupOwnershipHint(445.6, 8)).toBe('chalky')
+    expect(lineupOwnershipHint(160, 8)).toBe('contrarian')
+    expect(lineupOwnershipHint(100, 8)).toBe('contrarian')
+    expect(lineupOwnershipHint(240, 8)).toBe('balanced')
+  })
+
+  it('has no hint without ownership or slots', () => {
+    expect(lineupOwnershipHint(null, 8)).toBeNull()
+    expect(lineupOwnershipHint(200, 0)).toBeNull()
+  })
+})
+
+describe('lineup grouping', () => {
+  const player = (name: string, gameStatus: LiveLineupPlayer['gameStatus']): LiveLineupPlayer => ({
+    key: name,
+    slot: 'FLEX',
+    name,
+    gameStatus,
+    points: null,
+    projection: null,
+    clock: null,
+    ownershipPct: null,
+    value: null,
+    stats: null,
+  })
+
+  it('groups by game status, keeping lineup order, with no game status counting as yet to play', () => {
+    const groups = groupLineup([
+      player('a', 'final'),
+      player('b', 'pre-game'),
+      player('c', 'in-progress'),
+      player('d', null),
+      player('e', 'in-progress'),
+    ])
+
+    expect(groups.map((group) => [group.label, group.players.map((p) => p.name)])).toEqual([
+      ['Playing now', ['c', 'e']],
+      ['Yet to play', ['b', 'd']],
+      ['Done', ['a']],
+    ])
+  })
+
+  it('drops empty groups', () => {
+    expect(groupLineup([player('a', 'final')]).map((group) => group.label)).toEqual(['Done'])
+    expect(groupLineup([])).toEqual([])
   })
 })
 

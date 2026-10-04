@@ -1,10 +1,9 @@
-// Today's Live sections, hosted by the VIPs, Trains and Leverage tabs until the
-// redesigned views replace them (relomy/dk_dashboard#24, #25, #26). Legacy markup:
+// Today's Live sections, hosted by the Trains and Leverage tabs until the
+// redesigned views replace them (relomy/dk_dashboard#25, #26). Legacy markup:
 // render inside a LegacySurface so the light legacy styles stay readable.
 import type { ReactNode } from 'react'
 import { formatPmr, formatPoints } from '../../lib/format'
-import type { LiveModel, LiveVip } from '../../lib/liveModel'
-import { classifyValueTier, type ValueTier } from '../../lib/playerPresentation'
+import type { LiveModel } from '../../lib/liveModel'
 
 function formatValue(value: number | null | undefined, opts?: { suffix?: string }): string {
   if (value === null || value === undefined) {
@@ -65,127 +64,9 @@ function formatCurrency(value: number | null | undefined): string {
   return `$${Math.round(value).toLocaleString()}`
 }
 
-function formatBadgeValue(value: unknown, tier: ValueTier): string {
-  if (tier === 'unknown') {
-    return 'N/A'
-  }
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) {
-    return 'N/A'
-  }
-  const rounded = Math.round(numeric * 10) / 10
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
-}
-
-function renderValueBadge(value: unknown) {
-  const tier = classifyValueTier(value)
-  return <span className={`value-badge value-badge--${tier}`}>{formatBadgeValue(value, tier)}</span>
-}
-
-function VipLineupDetails({ vip }: { vip: LiveVip }) {
-  const { lineup } = vip
-  if (lineup.kind === 'slots') {
-    if (lineup.slots.length === 0) {
-      return <p className="meta-text">Lineup slots unavailable.</p>
-    }
-    return (
-      <ul className="vip-slot-list">
-        {lineup.slots.map((slot, index) => {
-          const multiplier = slot.multiplier ? ` x${slot.multiplier}` : ''
-          return (
-            <li key={`${vip.key}-${index}`}>
-              {slot.slot}: {slot.player_name}
-              {multiplier}
-            </li>
-          )
-        })}
-      </ul>
-    )
-  }
-
-  if (lineup.players.length === 0) {
-    return <p className="meta-text">No player live details available.</p>
-  }
-  return (
-    <table className="data-table vip-live-table">
-      <thead>
-        <tr>
-          <th>Pos</th>
-          <th>Name</th>
-          <th>Own</th>
-          <th>Salary</th>
-          <th>Pts</th>
-          <th>Value</th>
-          <th>RT Proj</th>
-          <th>Time</th>
-          <th>Stats</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {lineup.players.map((player, playerIndex) => (
-          <tr key={`${vip.key}-${playerIndex}`}>
-            <td>{player.slot}</td>
-            <td>{player.player_name}</td>
-            <td>{formatValue(player.ownership_pct, { suffix: '%' })}</td>
-            <td>{formatCurrency(player.salary)}</td>
-            <td>{formatPoints(player.points)}</td>
-            <td>{renderValueBadge(player.value)}</td>
-            <td>{formatValue(player.rt_projection)}</td>
-            <td>{player.time_remaining_display ?? '—'}</td>
-            <td>{player.stats_text ?? '—'}</td>
-            <td>{player.game_status ?? '—'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
-
 /** Restores the legacy page look (ink color, stacked panels) inside the dark Live surface. */
 export function LegacySurface({ children }: { children: ReactNode }) {
   return <div className="page-stack min-w-0 overflow-x-auto text-[color:var(--ink)]">{children}</div>
-}
-
-export function LegacyVipBoard({ vips, focusedVipKey }: { vips: LiveVip[]; focusedVipKey: string | null }) {
-  return (
-    <div className="panel page-stack-sm">
-      <h2 className="section-title">VIP board</h2>
-      {vips.length === 0 ? (
-        <p className="meta-text">No VIP lineups available for this contest or active filter.</p>
-      ) : (
-        <ul className="list-panel">
-          {vips.map((vip, vipIndex) => {
-            const { points: pointsDelta, rank: rankDelta } = vip.distanceToCash
-            const distanceLabel =
-              pointsDelta === null ? 'Unavailable' : formatSigned(pointsDelta, { suffix: ' pts' })
-            const updatedAt = vip.updatedAt ? new Date(vip.updatedAt).toLocaleString() : undefined
-
-            return (
-              <li
-                key={`${vip.key}-${vipIndex}`}
-                id={`live-vip-${vipIndex}`}
-                aria-current={vip.key === focusedVipKey ? 'true' : undefined}
-                className={`item-card page-stack-sm${vip.key === focusedVipKey ? ' ring-2 ring-vip-1' : ''}`}
-              >
-                <div className="sport-contest-headline">
-                  <p className="item-title">{vip.name}</p>
-                  <span className={`status ${vip.cashing ? 'status-ok' : 'status-error'}`}>
-                    {vip.cashing ? 'Cashing' : 'Not cashing'}
-                  </span>
-                </div>
-                <p className="meta-text">Distance to cash: {distanceLabel}</p>
-                {rankDelta === null ? null : <p className="meta-text">Rank delta: {formatSigned(rankDelta)}</p>}
-                {updatedAt ? <p className="meta-text">Last updated: {updatedAt}</p> : null}
-                <VipLineupDetails vip={vip} />
-              </li>
-            )
-          })}
-        </ul>
-      )}
-    </div>
-
-  )
 }
 
 export function LegacyTrainFinder({ trains }: { trains: LiveModel['trains'] }) {

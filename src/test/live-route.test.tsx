@@ -82,7 +82,7 @@ async function renderLive(snapshot: unknown, sport = 'cfb') {
   await screen.findByRole('heading', { name: new RegExp(`live: ${sport}`, 'i') })
 }
 
-/** Selects a Live view from the rail (the VIPs and Trains sections sit behind their tabs). */
+/** Selects a Live view from the rail (the Trains section sits behind its tab). */
 function openView(name: RegExp) {
   fireEvent.click(within(screen.getByRole('navigation', { name: /live views/i })).getByRole('link', { name }))
 }
@@ -93,34 +93,11 @@ function panel(headingName: RegExp, selector = '.panel') {
   return container
 }
 
-function vipCard(name = VIP_NAME) {
-  const card = within(panel(/vip board/i))
-    .getByText(new RegExp(`^${name}$`, 'i'), { selector: 'p.item-title' })
-    .closest('li')
-  if (!card) throw new Error('Lineup card not found')
-  return card
-}
-
-const PLAYERS_LIVE_ROW = {
-  slot: 'QB',
-  player_name: 'Ashton Daniels',
-  ownership_pct: 84.67,
-  salary: 3500,
-  points: 7.25,
-  value: 2.07,
-  rt_projection: 21.11,
-  time_remaining_display: '38.02',
-  stats_text: '1 TD',
-  game_status: 'In Progress',
-}
-
 it('resolves and renders the selected primary contest for live route', async () => {
   await renderLive(load())
   expect(screen.getByRole('heading', { name: /primary contest/i })).toBeInTheDocument()
   expect(screen.getByText(/contest key:/i)).toBeInTheDocument()
   expect(screen.getByText(/selection reason: explicit_id/i)).toBeInTheDocument()
-  openView(/^vips/i)
-  expect(screen.getByRole('heading', { name: /vip board/i })).toBeInTheDocument()
 })
 
 it('shows explicit state when primary contest is not configured', async () => {
@@ -151,90 +128,6 @@ it('prefers contest.is_primary before primary_contest key/id fallbacks', async (
   expect(screen.queryByText(/contest id: 1002/i)).not.toBeInTheDocument()
 })
 
-it('uses payout_cents as cashing truth for VIP lineups', async () => {
-  const snapshot = load()
-  addVip(snapshot, 'cfb', { display_name: 'Payout Truth Test', payout_cents: 100, live: { is_cashing: false } })
-
-  await renderLive(snapshot)
-  openView(/^vips/i)
-  expect(within(vipCard('Payout Truth Test')).getByText(/^cashing$/i)).toBeInTheDocument()
-})
-
-it('renders distance-to-cash metrics from schema v3 snapshots', async () => {
-  const snapshot = load()
-  addVip(snapshot)
-  contestOf(snapshot).metrics.distance_to_cash = {
-    per_vip: [{ entry_key: VIP_KEY, display_name: VIP_NAME, points_delta: 11, rank_delta: 44 }],
-  }
-
-  await renderLive(snapshot)
-  openView(/^vips/i)
-  const card = vipCard()
-  expect(within(card).getByText(/distance to cash: \+11 pts/i)).toBeInTheDocument()
-  expect(within(card).getByText(/rank delta: \+44/i)).toBeInTheDocument()
-  expect(within(card).getByText(/^cashing$/i)).toBeInTheDocument()
-})
-
-it('shows unavailable distance-to-cash when metrics are missing', async () => {
-  const snapshot = load()
-  addVip(snapshot, 'mlb')
-  await renderLive(snapshot, 'mlb')
-  openView(/^vips/i)
-  expect(within(vipCard()).getByText(/distance to cash: unavailable/i)).toBeInTheDocument()
-})
-
-it('does not join distance metrics by display_name fallback', async () => {
-  const snapshot = load()
-  addVip(snapshot)
-  contestOf(snapshot).metrics.distance_to_cash = {
-    per_vip: [{ vip_entry_key: null, entry_key: null, display_name: VIP_NAME, points_delta: 99, rank_delta: 99 }],
-  }
-
-  await renderLive(snapshot)
-  openView(/^vips/i)
-  const card = vipCard()
-  expect(within(card).getByText(/distance to cash: unavailable/i)).toBeInTheDocument()
-  expect(within(card).getByText(/^not cashing$/i)).toBeInTheDocument()
-})
-
-it('renders VIP players_live table rows when details are available', async () => {
-  const snapshot = load()
-  addVip(snapshot, 'cfb', { players_live: [PLAYERS_LIVE_ROW] })
-
-  await renderLive(snapshot)
-  openView(/^vips/i)
-  const playerTable = within(vipCard()).getByRole('table')
-  expect(within(playerTable).getByRole('columnheader', { name: /rt proj/i })).toBeInTheDocument()
-  expect(within(playerTable).getByRole('cell', { name: 'Ashton Daniels' })).toBeInTheDocument()
-  expect(within(playerTable).getByRole('cell', { name: '$3,500' })).toBeInTheDocument()
-  expect(within(playerTable).getByRole('cell', { name: 'In Progress' })).toBeInTheDocument()
-})
-
-it('renders value badges for vip players_live rows', async () => {
-  const snapshot = load()
-  addVip(snapshot, 'cfb', {
-    players_live: [
-      { ...PLAYERS_LIVE_ROW, player_name: 'VIP Elite', value: 8.1 },
-      { ...PLAYERS_LIVE_ROW, slot: 'RB', player_name: 'VIP Unknown', value: null },
-    ],
-  })
-
-  await renderLive(snapshot)
-  openView(/^vips/i)
-  const rows = within(within(vipCard()).getByRole('table')).getAllByRole('row')
-  expect(within(rows[1]).getByText('8.1')).toBeInTheDocument()
-  expect(within(rows[2]).getByText('N/A')).toBeInTheDocument()
-})
-
-it('renders VIP players_live empty state when details list is present but empty', async () => {
-  const snapshot = load()
-  addVip(snapshot, 'cfb', { players_live: [] })
-
-  await renderLive(snapshot)
-  openView(/^vips/i)
-  expect(within(vipCard()).getByText(/no player live details available/i)).toBeInTheDocument()
-})
-
 it('renders threat metrics from the producer snapshot', async () => {
   const snapshot = load()
   contestOf(snapshot).metrics.threat.top_swing_players[0].vip_count = 2
@@ -260,15 +153,6 @@ it('renders vip_vs_field_leverage rows when the feed provides them', async () =>
 it('shows unavailable threat state when metrics are missing', async () => {
   await renderLive(load(), 'mlb')
   expect(screen.getByText(/threat metrics unavailable for this contest/i)).toBeInTheDocument()
-})
-
-it('renders VIP slot names directly from name-only fields', async () => {
-  const snapshot = load()
-  addVip(snapshot, 'cfb', { slots: [{ slot: 'QB', player_name: 'Unknown Slot Name' }], players_live: null })
-
-  await renderLive(snapshot)
-  openView(/^vips/i)
-  expect(screen.getByText(/Unknown Slot Name/i)).toBeInTheDocument()
 })
 
 it('renders ownership watchlist total and respects top_n_default', async () => {
@@ -519,15 +403,12 @@ it('filters irrelevant players using ownership, points, and value signals', asyn
   expect(within(playersTable()).getByText('Value Signal')).toBeInTheDocument()
 })
 
-it('trims ownership precision to two decimals for VIP and player pool rows', async () => {
+it('trims ownership precision to two decimals for player pool rows', async () => {
   const snapshot = load()
-  addVip(snapshot, 'cfb', { players_live: [{ ...PLAYERS_LIVE_ROW, ownership_pct: 26.97999999999997 }] })
   setPlayers(snapshot, pool([{ name: 'Precision Pool', ownership_pct: 26.97999999999997, fantasy_points: 10, value: 4 }]))
 
   await renderLive(snapshot)
   expect(within(playerRow('Precision Pool')).getByRole('cell', { name: '26.98%' })).toBeInTheDocument()
-  openView(/^vips/i)
-  expect(within(within(vipCard()).getByRole('table')).getByRole('cell', { name: '26.98%' })).toBeInTheDocument()
 })
 
 it('renders player board parity columns position salary ownership points value', async () => {
@@ -594,16 +475,4 @@ it("shows each player's team next to their name", async () => {
   await renderLive(snapshot)
   expect(within(playerRow('Florida Player')).getByText('FSU')).toBeInTheDocument()
   expect(within(playerRow('Missouri Player')).getByText('MIZZ')).toBeInTheDocument()
-})
-
-it('does not apply team accent classes to vip players_live rows', async () => {
-  const snapshot = load()
-  addVip(snapshot, 'cfb', { players_live: [{ ...PLAYERS_LIVE_ROW, player_name: 'VIP Team Match' }] })
-  setPlayers(snapshot, pool([{ name: 'VIP Team Match', team: 'FSU', ownership_pct: 10, fantasy_points: 25 }]))
-
-  await renderLive(snapshot)
-  openView(/^vips/i)
-  const vipRow = within(within(vipCard()).getByRole('table')).getByText('VIP Team Match').closest('tr')
-  if (!(vipRow instanceof HTMLTableRowElement)) throw new Error('VIP player row not found')
-  expect(vipRow.className).not.toContain('team-accent')
 })

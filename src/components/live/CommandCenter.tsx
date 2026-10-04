@@ -4,11 +4,12 @@ import { Radar, Star, Table2, TrainFront, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useIsPhone } from '../../hooks/useMediaQuery'
 import { formatPoints } from '../../lib/format'
-import type { LiveModel } from '../../lib/liveModel'
+import type { LiveModel, LiveVip } from '../../lib/liveModel'
 import TopBarSlot from '../TopBarSlot'
-import { LegacyLeverageSections, LegacySurface, LegacyTrainFinder, LegacyVipBoard } from './LegacySections'
-import { useLiveView, type LiveView } from './liveView'
+import { LegacyLeverageSections, LegacySurface, LegacyTrainFinder } from './LegacySections'
+import { resolveFocusedVip, useLiveView, type LiveView } from './liveView'
 import PlayersView from './PlayersView'
+import { NoVips, VipChips, VipRailRows, VipView } from './VipView'
 
 function formatSnapshotTime(iso: string): string {
   const date = new Date(iso)
@@ -68,6 +69,14 @@ function RailLink({
   )
 }
 
+function RailHeading({ children }: { children: ReactNode }) {
+  return (
+    <div className="px-2 pt-3 pb-1 text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+      {children}
+    </div>
+  )
+}
+
 const TABS: Array<{ view: LiveView; label: string; icon: LucideIcon }> = [
   { view: 'players', label: 'Players', icon: Table2 },
   { view: 'vips', label: 'VIPs', icon: Star },
@@ -105,20 +114,27 @@ function plural(count: number, one: string, many: string): string {
 
 /**
  * The Live Command center: a rail (tablet and up) or bottom tab bar (phones) picks what fills
- * the main area, and the view lives in the URL. Players is the default. Until the redesigned
- * views land, VIPs, Trains and Leverage host today's sections; on tablet and desktop the
+ * the main area, and the view (and focused VIP) lives in the URL. Players is the default. Until
+ * the redesigned views land, Trains and Leverage host today's sections; on tablet and desktop the
  * leverage sections sit beside (desktop) or below (tablet) the main area.
  */
 function CommandCenter({ model, title }: { model: LiveModel; title: ReactNode }) {
   const isPhone = useIsPhone()
   const { view, vipKey, searchFor } = useLiveView()
   const trainCount = model.trains.status === 'available' ? model.trains.data.rows.length : null
+  const focusedVip = resolveFocusedVip(model.vips, vipKey)
+  const vipHref = (vip: LiveVip) => searchFor('vips', { vip: vip.key })
 
   const main =
     view === 'vips' ? (
-      <LegacySurface>
-        <LegacyVipBoard vips={model.vips} focusedVipKey={vipKey} />
-      </LegacySurface>
+      focusedVip ? (
+        <>
+          {isPhone ? <VipChips vips={model.vips} activeKey={focusedVip.key} hrefFor={vipHref} /> : null}
+          <VipView model={model} vip={focusedVip} />
+        </>
+      ) : (
+        <NoVips />
+      )
     ) : view === 'trains' ? (
       <LegacySurface>
         <LegacyTrainFinder trains={model.trains} />
@@ -148,13 +164,14 @@ function CommandCenter({ model, title }: { model: LiveModel; title: ReactNode })
               label="Players"
               detail={`${model.pool.length} · ownership`}
             />
-            <RailLink
-              to={searchFor('vips')}
-              active={view === 'vips'}
-              icon={Star}
-              label="VIPs"
-              detail={plural(model.vips.length, 'VIP', 'VIPs')}
-            />
+            {model.vips.length === 0 ? (
+              <RailLink to={searchFor('vips')} active={view === 'vips'} icon={Star} label="VIPs" detail="none tracked" />
+            ) : (
+              <>
+                <RailHeading>VIPs</RailHeading>
+                <VipRailRows vips={model.vips} activeKey={view === 'vips' ? focusedVip?.key ?? null : null} hrefFor={vipHref} />
+              </>
+            )}
             <RailLink
               to={searchFor('trains')}
               active={view === 'trains'}

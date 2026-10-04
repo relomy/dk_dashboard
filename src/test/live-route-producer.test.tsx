@@ -58,7 +58,7 @@ function mlbContest(snapshot: typeof producerSnapshot): MutableContest {
   return snapshot.sports.mlb.contests[0] as unknown as MutableContest
 }
 
-/** Selects a Live view from the rail (the VIPs and Trains sections sit behind their tabs). */
+/** Selects a Live view from the rail (the Trains section sits behind its tab). */
 function openView(name: RegExp) {
   fireEvent.click(within(screen.getByRole('navigation', { name: /live views/i })).getByRole('link', { name }))
 }
@@ -269,15 +269,9 @@ it('omits Train finder header values the snapshot does not carry', async () => {
 
 it('omits update times and selection reason the snapshot does not carry instead of saying unknown', async () => {
   const snapshot = structuredClone(producerSnapshot)
-  cfbContest(snapshot).vip_lineups = [{ entry_key: 'vip-1', display_name: 'No Timestamp VIP', slots: [] }]
   ;(snapshot.sports.cfb.primary_contest as Record<string, unknown>).selection_reason = {}
 
   await renderLiveAgainstProducerSnapshot('cfb', snapshot)
-  openView(/^vips/i)
-
-  const vipCard = screen.getByText('No Timestamp VIP').closest('li')
-  if (!(vipCard instanceof HTMLElement)) throw new Error('No VIP card')
-  expect(within(vipCard).queryByText(/last updated/i)).not.toBeInTheDocument()
 
   const standings = panel(/^standings$/i)
   expect(within(standings).queryByText(/updated:/i)).not.toBeInTheDocument()

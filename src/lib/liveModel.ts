@@ -4,12 +4,11 @@ import { buildPlayerPool, type PlayerPoolRow } from './playerPool'
 import type {
   Contest,
   ContestMetricsDistanceToCash,
+  ContestMetricsOwnershipSummary,
   Player,
   Snapshot,
   SportSnapshot,
   VipLineup,
-  VipLineupPlayerLive,
-  VipLineupSlot,
 } from './types'
 
 export type LiveNotRenderableReason =
@@ -55,16 +54,38 @@ export interface LiveVip {
   distanceToCash: LiveDistanceToCash
   /** The VIP's live block update time; null when absent. */
   updatedAt: string | null
-  lineup: LiveVipLineup
+  /** The live block's current rank, then the lineup's rank. */
+  rank: number | null
+  /** The live block's current points, then the lineup's points. */
+  points: number | null
+  /** Points if the lineup scores as projected: final points for finished players, else the real-time projection. */
+  projectedPoints: number | null
+  pmr: number | null
+  ownershipRemainingPct: number | null
+  /**
+   * Lineup ownership: the summed ownership of the lineup's players, from the per-VIP ownership
+   * summary as `lineup_ownership_pct`, or `total_ownership_pct` before the rename.
+   */
+  lineupOwnershipPct: number | null
+  /** A present `players_live` list (even an empty one) is the lineup; when it is missing the name-only slots stand in. */
+  players: LiveLineupPlayer[]
 }
 
-/**
- * A present `players_live` list (even an empty one) is the lineup detail;
- * when it is missing the name-only slots stand in.
- */
-export type LiveVipLineup =
-  | { kind: 'players-live'; players: VipLineupPlayerLive[] }
-  | { kind: 'slots'; slots: VipLineupSlot[] }
+/** One player in a lineup, as the lineup cards show them. Fields the feed omits are null. */
+export interface LiveLineupPlayer {
+  /** Stable within a lineup: slot plus position in the list. */
+  key: string
+  slot: string
+  name: string
+  gameStatus: GameStatus | null
+  points: number | null
+  projection: number | null
+  /** Game clock: the time remaining display, then the raw game status. */
+  clock: string | null
+  ownershipPct: number | null
+  value: number | null
+  stats: string | null
+}
 
 export interface LiveTrain {
   id: string
@@ -189,6 +210,8 @@ export interface LiveModel {
   sport: string
   snapshotAt: string
   contest: LiveContestHeader
+  /** Entries in the field: `entries_count`, else `max_entries`; null when the feed gives neither. */
+  fieldSize: number | null
   cashLine: LiveCashLine
   vips: LiveVip[]
   /** Relevant players, ordered by ownership then points; search is applied by the view. */
@@ -264,8 +287,54 @@ function resolveVipCashing(lineup: VipLineup, distance: DistanceToCashRow | unde
   return lineup.payout_cents != null || lineup.live?.payout_cents != null
 }
 
+/** Lineup ownership under either name: `lineup_ownership_pct`, else the older `total_ownership_pct`. */
+function lineupOwnershipOf(row: ContestMetricsOwnershipSummary['per_vip'][number] | undefined): number | null {
+  return numberOrNull(row?.lineup_ownership_pct) ?? numberOrNull(row?.total_ownership_pct)
+}
+
+function buildLineupPlayers(lineup: VipLineup): LiveLineupPlayer[] {
+  if (Array.isArray(lineup.players_live)) {
+    return lineup.players_live.map((player, index) => ({
+      key: `${player.slot}-${index}`,
+      slot: player.slot,
+      name: player.player_name,
+      gameStatus: classifyGameStatus(player.game_status),
+      points: numberOrNull(player.points),
+      projection: numberOrNull(player.rt_projection),
+      clock: nonEmptyString(player.time_remaining_display) ?? nonEmptyString(player.game_status),
+      ownershipPct: numberOrNull(player.ownership_pct),
+      value: numberOrNull(player.value),
+      stats: nonEmptyString(player.stats_text),
+    }))
+  }
+  return (lineup.slots ?? []).map((slot, index) => ({
+    key: `${slot.slot}-${index}`,
+    slot: slot.slot,
+    name: slot.player_name,
+    gameStatus: null,
+    points: null,
+    projection: null,
+    clock: null,
+    ownershipPct: null,
+    value: null,
+    stats: null,
+  }))
+}
+
+/** Final players count their points; the rest count their real-time projection, or the points so far. */
+function projectLineup(lineup: VipLineup): number | null {
+  const rows = Array.isArray(lineup.players_live) ? lineup.players_live : []
+  if (rows.length === 0) return null
+  return rows.reduce((sum, row) => {
+    const points = numberOrNull(row.points) ?? 0
+    const projection = numberOrNull(row.rt_projection)
+    return sum + (classifyGameStatus(row.game_status) === 'final' ? points : (projection ?? points))
+  }, 0)
+}
+
 function buildVips(contest: Contest): LiveVip[] {
   const distanceByKey = buildPerVipIndex(contest.metrics?.distance_to_cash?.per_vip ?? [])
+  const summaryByKey = buildPerVipIndex(contest.metrics?.ownership_summary?.per_vip ?? [])
   return contest.vip_lineups.map((lineup) => {
     const metricKey = resolveVipMetricMatchKey(lineup)
     const distance = metricKey ? distanceByKey.get(metricKey) : undefined
@@ -275,9 +344,13 @@ function buildVips(contest: Contest): LiveVip[] {
       cashing: resolveVipCashing(lineup, distance),
       distanceToCash: { points: numberOrNull(distance?.points_delta), rank: numberOrNull(distance?.rank_delta) },
       updatedAt: lineup.live?.updated_at || null,
-      lineup: Array.isArray(lineup.players_live)
-        ? { kind: 'players-live', players: lineup.players_live }
-        : { kind: 'slots', slots: lineup.slots },
+      rank: numberOrNull(lineup.live?.current_rank) ?? numberOrNull(lineup.rank),
+      points: numberOrNull(lineup.live?.current_points) ?? numberOrNull(lineup.points),
+      projectedPoints: projectLineup(lineup),
+      pmr: numberOrNull(lineup.live?.pmr),
+      ownershipRemainingPct: numberOrNull(lineup.live?.ownership_remaining_pct),
+      lineupOwnershipPct: lineupOwnershipOf(metricKey ? summaryByKey.get(metricKey) : undefined),
+      players: buildLineupPlayers(lineup),
     }
   })
 }
@@ -394,7 +467,7 @@ function buildOwnershipSummary(contest: Contest): Section<LiveOwnershipSummaryRo
     rows.push({
       key,
       name: lineup.display_name,
-      totalOwnershipPct: numberOrNull(row.total_ownership_pct),
+      totalOwnershipPct: lineupOwnershipOf(row),
       ownershipInPlayPct: numberOrNull(row.ownership_in_play_pct),
       partial: Boolean(row.is_partial),
     })
@@ -517,6 +590,43 @@ function buildTotalOwnership(players: Player[]): LiveTotalOwnership {
   }
 }
 
+export type LineupOwnershipHint = 'chalky' | 'balanced' | 'contrarian'
+
+/**
+ * How chalky a lineup is, from its summed ownership over its slot count (the prototype's thresholds):
+ * an average of 50% a slot or more is chalky, 20% or less is contrarian. Null without ownership or slots.
+ */
+export function lineupOwnershipHint(lineupOwnershipPct: number | null, slotCount: number): LineupOwnershipHint | null {
+  if (lineupOwnershipPct === null || slotCount <= 0) return null
+  const average = lineupOwnershipPct / slotCount
+  if (average >= 50) return 'chalky'
+  if (average <= 20) return 'contrarian'
+  return 'balanced'
+}
+
+export interface LineupGroup {
+  gameStatus: GameStatus
+  label: 'Playing now' | 'Yet to play' | 'Done'
+  players: LiveLineupPlayer[]
+}
+
+/**
+ * A lineup grouped for display: Playing now (in progress), Yet to play (pre-game, or no game status)
+ * and Done (final), in that order and each in lineup order. Empty groups are left out.
+ */
+export function groupLineup(players: LiveLineupPlayer[]): LineupGroup[] {
+  const groups: LineupGroup[] = [
+    { gameStatus: 'in-progress', label: 'Playing now', players: [] },
+    { gameStatus: 'pre-game', label: 'Yet to play', players: [] },
+    { gameStatus: 'final', label: 'Done', players: [] },
+  ]
+  for (const player of players) {
+    const status = player.gameStatus ?? 'pre-game'
+    groups.find((group) => group.gameStatus === status)?.players.push(player)
+  }
+  return groups.filter((group) => group.players.length > 0)
+}
+
 function buildAvgSalaryPerPlayerRemaining(contest: Contest): Section<number> {
   const avgSalary = numberOrNull(contest.live_metrics?.avg_salary_per_player_remaining)
   return avgSalary === null ? UNAVAILABLE : available(avgSalary)
@@ -609,6 +719,7 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
         contestId: contest.contest_id,
         selectionReason: resolveSelectionReason(configured.selection_reason),
       },
+      fieldSize: numberOrNull(contest.entries_count) ?? numberOrNull(contest.max_entries),
       cashLine: { points: numberOrNull(cashLine?.points_cutoff), rank: numberOrNull(cashLine?.rank_cutoff) },
       vips: buildVips(contest),
       pool: buildPool(sportData, contest),
