@@ -86,6 +86,7 @@
     --color-vip-4: var(--vip-4);
     --color-vip-5: var(--vip-5);
     --color-vip-6: var(--vip-6);
+    --color-focus: var(--focus);
 }
 
 /*
@@ -184,6 +185,13 @@
     --vip-4: oklch(0.585 0.233 277.117); /* indigo-500 */
     --vip-5: oklch(0.704 0.14 182.503); /* teal-500 */
     --vip-6: oklch(0.714 0.203 305.504); /* purple-400 */
+
+    /*
+     * Keyboard focus: a light neutral ring, well over 3:1 against the background,
+     * cards and the accent fill (about 13:1 on the background). Neutral, so it never
+     * reads as cashing or any other meaning color.
+     */
+    --focus: oklch(0.87 0 0); /* neutral-300 */
 }
 
 @layer base {
@@ -207,4 +215,16 @@
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
+}
+
+/*
+ * Visible focus (WCAG 2.4.7, 1.4.11): every focusable element shows the same ring when
+ * focused from the keyboard. Unlayered on purpose, so it wins over the `outline-none`
+ * that shadcn primitives and some app classes carry; their softer `ring-*` halo stays.
+ * An element whose container clips its edges draws the ring inside instead, with
+ * `[--focus-offset:-2px]`.
+ */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: var(--focus-offset, 2px);
 }

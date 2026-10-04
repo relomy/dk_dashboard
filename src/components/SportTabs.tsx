@@ -18,7 +18,7 @@ function SportTabs({ tabs, currentSport }: { tabs: SportTab[]; currentSport: str
   return (
     <nav
       aria-label="Sports"
-      className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="-m-1 flex min-w-0 items-center gap-1 overflow-x-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {tabs.map(({ sport, status }) => {
         const current = sport === currentSport

@@ -168,7 +168,7 @@ function History() {
               >
                 <Link
                   to={`/history/${formatHistoryTimestampForUrl(item.snapshot_at)}`}
-                  className="w-fit font-mono text-sm font-medium tabular-nums underline-offset-4 outline-none after:absolute after:inset-0 hover:underline focus-visible:underline"
+                  className="w-fit font-mono text-sm font-medium tabular-nums underline-offset-4 after:absolute after:inset-0 hover:underline focus-visible:underline"
                 >
                   {new Date(item.snapshot_at).toLocaleString()}
                 </Link>

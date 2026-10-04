@@ -259,6 +259,9 @@ it('renders timeline list from manifest metadata and navigates on item click', a
   expect(await screen.findByText(/sports: nfl/i)).toBeInTheDocument()
 
   const firstItemLink = within(list).getAllByRole('link')[0]
+  // Each snapshot is reachable from the keyboard through its timestamp link.
+  firstItemLink.focus()
+  expect(firstItemLink).toHaveFocus()
   fireEvent.click(firstItemLink)
 
   expect(screen.getByTestId('location')).toHaveTextContent('/history/2026-02-13T18-25-00Z')

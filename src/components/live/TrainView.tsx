@@ -60,7 +60,7 @@ export function TrainChips({
   hrefFor: (train: LiveTrain) => string
 }) {
   return (
-    <nav aria-label="Trains" className="-mx-3 mb-4 flex gap-2 overflow-x-auto px-3 pb-1">
+    <nav aria-label="Trains" className="-mx-3 -mt-1 mb-4 flex gap-2 overflow-x-auto px-3 py-1">
       {trains.map((train) => (
         <Link
           key={train.id}

@@ -62,7 +62,7 @@ export function VipChips({
   hrefFor: (vip: LiveVip) => string
 }) {
   return (
-    <nav aria-label="VIPs" className="-mx-3 mb-4 flex gap-2 overflow-x-auto px-3 pb-1">
+    <nav aria-label="VIPs" className="-mx-3 -mt-1 mb-4 flex gap-2 overflow-x-auto px-3 py-1">
       {vips.map((vip, index) => (
         <Link
           key={vip.key}

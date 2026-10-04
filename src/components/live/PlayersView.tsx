@@ -246,7 +246,7 @@ function PhoneList({ rows, sort, onSort, vipsOf, avatarHref }: RowsProps) {
               type="button"
               aria-expanded={isOpen}
               onClick={() => setExpanded(isOpen ? null : player.key)}
-              className={cn(PHONE_GRID, 'w-full items-center px-3 py-2 text-left')}
+              className={cn(PHONE_GRID, 'w-full items-center px-3 py-2 text-left [--focus-offset:-2px]')}
             >
               <span className="min-w-0">
                 <span
