@@ -78,7 +78,10 @@ export interface LiveVip {
   leverage: Section<LiveVipLeverage>
 }
 
-/** One VIP's ownership leverage against the field, as the producer computes it. */
+/**
+ * One VIP's ownership leverage against the field, as the producer computes it. The uniqueness delta is the
+ * field figure less the VIP figure, so the leverage panel compares the VIP with the field on these two.
+ */
 export interface LiveVipLeverage {
   vipRemainingPct: number | null
   fieldRemainingPct: number | null
