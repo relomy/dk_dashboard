@@ -3,12 +3,9 @@ import { buildLiveModel, type LiveModel, type LiveNotRenderableReason, type Live
 import { LIVE_UNREAD_ALLOWLIST, liveUnreadPaths } from '../../../src/lib/liveUnreadPaths'
 import type { Snapshot } from '../../../src/lib/types'
 import { unallowlistedPaths } from '../../../src/lib/unreadPaths'
-import { LOGIN_COMMAND, SNAPSHOT_KEY, type SnapshotSource } from '../../fixtures/lib/refreshFixture'
+import { SNAPSHOT_KEY, guardProdRead, type ProdReadDeps, type SnapshotSource } from '../../lib/snapshotSource'
 
-export interface ProdCheckDeps {
-  source: SnapshotSource
-  env: Record<string, string | undefined>
-}
+export type ProdCheckDeps = ProdReadDeps
 
 export interface ProdCheckResult {
   exitCode: 0 | 1
@@ -24,17 +21,9 @@ const MAX_LISTED = 10
  * as a report with exit code 1. Never prints the raw snapshot.
  */
 export function runProdCheck(args: string[], deps: ProdCheckDeps): ProdCheckResult {
-  if (deps.env.CI) {
-    throw new Error('The prod check reads prod R2 with an operator login and never runs in CI.')
-  }
   const [sport, requestedKey] = args
   if (!sport) throw new Error(USAGE)
-  if (requestedKey !== undefined && !SNAPSHOT_KEY.test(requestedKey)) {
-    throw new Error(`Expected a snapshot key like snapshots/live-<timestamp>.json, got "${requestedKey}".\n${USAGE}`)
-  }
-  if (!deps.source.isLoggedIn()) {
-    throw new Error(`Cloudflare login missing. Run: ${LOGIN_COMMAND}`)
-  }
+  guardProdRead({ task: 'The prod check', key: requestedKey, usage: USAGE }, deps)
 
   const key = requestedKey ?? latestSnapshotKey(deps.source)
   const snapshot = JSON.parse(deps.source.read(key)) as Snapshot

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { refreshFixture, type SnapshotSource } from '../lib/refreshFixture'
+import type { SnapshotSource } from '../../lib/snapshotSource'
+import { refreshFixture } from '../lib/refreshFixture'
 
 const KEY = 'snapshots/live-2026-10-04T18-41-34Z.json'
 const SNAPSHOT = `{

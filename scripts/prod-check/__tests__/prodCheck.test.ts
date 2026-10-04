@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-import type { SnapshotSource } from '../../fixtures/lib/refreshFixture'
+import type { SnapshotSource } from '../../lib/snapshotSource'
 import type { Snapshot } from '../../../src/lib/types'
 import { runProdCheck } from '../lib/prodCheck'
 

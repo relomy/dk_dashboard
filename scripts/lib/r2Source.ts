@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-import type { SnapshotSource } from '../fixtures/lib/refreshFixture'
+import type { SnapshotSource } from './snapshotSource'
 
 const BUCKET = 'dk-dashboard-data'
 const WRANGLER_LOG_PATH = process.env.WRANGLER_LOG_PATH ?? '.wrangler/logs'
