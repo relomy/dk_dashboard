@@ -237,6 +237,8 @@ describe('VIP lineup players', () => {
         key: 'QB-0',
         slot: 'QB',
         name: 'Ashton Daniels',
+        playerKey: null,
+        locked: false,
         gameStatus: 'in-progress',
         points: 7.25,
         projection: 21.11,
@@ -280,6 +282,8 @@ describe('VIP lineup players', () => {
         key: 'QB-0',
         slot: 'QB',
         name: 'Unknown Slot Name',
+        playerKey: null,
+        locked: false,
         gameStatus: null,
         points: null,
         projection: null,
@@ -1104,6 +1108,7 @@ describe('swing players', () => {
     expect(threat.data.swingPlayers[0]).toEqual({
       key: 'cfb:ousmane-kromah:fsu:5900:rb',
       name: 'Ousmane Kromah',
+      playerKey: 'cfb:ousmane-kromah:fsu:5900:rb',
       ownershipRemainingPct: 79.11,
       vipCount: 0,
     })
@@ -1116,7 +1121,7 @@ describe('swing players', () => {
     const threat = modelOf(snapshot).threat
     expect(threat).toEqual({
       availability: 'available',
-      data: { swingPlayers: [{ key: 'Alt Field-0', name: 'Alt Field', ownershipRemainingPct: 12.5, vipCount: 0 }] },
+      data: { swingPlayers: [{ key: 'Alt Field-0', name: 'Alt Field', playerKey: null, ownershipRemainingPct: 12.5, vipCount: 0 }] },
     })
   })
 
@@ -1134,23 +1139,25 @@ describe('swing players', () => {
 })
 
 describe('field ownership remaining', () => {
-  it("reads the field's average ownership remaining from the ownership leaders total", () => {
-    expect(modelOf(load()).fieldOwnershipRemainingPct).toBeCloseTo(146.4668, 4)
+  it("reads the field's average ownership remaining from the ownership leaders total, with no scope", () => {
+    const field = modelOf(load()).fieldOwnershipRemaining
+    expect(field?.pct).toBeCloseTo(146.4668, 4)
+    expect(field?.scope).toBeNull()
   })
 
-  it('falls back to the threat field remaining figure when the leaders carry no total', () => {
+  it('prefers the threat field remaining figure over the leaders total, with its scope', () => {
     const snapshot = load()
-    delete contestOf(snapshot).ownership_watchlist.ownership_remaining_total_pct
     contestOf(snapshot).metrics.threat.field_remaining_pct = 150.5
+    contestOf(snapshot).metrics.threat.field_remaining_scope = 'contest_field'
 
-    expect(modelOf(snapshot).fieldOwnershipRemainingPct).toBe(150.5)
+    expect(modelOf(snapshot).fieldOwnershipRemaining).toEqual({ pct: 150.5, scope: 'contest_field' })
   })
 
   it('is null when the feed gives neither', () => {
     const snapshot = load()
     delete contestOf(snapshot, 'mlb').ownership_watchlist
 
-    expect(modelOf(snapshot, 'mlb').fieldOwnershipRemainingPct).toBeNull()
+    expect(modelOf(snapshot, 'mlb').fieldOwnershipRemaining).toBeNull()
   })
 })
 

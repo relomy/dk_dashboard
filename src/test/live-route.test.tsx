@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import nflSnapshot from '../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
 import { contestOf, load, renderLive, setPlayers, setVips, stubPhone, type Json, type VipSpec } from './liveHarness'
 
 // The Live route as a whole: states where there is nothing to render, the plain-language rules,
@@ -263,6 +264,16 @@ describe('Leverage panel', () => {
       expect(swingRow('Jeremiah Smith')).toHaveTextContent('FADE')
     })
 
+    it('marks a padded DST name HAVE for the VIP rostering it', async () => {
+      // The feed pads the VIP lineup's DST ("Rams ") but not the swing player ("Rams").
+      const vip = contestOf(nflSnapshot, 'nfl').vip_lineups.find((row: Json) => row.display_name === 'EmpireMaker2')
+      await renderLive(nflSnapshot, `/live/nfl?view=vips&vip=${String(vip.entry_key)}`)
+
+      expect(swingSubtitle()).toHaveTextContent('vs EmpireMaker2')
+      expect(swingRow('Rams')).toHaveTextContent('HAVE')
+      expect(swingRow('Cardinals')).toHaveTextContent('FADE')
+    })
+
     it('lists swing players without HAVE or FADE when there is no lineup to compare with', async () => {
       await renderLive(load())
 
@@ -294,6 +305,31 @@ describe('Leverage panel', () => {
       expect(leverage.getByRole('group', { name: 'First VIP' })).toHaveTextContent('210.25%')
       expect(leverage.getByRole('group', { name: 'Second VIP' })).toHaveTextContent('95.5%')
       expect(leverage.getByText('Field avg remaining 146.47%')).toBeInTheDocument()
+    })
+
+    it("shows each VIP's uniqueness delta from the feed's leverage rows, captioned against the contest field", async () => {
+      // The captured NFL slate: six VIPs below the standings cut, every leverage row partial.
+      await renderLive(nflSnapshot, '/live/nfl?view=vips')
+
+      const leverage = section('Leverage vs field')
+      const tuck = leverage.getByRole('group', { name: 'tuck8989' })
+      expect(tuck).toHaveTextContent('202.82%')
+      expect(tuck).toHaveTextContent('+44.07%')
+      expect(tuck).toHaveTextContent('Partial')
+      expect(leverage.getByRole('group', { name: 'EmpireMaker2' })).toHaveTextContent('−126.62%')
+      expect(leverage.queryByText('Unavailable')).not.toBeInTheDocument()
+      expect(leverage.getByText('Contest field avg remaining 246.89%')).toBeInTheDocument()
+    })
+
+    it('marks only partial leverage rows as partial', async () => {
+      const snapshot = structuredClone(nflSnapshot) as Json
+      const rows = contestOf(snapshot, 'nfl').metrics.threat.vip_vs_field_leverage
+      for (const row of rows) row.is_partial = row.display_name === 'tuck8989'
+      await renderLive(snapshot, '/live/nfl?view=vips')
+
+      const leverage = section('Leverage vs field')
+      expect(leverage.getByRole('group', { name: 'tuck8989' })).toHaveTextContent('Partial')
+      expect(leverage.getByRole('group', { name: 'Aj_cray' })).not.toHaveTextContent('Partial')
     })
 
     it('says a VIP ownership remaining is unavailable when the feed omits it', async () => {

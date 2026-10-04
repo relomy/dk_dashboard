@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import nflSnapshot from '../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
 import { contestOf, load, location, rail, renderLive, setPlayers, setVips, stubPhone, type VipSpec } from './liveHarness'
 
 // The Live VIP view: rail rows, the focused VIP's stats, cash-line meter and grouped lineup.
@@ -371,6 +372,19 @@ describe('lineup', () => {
     await renderLive(snapshot, VIPS)
 
     expect(within(group(/^yet to play/i)).getByText('Slot Only Guy')).toBeInTheDocument()
+  })
+
+  it('shows locked slots as locked cards with only their slot, never the producer marker', async () => {
+    // The captured NFL slate: EmpireMaker2 has locked WR, TE and FLEX slots.
+    const vip = contestOf(nflSnapshot, 'nfl').vip_lineups.find(
+      (row: { display_name: string }) => row.display_name === 'EmpireMaker2',
+    )
+    await renderLive(nflSnapshot, `/live/nfl?view=vips&vip=${String(vip.entry_key)}`)
+
+    const locked = screen.getAllByRole('listitem').filter((item) => within(item).queryByText('Locked 🔒'))
+    expect(locked.map((card) => within(card).getByText(/^(WR|TE|FLEX)$/).textContent)).toEqual(['WR', 'TE', 'FLEX'])
+    for (const card of locked) expect(card).not.toHaveTextContent('—')
+    expect(screen.queryByText(/LOCKED/)).not.toBeInTheDocument()
   })
 
   it('says so when the lineup has no players', async () => {
