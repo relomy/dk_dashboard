@@ -1,32 +1,62 @@
-import { useMemo } from 'react'
-import { useParams } from 'react-router-dom'
+import { useMemo, type ReactNode } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import CommandCenter from '../components/live/CommandCenter'
 import { useRememberSport } from '../hooks/useRememberSport'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { buildLiveModel, type LiveNotRenderableReason } from '../lib/liveModel'
 
-function NotRenderable({ reason, sportKey }: { reason: LiveNotRenderableReason; sportKey: string }) {
+/** A centered message on the dark Live surface, for loading, errors and snapshots with nothing to render. */
+function LiveMessage({ title, tone, children }: { title?: string; tone?: 'error'; children: ReactNode }) {
+  return (
+    <div className="app-ui grid min-h-64 place-items-center p-4">
+      {title ? <h1 className="sr-only">{title}</h1> : null}
+      <div
+        role={tone === 'error' ? 'alert' : 'status'}
+        className={`max-w-md space-y-2 text-center text-sm ${tone === 'error' ? 'text-non-cashing' : 'text-muted-foreground'}`}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function AllContestsLink({ sportKey, sportLabel }: { sportKey: string; sportLabel: string }) {
+  return (
+    <p>
+      <Link to={`/sport/${sportKey}`} className="text-foreground underline underline-offset-2">
+        See all {sportLabel} contests
+      </Link>
+    </p>
+  )
+}
+
+function NotRenderable({ reason, sportKey, sportLabel }: { reason: LiveNotRenderableReason; sportKey: string; sportLabel: string }) {
   switch (reason.kind) {
+    case 'unsupported-schema':
+      return (
+        <p>
+          This snapshot uses an unsupported format
+          {reason.version === null ? '' : ` (version ${reason.version})`}, so it can't be shown.
+        </p>
+      )
     case 'sport-missing':
-      return <p>Sport not found in snapshot.</p>
+      return <p>This snapshot has no {sportLabel} data.</p>
     case 'no-primary-contest':
       return (
         <>
-          <p>Primary contest is not configured for this sport.</p>
-          <p className="meta-text">Use /sport/{sportKey} for the broader multi-contest view.</p>
+          <p>No primary contest is set for {sportLabel}, so there is nothing to follow live.</p>
+          <AllContestsLink sportKey={sportKey} sportLabel={sportLabel} />
         </>
       )
     case 'primary-contest-missing':
       return (
         <>
-          <p>Primary contest data is missing from this snapshot.</p>
-          <p className="meta-text">Configured key: {reason.contestKey}</p>
-          <p className="meta-text">Configured id: {reason.contestId}</p>
+          <p>The primary contest for {sportLabel} is not in this snapshot.</p>
+          <AllContestsLink sportKey={sportKey} sportLabel={sportLabel} />
         </>
       )
   }
 }
-
 
 function Live() {
   const { sport } = useParams()
@@ -40,36 +70,37 @@ function Live() {
   )
 
   if (!sport || !sportKey) {
-    return <p className="page">Sport not specified.</p>
+    return <LiveMessage>No sport selected.</LiveMessage>
   }
 
+  const sportLabel = sport.toUpperCase()
+  const title = `Live: ${sportLabel}`
+
   if (loading) {
-    return <p className="page">Loading live snapshot...</p>
+    return <LiveMessage>Loading live snapshot...</LiveMessage>
   }
 
   if (error instanceof Error) {
     return (
-      <section className="page page-stack">
-        <h1 className="page-title">Live: {sport.toUpperCase()}</h1>
-        <p className="error-text">{error.message}</p>
-      </section>
+      <LiveMessage title={title} tone="error">
+        <p>{error.message}</p>
+      </LiveMessage>
     )
   }
 
   if (!snapshot || !result) {
-    return <p className="page">Snapshot not available.</p>
+    return <LiveMessage>Snapshot not available.</LiveMessage>
   }
 
   if (result.kind === 'not-renderable') {
     return (
-      <section className="page page-stack">
-        <h1 className="page-title">Live: {sport.toUpperCase()}</h1>
-        <NotRenderable reason={result.reason} sportKey={sportKey} />
-      </section>
+      <LiveMessage title={title}>
+        <NotRenderable reason={result.reason} sportKey={sportKey} sportLabel={sportLabel} />
+      </LiveMessage>
     )
   }
 
-  return <CommandCenter model={result.model} title={`Live: ${sport.toUpperCase()}`} />
+  return <CommandCenter model={result.model} title={title} />
 }
 
 export default Live

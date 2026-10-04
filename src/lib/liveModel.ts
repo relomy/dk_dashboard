@@ -12,9 +12,10 @@ import type {
 } from './types'
 
 export type LiveNotRenderableReason =
+  | { kind: 'unsupported-schema'; version: number | null }
   | { kind: 'sport-missing' }
   | { kind: 'no-primary-contest' }
-  | { kind: 'primary-contest-missing'; contestKey: string; contestId: string }
+  | { kind: 'primary-contest-missing' }
 
 /**
  * A section the feed may omit. A missing object is `unavailable`; a present one is
@@ -830,7 +831,13 @@ export function queryPool(
     })
 }
 
+/** The only snapshot schema the dashboard reads (ADR 0002). */
+export const SUPPORTED_SCHEMA_VERSION = 3
+
 export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelResult {
+  if (snapshot.schema_version !== SUPPORTED_SCHEMA_VERSION) {
+    return notRenderable({ kind: 'unsupported-schema', version: numberOrNull(snapshot.schema_version) })
+  }
   const sportData = snapshot.sports[sportKey]
   if (!sportData) {
     return notRenderable({ kind: 'sport-missing' })
@@ -841,11 +848,7 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
   }
   const contest = resolvePrimaryContest(sportData.contests, configured)
   if (!contest) {
-    return notRenderable({
-      kind: 'primary-contest-missing',
-      contestKey: configured.contest_key,
-      contestId: configured.contest_id,
-    })
+    return notRenderable({ kind: 'primary-contest-missing' })
   }
   const cashLine = contest.live_metrics?.cash_line
   const standings = buildStandings(contest)

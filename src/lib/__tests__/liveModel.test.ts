@@ -51,6 +51,21 @@ function modelOf(snapshot: unknown, sport = 'cfb'): LiveModel {
 }
 
 describe('not renderable results', () => {
+  it('reports a snapshot whose schema version is not 3, before reading any sport', () => {
+    const snapshot = load()
+    snapshot.schema_version = 2
+    delete snapshot.sports
+
+    expect(build(snapshot)).toEqual({ kind: 'not-renderable', reason: { kind: 'unsupported-schema', version: 2 } })
+  })
+
+  it('reports a snapshot with no schema version as unsupported', () => {
+    const snapshot = load()
+    delete snapshot.schema_version
+
+    expect(build(snapshot)).toEqual({ kind: 'not-renderable', reason: { kind: 'unsupported-schema', version: null } })
+  })
+
   it('reports a sport that is not in the snapshot', () => {
     expect(build(load(), 'nba')).toEqual({ kind: 'not-renderable', reason: { kind: 'sport-missing' } })
   })
@@ -68,10 +83,7 @@ describe('not renderable results', () => {
     snapshot.sports.cfb.primary_contest.contest_key = 'cfb:missing'
     snapshot.sports.cfb.primary_contest.contest_id = 'missing'
 
-    expect(build(snapshot)).toEqual({
-      kind: 'not-renderable',
-      reason: { kind: 'primary-contest-missing', contestKey: 'cfb:missing', contestId: 'missing' },
-    })
+    expect(build(snapshot)).toEqual({ kind: 'not-renderable', reason: { kind: 'primary-contest-missing' } })
   })
 })
 
