@@ -695,8 +695,8 @@ export function defaultSortDir(key: PoolSortKey): PoolSort['dir'] {
   return key === 'name' ? 'asc' : 'desc'
 }
 
-/** Value is hidden for pre-game players (a zero is not a bust), so it never ranks them. */
-export function visibleValue(player: LivePoolPlayer): number | null {
+/** Value is hidden for pre-game players (a zero is not a bust), so it never shows or ranks them. */
+export function visibleValue(player: Pick<LivePoolPlayer, 'gameStatus' | 'value'>): number | null {
   return player.gameStatus === 'pre-game' ? null : player.value
 }
 

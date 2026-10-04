@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 import { formatPoints } from '../../lib/format'
-import { groupLineup, type LiveLineupPlayer } from '../../lib/liveModel'
+import { groupLineup, visibleValue, type LiveLineupPlayer } from '../../lib/liveModel'
 import { formatOwnership } from '../../lib/playerPool'
 import { GameStatusDot, ValueIconMark, ValuePill } from './atoms'
 
@@ -27,7 +27,7 @@ function PlayerCard({ player }: { player: LiveLineupPlayer }) {
         <span>{player.clock}</span>
         <span className="flex items-center gap-2">
           {player.ownershipPct === null ? null : <span>{`${formatOwnership(player.ownershipPct)} own`}</span>}
-          <ValuePill value={player.gameStatus === 'pre-game' ? null : player.value} />
+          <ValuePill value={visibleValue(player)} />
         </span>
       </div>
       {player.stats ? <div className="mt-1 truncate text-[11px] text-muted-foreground">{player.stats}</div> : null}
