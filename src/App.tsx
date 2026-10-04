@@ -6,6 +6,7 @@ import { ProfileProvider } from './context/ProfileContext'
 import { useAuth } from './hooks/useAuth'
 import AdminUsers from './routes/AdminUsers'
 import ChangePassword from './routes/ChangePassword'
+import DesignSystem from './routes/DesignSystem'
 import Health from './routes/Health'
 import History from './routes/History'
 import Latest from './routes/Latest'
@@ -69,6 +70,7 @@ function App() {
           <Route path="/change-password" element={<ChangePassword />} />
 
           <Route element={<RequireAuthenticatedLayout />}>
+            {import.meta.env.DEV ? <Route path="/dev/ui" element={<DesignSystem />} /> : null}
             <Route path="/latest" element={<Latest />} />
             <Route path="/live/:sport" element={<LiveRoute />} />
             <Route path="/history" element={<History />} />
