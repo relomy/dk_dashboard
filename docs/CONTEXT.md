@@ -118,6 +118,17 @@ _Avoid_: exposure
 A player's scoring efficiency relative to salary — points earned per unit of
 salary.
 
+**Game status**:
+Where a player's game stands right now — pre-game, in progress, or final.
+Shared with `dk_results`; distinct from **Status**, which describes data
+freshness.
+_Avoid_: game state, phase
+
+**Total ownership**:
+The sum of ownership across every player in the pool — about one hundred
+percent per lineup slot. Broken down by game status into final, in play, and
+pre-game.
+
 ### Cash and scoring
 
 **Cash line**:
@@ -175,7 +186,9 @@ VIP is more unique than the field.
 
 **Ownership remaining**:
 The share of ownership tied to players who have not finished their games —
-unrealized ownership that can still move results.
+unrealized ownership that can still move results. Applies to an entry (its
+lineup's unfinished players) or to the whole pool (the pre-game and in play
+parts of total ownership).
 
 **Ownership in play**:
 The share of a VIP's ownership coming from players whose games are currently
