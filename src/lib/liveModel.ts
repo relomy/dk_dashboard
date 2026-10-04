@@ -4,6 +4,7 @@ import { buildPlayerPool, type PlayerPoolRow } from './playerPool'
 import type {
   Contest,
   ContestMetricsDistanceToCash,
+  Player,
   Snapshot,
   SportSnapshot,
   VipLineup,
@@ -156,6 +157,34 @@ export interface LiveNonCashing {
   topRemainingPlayers: Section<Array<{ name: string; ownershipRemainingPct: number | null }>>
 }
 
+/**
+ * Where a player's game stands right now (the producer's term, distinct from data Status).
+ * Null when the feed carries no game status for the player, as for golf.
+ */
+export type GameStatus = 'pre-game' | 'in-progress' | 'final'
+
+/** One player-ownership-table row: a pool row plus its game status. */
+export interface LivePoolPlayer extends PlayerPoolRow {
+  gameStatus: GameStatus | null
+  /** Indexes into `LiveModel.vips` of the VIPs whose lineup rosters this player, in VIP order. */
+  vipIndexes: number[]
+}
+
+/**
+ * Total ownership: the summed ownership of every player in the pool (about 100% per lineup slot),
+ * split by game status. Shares are percentages of `total`; players with no game status count toward
+ * `total` but no share.
+ */
+export interface LiveTotalOwnership {
+  total: number
+  final: number
+  inPlay: number
+  preGame: number
+  finalShare: number
+  inPlayShare: number
+  preGameShare: number
+}
+
 export interface LiveModel {
   sport: string
   snapshotAt: string
@@ -163,7 +192,9 @@ export interface LiveModel {
   cashLine: LiveCashLine
   vips: LiveVip[]
   /** Relevant players, ordered by ownership then points; search is applied by the view. */
-  pool: PlayerPoolRow[]
+  pool: LivePoolPlayer[]
+  /** Computed over the whole pool, before the relevance filter. */
+  totalOwnership: LiveTotalOwnership
   trains: Section<LiveTrains>
   standings: Section<LiveStandingsRow[]>
   ownershipLeaders: Section<LiveOwnershipLeaders>
@@ -432,9 +463,121 @@ function buildNonCashing(contest: Contest): Section<LiveNonCashing> {
   })
 }
 
+const IN_PROGRESS_STATUSES = new Set(['in-progress', 'in progress', 'delayed', 'suspended'])
+const FINAL_STATUSES = new Set(['final', 'postponed', 'cancelled', 'canceled'])
+
+/**
+ * The feed's `game_status` is DraftKings' game info: a matchup with a start time ("FSU@MIZZ 07:30PM ET")
+ * before the game, then a word once it starts. A paused game (Delayed, Suspended) is still in progress;
+ * a game moved off the slate or called off (Postponed, Cancelled) counts as final, alongside Final.
+ * Anything else, such as golf's tournament name, has no game status.
+ */
+export function classifyGameStatus(raw: string | null | undefined): GameStatus | null {
+  const text = typeof raw === 'string' ? raw.trim().toLowerCase() : ''
+  if (!text) return null
+  if (FINAL_STATUSES.has(text)) return 'final'
+  if (IN_PROGRESS_STATUSES.has(text)) return 'in-progress'
+  if (text.includes('@')) return 'pre-game'
+  return null
+}
+
+/** The player names on a VIP's lineup: its slots plus any `players_live` rows. VIP slots carry names only. */
+function lineupPlayerNames(lineup: VipLineup): Set<string> {
+  const names = new Set<string>()
+  for (const slot of lineup.slots ?? []) names.add(slot.player_name)
+  for (const player of Array.isArray(lineup.players_live) ? lineup.players_live : []) names.add(player.player_name)
+  return names
+}
+
+function buildPool(sportData: SportSnapshot, contest: Contest): LivePoolPlayer[] {
+  const lineups = contest.vip_lineups.map(lineupPlayerNames)
+  return buildPlayerPool(sportData.players, '').map((row) => ({
+    ...row,
+    gameStatus: classifyGameStatus(row.status),
+    vipIndexes: lineups.flatMap((names, index) => (names.has(row.name) ? [index] : [])),
+  }))
+}
+
+function buildTotalOwnership(players: Player[]): LiveTotalOwnership {
+  const sums = { total: 0, final: 0, inPlay: 0, preGame: 0 }
+  for (const player of players) {
+    const own = numberOrNull(player.ownership_pct) ?? 0
+    sums.total += own
+    const status = classifyGameStatus(player.game_status)
+    if (status === 'final') sums.final += own
+    else if (status === 'in-progress') sums.inPlay += own
+    else if (status === 'pre-game') sums.preGame += own
+  }
+  const share = (part: number) => (sums.total > 0 ? (part / sums.total) * 100 : 0)
+  return {
+    ...sums,
+    finalShare: share(sums.final),
+    inPlayShare: share(sums.inPlay),
+    preGameShare: share(sums.preGame),
+  }
+}
+
 function buildAvgSalaryPerPlayerRemaining(contest: Contest): Section<number> {
   const avgSalary = numberOrNull(contest.live_metrics?.avg_salary_per_player_remaining)
   return avgSalary === null ? UNAVAILABLE : available(avgSalary)
+}
+
+export type PoolSortKey = 'own' | 'points' | 'value' | 'salary' | 'name'
+export type PoolFilter = 'all' | 'still-to-play' | 'on-a-vip'
+export interface PoolSort {
+  key: PoolSortKey
+  dir: 'asc' | 'desc'
+}
+
+/** Name sorts A to Z first; the numbers sort highest first. */
+export function defaultSortDir(key: PoolSortKey): PoolSort['dir'] {
+  return key === 'name' ? 'asc' : 'desc'
+}
+
+/** Value is hidden for pre-game players (a zero is not a bust), so it never ranks them. */
+export function visibleValue(player: LivePoolPlayer): number | null {
+  return player.gameStatus === 'pre-game' ? null : player.value
+}
+
+function sortValue(player: LivePoolPlayer, key: PoolSortKey): number | string | null {
+  switch (key) {
+    case 'own':
+      return player.ownershipPct
+    case 'points':
+      return player.points
+    case 'value':
+      return visibleValue(player)
+    case 'salary':
+      return player.salary
+    case 'name':
+      return player.name
+  }
+}
+
+/**
+ * The Players view's rows: search by player or team, the "Still to play" (game not final)
+ * and "On a VIP" filters, then the chosen sort. Missing values sort last in either direction.
+ */
+export function queryPool(
+  pool: LivePoolPlayer[],
+  { search, filter, sort }: { search: string; filter: PoolFilter; sort: PoolSort },
+): LivePoolPlayer[] {
+  const needle = search.trim().toLowerCase()
+  const sign = sort.dir === 'asc' ? 1 : -1
+  return pool
+    .filter((player) => !needle || player.name.toLowerCase().includes(needle) || player.team.toLowerCase().includes(needle))
+    .filter((player) => {
+      if (filter === 'still-to-play') return player.gameStatus === 'pre-game' || player.gameStatus === 'in-progress'
+      if (filter === 'on-a-vip') return player.vipIndexes.length > 0
+      return true
+    })
+    .sort((a, b) => {
+      const av = sortValue(a, sort.key)
+      const bv = sortValue(b, sort.key)
+      if (av === null || bv === null) return (av === null ? 1 : 0) - (bv === null ? 1 : 0)
+      if (typeof av === 'string' || typeof bv === 'string') return String(av).localeCompare(String(bv)) * sign
+      return (av - bv) * sign
+    })
 }
 
 export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelResult {
@@ -468,7 +611,8 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
       },
       cashLine: { points: numberOrNull(cashLine?.points_cutoff), rank: numberOrNull(cashLine?.rank_cutoff) },
       vips: buildVips(contest),
-      pool: buildPlayerPool(sportData.players, ''),
+      pool: buildPool(sportData, contest),
+      totalOwnership: buildTotalOwnership(sportData.players),
       trains: buildTrains(contest),
       standings: buildStandings(contest),
       ownershipLeaders: buildOwnershipLeaders(contest),

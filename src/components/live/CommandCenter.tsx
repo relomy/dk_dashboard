@@ -1,0 +1,187 @@
+import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
+import { Radar, Star, Table2, TrainFront, type LucideIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useIsPhone } from '../../hooks/useMediaQuery'
+import { formatPoints } from '../../lib/format'
+import type { LiveModel } from '../../lib/liveModel'
+import TopBarSlot from '../TopBarSlot'
+import { LegacyLeverageSections, LegacySurface, LegacyTrainFinder, LegacyVipBoard } from './LegacySections'
+import { useLiveView, type LiveView } from './liveView'
+import PlayersView from './PlayersView'
+
+function formatSnapshotTime(iso: string): string {
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime()) ? iso : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+}
+
+/** The cash line and snapshot time, rendered into the app shell's top bar. */
+function TopBarReadout({ model }: { model: LiveModel }) {
+  return (
+    <>
+      <span className="hidden max-w-xs truncate text-muted-foreground xl:block">{model.contest.name}</span>
+      <span className="font-mono whitespace-nowrap text-muted-foreground">
+        CASH <span className="text-cash-line">{formatPoints(model.cashLine.points)}</span>
+        {/* Phones show the cash line only: the snapshot time does not fit beside the sport tabs at 375px. */}
+        <span className="hidden sm:inline">
+          {model.cashLine.rank === null ? null : <> · TOP {model.cashLine.rank}</>}
+          {' · '}
+          <time dateTime={model.snapshotAt} title={`Snapshot at ${new Date(model.snapshotAt).toLocaleString()}`}>
+            {formatSnapshotTime(model.snapshotAt)}
+          </time>
+        </span>
+      </span>
+    </>
+  )
+}
+
+function RailLink({
+  to,
+  active,
+  icon: Icon,
+  label,
+  detail,
+}: {
+  to: string
+  active: boolean
+  icon: LucideIcon
+  label: string
+  detail: string
+}) {
+  return (
+    <Link
+      to={{ search: to }}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'flex items-center gap-2 rounded-lg px-2 py-2 text-left',
+        active ? 'bg-accent ring-1 ring-border' : 'hover:bg-card',
+      )}
+    >
+      <span className="grid size-7 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
+        <Icon className="size-4" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">{label}</span>
+        <span className="block font-mono text-[11px] text-muted-foreground">{detail}</span>
+      </span>
+    </Link>
+  )
+}
+
+const TABS: Array<{ view: LiveView; label: string; icon: LucideIcon }> = [
+  { view: 'players', label: 'Players', icon: Table2 },
+  { view: 'vips', label: 'VIPs', icon: Star },
+  { view: 'trains', label: 'Trains', icon: TrainFront },
+  { view: 'leverage', label: 'Leverage', icon: Radar },
+]
+
+function PhoneTabBar({ view, searchFor }: { view: LiveView; searchFor: (view: LiveView) => string }) {
+  return (
+    <nav
+      aria-label="Live tabs"
+      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+    >
+      {TABS.map(({ view: tab, label, icon: Icon }) => (
+        <Link
+          key={tab}
+          to={{ search: searchFor(tab) }}
+          aria-current={view === tab ? 'page' : undefined}
+          className={cn(
+            'flex flex-col items-center gap-0.5 py-2 text-[11px]',
+            view === tab ? 'text-cashing' : 'text-muted-foreground',
+          )}
+        >
+          <Icon className="size-5" aria-hidden="true" />
+          {label}
+        </Link>
+      ))}
+    </nav>
+  )
+}
+
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`
+}
+
+/**
+ * The Live Command center: a rail (tablet and up) or bottom tab bar (phones) picks what fills
+ * the main area, and the view lives in the URL. Players is the default. Until the redesigned
+ * views land, VIPs, Trains and Leverage host today's sections; on tablet and desktop the
+ * leverage sections sit beside (desktop) or below (tablet) the main area.
+ */
+function CommandCenter({ model, title }: { model: LiveModel; title: ReactNode }) {
+  const isPhone = useIsPhone()
+  const { view, vipKey, searchFor } = useLiveView()
+  const trainCount = model.trains.status === 'available' ? model.trains.data.rows.length : null
+
+  const main =
+    view === 'vips' ? (
+      <LegacySurface>
+        <LegacyVipBoard vips={model.vips} focusedVipKey={vipKey} />
+      </LegacySurface>
+    ) : view === 'trains' ? (
+      <LegacySurface>
+        <LegacyTrainFinder trains={model.trains} />
+      </LegacySurface>
+    ) : view === 'leverage' ? (
+      <LegacySurface>
+        <LegacyLeverageSections model={model} />
+      </LegacySurface>
+    ) : (
+      <PlayersView model={model} isPhone={isPhone} vipHref={(key) => searchFor('vips', { vip: key })} />
+    )
+
+  return (
+    <div className={cn('app-ui min-h-[calc(100vh-37px)]', isPhone && 'pb-20')}>
+      <h1 className="sr-only">{title}</h1>
+      <TopBarSlot>
+        <TopBarReadout model={model} />
+      </TopBarSlot>
+
+      <div className="grid md:grid-cols-[220px_minmax(0,1fr)] xl:h-[calc(100vh-37px)] xl:grid-cols-[220px_minmax(0,1fr)_320px]">
+        {isPhone ? null : (
+          <nav aria-label="Live views" className="flex flex-col gap-1 border-r p-2 xl:overflow-y-auto">
+            <RailLink
+              to={searchFor('players')}
+              active={view === 'players'}
+              icon={Table2}
+              label="Players"
+              detail={`${model.pool.length} · ownership`}
+            />
+            <RailLink
+              to={searchFor('vips')}
+              active={view === 'vips'}
+              icon={Star}
+              label="VIPs"
+              detail={plural(model.vips.length, 'VIP', 'VIPs')}
+            />
+            <RailLink
+              to={searchFor('trains')}
+              active={view === 'trains'}
+              icon={TrainFront}
+              label="Trains"
+              detail={trainCount === null ? 'unavailable' : plural(trainCount, 'train', 'trains')}
+            />
+          </nav>
+        )}
+
+        <div className="min-w-0 p-3 md:p-6 xl:overflow-y-auto">{main}</div>
+
+        {isPhone || view === 'leverage' ? null : (
+          <aside
+            aria-label="Leverage"
+            className="min-w-0 border-t p-4 md:col-span-2 xl:col-span-1 xl:overflow-y-auto xl:border-t-0 xl:border-l"
+          >
+            <LegacySurface>
+              <LegacyLeverageSections model={model} />
+            </LegacySurface>
+          </aside>
+        )}
+      </div>
+
+      {isPhone ? <PhoneTabBar view={view} searchFor={(tab) => searchFor(tab)} /> : null}
+    </div>
+  )
+}
+
+export default CommandCenter

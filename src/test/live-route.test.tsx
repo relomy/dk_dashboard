@@ -82,6 +82,11 @@ async function renderLive(snapshot: unknown, sport = 'cfb') {
   await screen.findByRole('heading', { name: new RegExp(`live: ${sport}`, 'i') })
 }
 
+/** Selects a Live view from the rail (the VIPs and Trains sections sit behind their tabs). */
+function openView(name: RegExp) {
+  fireEvent.click(within(screen.getByRole('navigation', { name: /live views/i })).getByRole('link', { name }))
+}
+
 function panel(headingName: RegExp, selector = '.panel') {
   const container = screen.getByRole('heading', { name: headingName }).closest(selector)
   if (!(container instanceof HTMLElement)) throw new Error(`No panel for ${headingName}`)
@@ -113,8 +118,9 @@ it('resolves and renders the selected primary contest for live route', async () 
   await renderLive(load())
   expect(screen.getByRole('heading', { name: /primary contest/i })).toBeInTheDocument()
   expect(screen.getByText(/contest key:/i)).toBeInTheDocument()
-  expect(screen.getByRole('heading', { name: /vip board/i })).toBeInTheDocument()
   expect(screen.getByText(/selection reason: explicit_id/i)).toBeInTheDocument()
+  openView(/^vips/i)
+  expect(screen.getByRole('heading', { name: /vip board/i })).toBeInTheDocument()
 })
 
 it('shows explicit state when primary contest is not configured', async () => {
@@ -150,6 +156,7 @@ it('uses payout_cents as cashing truth for VIP lineups', async () => {
   addVip(snapshot, 'cfb', { display_name: 'Payout Truth Test', payout_cents: 100, live: { is_cashing: false } })
 
   await renderLive(snapshot)
+  openView(/^vips/i)
   expect(within(vipCard('Payout Truth Test')).getByText(/^cashing$/i)).toBeInTheDocument()
 })
 
@@ -161,6 +168,7 @@ it('renders distance-to-cash metrics from schema v3 snapshots', async () => {
   }
 
   await renderLive(snapshot)
+  openView(/^vips/i)
   const card = vipCard()
   expect(within(card).getByText(/distance to cash: \+11 pts/i)).toBeInTheDocument()
   expect(within(card).getByText(/rank delta: \+44/i)).toBeInTheDocument()
@@ -171,6 +179,7 @@ it('shows unavailable distance-to-cash when metrics are missing', async () => {
   const snapshot = load()
   addVip(snapshot, 'mlb')
   await renderLive(snapshot, 'mlb')
+  openView(/^vips/i)
   expect(within(vipCard()).getByText(/distance to cash: unavailable/i)).toBeInTheDocument()
 })
 
@@ -182,6 +191,7 @@ it('does not join distance metrics by display_name fallback', async () => {
   }
 
   await renderLive(snapshot)
+  openView(/^vips/i)
   const card = vipCard()
   expect(within(card).getByText(/distance to cash: unavailable/i)).toBeInTheDocument()
   expect(within(card).getByText(/^not cashing$/i)).toBeInTheDocument()
@@ -192,6 +202,7 @@ it('renders VIP players_live table rows when details are available', async () =>
   addVip(snapshot, 'cfb', { players_live: [PLAYERS_LIVE_ROW] })
 
   await renderLive(snapshot)
+  openView(/^vips/i)
   const playerTable = within(vipCard()).getByRole('table')
   expect(within(playerTable).getByRole('columnheader', { name: /rt proj/i })).toBeInTheDocument()
   expect(within(playerTable).getByRole('cell', { name: 'Ashton Daniels' })).toBeInTheDocument()
@@ -209,6 +220,7 @@ it('renders value badges for vip players_live rows', async () => {
   })
 
   await renderLive(snapshot)
+  openView(/^vips/i)
   const rows = within(within(vipCard()).getByRole('table')).getAllByRole('row')
   expect(within(rows[1]).getByText('8.1')).toBeInTheDocument()
   expect(within(rows[2]).getByText('N/A')).toBeInTheDocument()
@@ -219,6 +231,7 @@ it('renders VIP players_live empty state when details list is present but empty'
   addVip(snapshot, 'cfb', { players_live: [] })
 
   await renderLive(snapshot)
+  openView(/^vips/i)
   expect(within(vipCard()).getByText(/no player live details available/i)).toBeInTheDocument()
 })
 
@@ -254,6 +267,7 @@ it('renders VIP slot names directly from name-only fields', async () => {
   addVip(snapshot, 'cfb', { slots: [{ slot: 'QB', player_name: 'Unknown Slot Name' }], players_live: null })
 
   await renderLive(snapshot)
+  openView(/^vips/i)
   expect(screen.getByText(/Unknown Slot Name/i)).toBeInTheDocument()
 })
 
@@ -364,6 +378,7 @@ it('shows unavailable placeholders when sections are missing', async () => {
   delete contest.standings
 
   await renderLive(snapshot)
+  openView(/^trains/i)
   expect(screen.getByText(/^ownership leaders unavailable for this contest\.$/i)).toBeInTheDocument()
   expect(screen.getByText(/train data unavailable for this contest/i)).toBeInTheDocument()
   expect(screen.getByText(/standings unavailable for this contest/i)).toBeInTheDocument()
@@ -372,6 +387,7 @@ it('shows unavailable placeholders when sections are missing', async () => {
 
 it('has no show-all toggle: every emitted train is listed', async () => {
   await renderLive(load())
+  openView(/^trains/i)
   const trains = panel(/train finder/i)
   expect(within(trains).queryByRole('button')).not.toBeInTheDocument()
   expect(within(within(trains).getByRole('table')).getAllByRole('row')).toHaveLength(1 + 24)
@@ -382,6 +398,7 @@ it('shows the train unavailable state for malformed train rows', async () => {
   contestOf(snapshot).train_clusters = [null, 'invalid-row', { cluster_id: 123, user_count: 'x' }, { entry_keys: [42] }]
 
   await renderLive(snapshot)
+  openView(/^trains/i)
   expect(screen.getByText(/train data unavailable for this contest/i)).toBeInTheDocument()
 })
 
@@ -394,6 +411,7 @@ it('does not accept the pre-v3 train_clusters object shape', async () => {
   }
 
   await renderLive(snapshot)
+  openView(/^trains/i)
   expect(screen.getByText(/train data unavailable for this contest/i)).toBeInTheDocument()
   expect(screen.queryByText(/Old Shape/)).not.toBeInTheDocument()
 })
@@ -459,8 +477,15 @@ function pool(overrides: Json[] = []) {
   }))
 }
 
-function playerPanel() {
-  return panel(/player pool/i)
+/** The Players view table (the player pool moved there from its own section, #23). */
+function playersTable() {
+  return screen.getByRole('table', { name: /players/i })
+}
+
+function playerRow(name: string) {
+  const row = within(playersTable()).getByText(name).closest('tr')
+  if (!(row instanceof HTMLTableRowElement)) throw new Error(`${name} row not found`)
+  return row
 }
 
 it('renders player pool with search and default ownership-first sort', async () => {
@@ -471,11 +496,11 @@ it('renders player pool with search and default ownership-first sort', async () 
   ]))
 
   await renderLive(snapshot)
-  expect(within(within(playerPanel()).getAllByRole('row')[1]).getByText('High Own')).toBeInTheDocument()
+  expect(within(within(playersTable()).getAllByRole('row')[1]).getByText('High Own')).toBeInTheDocument()
 
-  fireEvent.change(screen.getByLabelText(/search players/i), { target: { value: 'Low Own' } })
-  expect(within(playerPanel()).getByRole('cell', { name: 'Low Own' })).toBeInTheDocument()
-  expect(within(playerPanel()).queryByRole('cell', { name: 'High Own' })).not.toBeInTheDocument()
+  fireEvent.change(screen.getByLabelText(/search player/i), { target: { value: 'Low Own' } })
+  expect(within(playersTable()).getByText('Low Own')).toBeInTheDocument()
+  expect(within(playersTable()).queryByText('High Own')).not.toBeInTheDocument()
 })
 
 it('filters irrelevant players using ownership, points, and value signals', async () => {
@@ -488,10 +513,10 @@ it('filters irrelevant players using ownership, points, and value signals', asyn
   ]))
 
   await renderLive(snapshot)
-  expect(within(playerPanel()).queryByRole('cell', { name: 'Hidden Player' })).not.toBeInTheDocument()
-  expect(within(playerPanel()).getByRole('cell', { name: 'Points Signal' })).toBeInTheDocument()
-  expect(within(playerPanel()).getByRole('cell', { name: 'Ownership Signal' })).toBeInTheDocument()
-  expect(within(playerPanel()).getByRole('cell', { name: 'Value Signal' })).toBeInTheDocument()
+  expect(within(playersTable()).queryByText('Hidden Player')).not.toBeInTheDocument()
+  expect(within(playersTable()).getByText('Points Signal')).toBeInTheDocument()
+  expect(within(playersTable()).getByText('Ownership Signal')).toBeInTheDocument()
+  expect(within(playersTable()).getByText('Value Signal')).toBeInTheDocument()
 })
 
 it('trims ownership precision to two decimals for VIP and player pool rows', async () => {
@@ -500,11 +525,12 @@ it('trims ownership precision to two decimals for VIP and player pool rows', asy
   setPlayers(snapshot, pool([{ name: 'Precision Pool', ownership_pct: 26.97999999999997, fantasy_points: 10, value: 4 }]))
 
   await renderLive(snapshot)
+  expect(within(playerRow('Precision Pool')).getByRole('cell', { name: '26.98%' })).toBeInTheDocument()
+  openView(/^vips/i)
   expect(within(within(vipCard()).getByRole('table')).getByRole('cell', { name: '26.98%' })).toBeInTheDocument()
-  expect(within(within(playerPanel()).getByRole('table')).getByRole('cell', { name: '26.98%' })).toBeInTheDocument()
 })
 
-it('renders player board parity columns position matchup salary points value ownership', async () => {
+it('renders player board parity columns position salary ownership points value', async () => {
   const snapshot = load()
   setPlayers(snapshot, pool([
     {
@@ -519,14 +545,16 @@ it('renders player board parity columns position matchup salary points value own
   ]))
 
   await renderLive(snapshot)
-  const view = within(playerPanel())
-  for (const name of [/^position$/i, /^matchup$/i, /^salary$/i, /^points$/i, /^value$/i]) {
-    expect(view.getByRole('columnheader', { name })).toBeInTheDocument()
+  const table = within(playersTable())
+  for (const name of [/^pos$/i, /^player$/i, /^game$/i, /^salary$/i, /^own$/i, /^pts$/i, /^value$/i, /^vips$/i]) {
+    expect(table.getByRole('columnheader', { name })).toBeInTheDocument()
   }
-  expect(view.getByRole('cell', { name: 'QB' })).toBeInTheDocument()
-  expect(view.getByRole('cell', { name: '$5,100' })).toBeInTheDocument()
-  expect(view.getByRole('cell', { name: '12.75' })).toBeInTheDocument()
-  expect(view.getByRole('cell', { name: '2.5' })).toBeInTheDocument()
+  const row = within(playerRow('Parity Player'))
+  expect(row.getByRole('cell', { name: 'QB' })).toBeInTheDocument()
+  expect(row.getByRole('cell', { name: '$5,100' })).toBeInTheDocument()
+  expect(row.getByRole('cell', { name: '2.92%' })).toBeInTheDocument()
+  expect(row.getByRole('cell', { name: '12.75' })).toBeInTheDocument()
+  expect(row.getByRole('cell', { name: '2.5' })).toBeInTheDocument()
 })
 
 it('falls back to roster_positions when position is missing', async () => {
@@ -534,9 +562,7 @@ it('falls back to roster_positions when position is missing', async () => {
   setPlayers(snapshot, pool([{ name: 'Roster Only', position: undefined, roster_positions: ['RB', 'S-FLEX'], ownership_pct: 5 }]))
 
   await renderLive(snapshot)
-  const row = within(playerPanel()).getByText('Roster Only').closest('tr')
-  if (!(row instanceof HTMLTableRowElement)) throw new Error('Player row not found')
-  expect(within(row).getByRole('cell', { name: 'RB/S-FLEX' })).toBeInTheDocument()
+  expect(within(playerRow('Roster Only')).getByRole('cell', { name: 'RB/S-FLEX' })).toBeInTheDocument()
 })
 
 it('renders player pool value badges from thresholds with unknown fallback', async () => {
@@ -551,39 +577,23 @@ it('renders player pool value badges from thresholds with unknown fallback', asy
   ]))
 
   await renderLive(snapshot)
-  const rows = within(within(playerPanel()).getByRole('table')).getAllByRole('row')
-  expect(within(rows[1]).getByText('8')).toBeInTheDocument()
-  expect(within(rows[2]).getByText('5')).toBeInTheDocument()
-  expect(within(rows[3]).getByText('3')).toBeInTheDocument()
-  expect(within(rows[4]).getByText('2.9')).toBeInTheDocument()
-  expect(within(rows[5]).getByText('N/A')).toBeInTheDocument()
+  expect(within(playerRow('Tier Elite')).getByText('8')).toBeInTheDocument()
+  expect(within(playerRow('Tier Strong')).getByText('5')).toBeInTheDocument()
+  expect(within(playerRow('Tier Medium')).getByText('3')).toBeInTheDocument()
+  expect(within(playerRow('Tier Low')).getByText('2.9')).toBeInTheDocument()
+  expect(within(playerRow('Tier Unknown')).getAllByRole('cell')[6]).toHaveTextContent('—')
 })
 
-it('applies team accent classes to player pool rows with alias normalization and neutral fallback', async () => {
-  // Team accent tokens are defined for nba, which the producer fixture does not carry,
-  // so present the cfb payload under the nba key.
+it("shows each player's team next to their name", async () => {
   const snapshot = load()
-  snapshot.sports.nba = structuredClone(snapshot.sports.cfb)
-  setPlayers(
-    snapshot,
-    pool([
-      { name: 'Alias Team', team: 'GS', ownership_pct: 1.25 },
-      { name: 'Canonical Team', team: 'GSW', ownership_pct: 1.25 },
-      { name: 'Unknown Team', team: 'ZZZ', ownership_pct: 1.25 },
-    ]),
-    'nba',
-  )
+  setPlayers(snapshot, pool([
+    { name: 'Florida Player', team: 'FSU', ownership_pct: 1.25 },
+    { name: 'Missouri Player', team: 'MIZZ', ownership_pct: 1.25 },
+  ]))
 
-  await renderLive(snapshot, 'nba')
-  const rowOf = (name: string) => {
-    const row = within(playerPanel()).getByText(name).closest('tr')
-    if (!(row instanceof HTMLTableRowElement)) throw new Error(`${name} row not found`)
-    return row
-  }
-  expect(rowOf('Alias Team').className).toContain('team-accent')
-  expect(rowOf('Alias Team').className).toContain('team-accent--nba-gsw')
-  expect(rowOf('Canonical Team').className).toContain('team-accent--nba-gsw')
-  expect(rowOf('Unknown Team').className).toContain('team-accent--neutral')
+  await renderLive(snapshot)
+  expect(within(playerRow('Florida Player')).getByText('FSU')).toBeInTheDocument()
+  expect(within(playerRow('Missouri Player')).getByText('MIZZ')).toBeInTheDocument()
 })
 
 it('does not apply team accent classes to vip players_live rows', async () => {
@@ -592,6 +602,7 @@ it('does not apply team accent classes to vip players_live rows', async () => {
   setPlayers(snapshot, pool([{ name: 'VIP Team Match', team: 'FSU', ownership_pct: 10, fantasy_points: 25 }]))
 
   await renderLive(snapshot)
+  openView(/^vips/i)
   const vipRow = within(within(vipCard()).getByRole('table')).getByText('VIP Team Match').closest('tr')
   if (!(vipRow instanceof HTMLTableRowElement)) throw new Error('VIP player row not found')
   expect(vipRow.className).not.toContain('team-accent')

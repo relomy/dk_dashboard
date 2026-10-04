@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 // Exported by the dk_results producer; provenance in public/mock/PRODUCER_FIXTURE.md.
@@ -58,6 +58,11 @@ function mlbContest(snapshot: typeof producerSnapshot): MutableContest {
   return snapshot.sports.mlb.contests[0] as unknown as MutableContest
 }
 
+/** Selects a Live view from the rail (the VIPs and Trains sections sit behind their tabs). */
+function openView(name: RegExp) {
+  fireEvent.click(within(screen.getByRole('navigation', { name: /live views/i })).getByRole('link', { name }))
+}
+
 function panel(headingName: RegExp) {
   const heading = screen.getByRole('heading', { name: headingName })
   const container = heading.closest('.panel')
@@ -67,6 +72,7 @@ function panel(headingName: RegExp) {
 
 it('renders the Live route against the producer-exported v3 snapshot', async () => {
   await renderLiveAgainstProducerSnapshot('mlb')
+  openView(/^trains/i)
 
   const contest = panel(/primary contest/i)
   expect(within(contest).getByText('MLB Single Entry $5 Double Up')).toBeInTheDocument()
@@ -81,6 +87,7 @@ it('renders the Live route against the producer-exported v3 snapshot', async () 
 
 it('shows the Train finder update time and Train rule from the producer snapshot', async () => {
   await renderLiveAgainstProducerSnapshot('mlb')
+  openView(/^trains/i)
 
   const trains = panel(/train finder/i)
   const updatedAt = new Date('2026-10-03T20:48:31Z').toLocaleString()
@@ -94,6 +101,7 @@ it('shows the Train finder update time and Train rule from the producer snapshot
 
 it('shows Rank, Entries, Points, PMR and Lineup for each train with rounded numbers', async () => {
   await renderLiveAgainstProducerSnapshot('cfb')
+  openView(/^trains/i)
 
   const table = within(panel(/train finder/i)).getByRole('table')
   const headers = within(table)
@@ -111,6 +119,7 @@ it('shows Rank, Entries, Points, PMR and Lineup for each train with rounded numb
 
 it('shows each train lineup as slot chips with locked slots muted and in position', async () => {
   await renderLiveAgainstProducerSnapshot('mlb')
+  openView(/^trains/i)
 
   const table = within(panel(/train finder/i)).getByRole('table')
   const firstTrain = within(table).getAllByRole('row')[1]
@@ -145,6 +154,7 @@ it('shows a dash for a train whose lineup has no slots', async () => {
   })
 
   await renderLiveAgainstProducerSnapshot('mlb', snapshot)
+  openView(/^trains/i)
 
   const rows = within(within(panel(/train finder/i)).getByRole('table')).getAllByRole('row')
   for (const row of rows.slice(1, 4)) {
@@ -249,6 +259,7 @@ it('omits Train finder header values the snapshot does not carry', async () => {
   for (const cluster of contest.train_clusters) delete cluster.cluster_rule
 
   await renderLiveAgainstProducerSnapshot('mlb', snapshot)
+  openView(/^trains/i)
 
   const trains = panel(/train finder/i)
   expect(within(trains).queryByText(/updated:/i)).not.toBeInTheDocument()
@@ -262,6 +273,7 @@ it('omits update times and selection reason the snapshot does not carry instead 
   ;(snapshot.sports.cfb.primary_contest as Record<string, unknown>).selection_reason = {}
 
   await renderLiveAgainstProducerSnapshot('cfb', snapshot)
+  openView(/^vips/i)
 
   const vipCard = screen.getByText('No Timestamp VIP').closest('li')
   if (!(vipCard instanceof HTMLElement)) throw new Error('No VIP card')
@@ -322,6 +334,7 @@ it('lists trains best-placed first, with trains missing a rank last', async () =
   delete mlbContest(snapshot).train_clusters[0].rank
 
   await renderLiveAgainstProducerSnapshot('mlb', snapshot)
+  openView(/^trains/i)
 
   expect(trainRanks()).toEqual([
     '25', '49', '54', '54', '68', '68', '68', '68', '68', '88', '88', '101', '101', '101', '101', '123', '—',

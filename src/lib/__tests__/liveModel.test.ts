@@ -667,3 +667,162 @@ describe('player pool', () => {
     })
   })
 })
+
+describe('game status', () => {
+  function poolWithStatuses(statuses: string[]): Json {
+    const snapshot = load()
+    snapshot.sports.cfb.players = statuses.map((game_status) => ({
+      name: game_status,
+      team: 'FSU',
+      salary: 5000,
+      ownership_pct: 10,
+      game_status,
+    }))
+    return snapshot
+  }
+
+  function statusesOf(snapshot: Json): Record<string, unknown> {
+    return Object.fromEntries(modelOf(snapshot).pool.map((player) => [player.name, player.gameStatus]))
+  }
+
+  it('derives pre-game, in progress and final from the feed game status', () => {
+    const snapshot = poolWithStatuses(['Final', 'In-Progress', 'In Progress', 'FSU@MIZZ 07:30PM ET'])
+
+    expect(statusesOf(snapshot)).toEqual({
+      Final: 'final',
+      'In-Progress': 'in-progress',
+      'In Progress': 'in-progress',
+      'FSU@MIZZ 07:30PM ET': 'pre-game',
+    })
+  })
+
+  it('counts a paused game as in progress and a called-off game as final', () => {
+    const snapshot = poolWithStatuses(['Delayed', 'Suspended', 'Postponed', 'Cancelled'])
+
+    expect(statusesOf(snapshot)).toEqual({
+      Delayed: 'in-progress',
+      Suspended: 'in-progress',
+      Postponed: 'final',
+      Cancelled: 'final',
+    })
+  })
+
+  it('leaves a player with no game status, or an unrecognised one, without a game status', () => {
+    const snapshot = poolWithStatuses(['', 'UNKNOWN'])
+    snapshot.sports.cfb.players.push({ name: 'Missing', team: 'FSU', salary: 5000, ownership_pct: 10 })
+
+    expect(statusesOf(snapshot)).toEqual({ '': null, UNKNOWN: null, Missing: null })
+  })
+
+  it('has no game status for golf, whose feed carries only the tournament name', () => {
+    const golfers = modelOf(load(), 'golf').pool
+
+    expect(golfers.length).toBeGreaterThan(0)
+    expect(golfers.every((golfer) => golfer.gameStatus === null)).toBe(true)
+  })
+})
+
+describe('VIP cross-reference on the player pool', () => {
+  function withTwoVips(): Json {
+    const snapshot = load()
+    contestOf(snapshot).vip_lineups = [
+      {
+        entry_key: 'vip-a',
+        display_name: 'First VIP',
+        slots: [
+          { slot: 'QB', player_name: 'Ashton Daniels' },
+          { slot: 'RB', player_name: 'Ousmane Kromah' },
+        ],
+      },
+      {
+        entry_key: 'vip-b',
+        display_name: 'Second VIP',
+        slots: [{ slot: 'QB', player_name: 'Ashton Daniels' }],
+      },
+    ]
+    return snapshot
+  }
+
+  function vipsOn(model: LiveModel, name: string) {
+    return model.pool.find((player) => player.name === name)?.vipIndexes
+  }
+
+  it('lists, in VIP order, the VIPs whose lineup rosters each player', () => {
+    const model = modelOf(withTwoVips())
+
+    expect(vipsOn(model, 'Ashton Daniels')).toEqual([0, 1])
+    expect(vipsOn(model, 'Ousmane Kromah')).toEqual([0])
+  })
+
+  it('leaves players no VIP rosters with an empty list', () => {
+    const model = modelOf(withTwoVips())
+    const unrostered = model.pool.filter((player) => !['Ashton Daniels', 'Ousmane Kromah'].includes(player.name))
+
+    expect(unrostered.length).toBeGreaterThan(0)
+    expect(unrostered.every((player) => player.vipIndexes.length === 0)).toBe(true)
+  })
+
+  it('reads the lineup from players_live when the feed provides it', () => {
+    const snapshot = load()
+    addVip(snapshot, 'cfb', {
+      slots: [],
+      players_live: [{ slot: 'RB', player_name: 'Ousmane Kromah' }],
+    })
+
+    expect(vipsOn(modelOf(snapshot), 'Ousmane Kromah')).toEqual([0])
+  })
+})
+
+describe('total ownership', () => {
+  it('splits the whole pool ownership into final, in play and pre-game shares of the raw total', () => {
+    const snapshot = load()
+    snapshot.sports.cfb.players = [
+      { name: 'A', team: 'FSU', salary: 5000, ownership_pct: 50, game_status: 'Final' },
+      { name: 'B', team: 'FSU', salary: 5000, ownership_pct: 30, game_status: 'Final' },
+      { name: 'C', team: 'FSU', salary: 5000, ownership_pct: 60, game_status: 'In-Progress' },
+      { name: 'D', team: 'MIZZ', salary: 5000, ownership_pct: 60, game_status: 'FSU@MIZZ 07:30PM ET' },
+      { name: 'Unowned', team: 'MIZZ', salary: 5000, ownership_pct: 0, fantasy_points: 0, game_status: 'Final' },
+    ]
+
+    expect(modelOf(snapshot).totalOwnership).toEqual({
+      total: 200,
+      final: 80,
+      inPlay: 60,
+      preGame: 60,
+      finalShare: 40,
+      inPlayShare: 30,
+      preGameShare: 30,
+    })
+  })
+
+  it('sums the canonical fixture pool', () => {
+    const total = modelOf(load()).totalOwnership
+
+    expect(total.total).toBeCloseTo(724.55, 2)
+    expect(total.final).toBeCloseTo(327.99, 2)
+    expect(total.inPlay).toBeCloseTo(396.56, 2)
+    expect(total.preGame).toBe(0)
+  })
+
+  it('counts players without a game status in the total but in no share', () => {
+    const total = modelOf(load(), 'golf').totalOwnership
+
+    expect(total.total).toBeGreaterThan(0)
+    expect(total).toMatchObject({ final: 0, inPlay: 0, preGame: 0, finalShare: 0, inPlayShare: 0, preGameShare: 0 })
+  })
+
+  it('has zero shares when the pool has no ownership', () => {
+    const snapshot = load()
+    snapshot.sports.cfb.players = []
+
+    expect(modelOf(snapshot).totalOwnership).toEqual({
+      total: 0,
+      final: 0,
+      inPlay: 0,
+      preGame: 0,
+      finalShare: 0,
+      inPlayShare: 0,
+      preGameShare: 0,
+    })
+  })
+})
