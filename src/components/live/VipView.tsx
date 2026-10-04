@@ -88,7 +88,7 @@ export function VipView({
   const hint = lineupOwnershipHint(vip.lineupOwnershipPct, vip.players.length)
   return (
     <>
-      <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+      <div className="flex flex-wrap items-start gap-x-8 gap-y-3">
         <div className="w-full sm:w-auto">
           <div className="text-xs text-muted-foreground">Following</div>
           <h2 className="text-2xl font-bold">{vip.name}</h2>
