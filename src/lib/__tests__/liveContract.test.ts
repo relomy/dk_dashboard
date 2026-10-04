@@ -73,8 +73,8 @@ const leverageRowsAreRead: Invariant = (model, { contest }) => {
       continue
     }
     const leverage = vip.leverage
-    if (leverage?.availability !== 'available') {
-      violations.push(`VIP ${vip.name}: leverage is ${String(leverage?.availability)}`)
+    if (leverage.availability !== 'available') {
+      violations.push(`VIP ${vip.name}: leverage is ${leverage.availability}`)
       continue
     }
     if (leverage.data.uniquenessDeltaPct !== (row.uniqueness_delta_pct ?? null)) {
@@ -99,13 +99,14 @@ const leverageRowsAreRead: Invariant = (model, { contest }) => {
 /** A VIP whose feed lineup rosters a swing player (same `player_key`) sees that swing player marked HAVE. */
 const rosteredSwingPlayersAreHave: Invariant = (model, { contest }) => {
   if (model.threat.availability !== 'available') return []
+  const swingPlayers = model.threat.data.swingPlayers
   const violations: string[] = []
   contest?.vip_lineups.forEach((lineup, index) => {
     const vip = model.vips[index]
     const rosteredKeys = new Set((lineup.players_live ?? []).flatMap((row) => (row.player_key ? [row.player_key] : [])))
     for (const [swingIndex, swing] of (contest.metrics?.threat?.top_swing_players ?? []).entries()) {
       if (!swing.player_key || !rosteredKeys.has(swing.player_key)) continue
-      const modelSwing = model.threat.availability === 'available' ? model.threat.data.swingPlayers[swingIndex] : undefined
+      const modelSwing = swingPlayers[swingIndex]
       const mark = vip && modelSwing ? haveOrFade(vip.players, modelSwing) : null
       if (mark !== 'have') violations.push(`VIP ${lineup.display_name}: ${swing.player_name} is ${String(mark)}`)
     }
@@ -140,9 +141,10 @@ const lockedSlotsRenderLocked: Invariant = (model, { contest }) => {
         violations.push(`${where}: locked is ${String(player?.locked)}`)
         return
       }
-      const pooled = { playerKey: player.playerKey, matchup: player.matchup, gameStatus: player.gameStatus, ownershipPct: player.ownershipPct, value: player.value, points: player.points }
-      for (const [field, value] of Object.entries(pooled)) {
-        if (value !== null) violations.push(`${where}: ${field} is ${String(value)}`)
+      const { playerKey, matchup, gameStatus, ownershipPct, value, points } = player
+      const details = { playerKey, matchup, gameStatus, ownershipPct, value, points }
+      for (const [field, detail] of Object.entries(details)) {
+        if (detail !== null) violations.push(`${where}: ${field} is ${String(detail)}`)
       }
     })
   })
@@ -150,11 +152,11 @@ const lockedSlotsRenderLocked: Invariant = (model, { contest }) => {
 }
 
 const INVARIANTS: Record<string, Invariant> = {
-  'locked VIP slots render as locked, with no pool lookup': lockedSlotsRenderLocked,
-  'every pool player a VIP rosters lists that VIP': poolPlayersListTheirVips,
-  'a VIP rostering a swing player is marked HAVE for it': rosteredSwingPlayersAreHave,
   'every VIP card has a numeric rank, points and PMR': vipCardHasFigures,
   'every leverage row becomes an available model leverage row': leverageRowsAreRead,
+  'a VIP rostering a swing player is marked HAVE for it': rosteredSwingPlayersAreHave,
+  'every pool player a VIP rosters lists that VIP': poolPlayersListTheirVips,
+  'locked VIP slots render as locked, with no pool lookup': lockedSlotsRenderLocked,
 }
 
 function casesOf(): ContractCase[] {
