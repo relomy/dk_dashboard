@@ -1,24 +1,10 @@
-import { useMemo, type ReactNode } from 'react'
+import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import CommandCenter from '../components/live/CommandCenter'
+import PageMessage from '../components/PageMessage'
 import { useRememberSport } from '../hooks/useRememberSport'
 import { useSportSnapshot } from '../hooks/useSportSnapshot'
 import { buildLiveModel, type LiveNotRenderableReason } from '../lib/liveModel'
-
-/** A centered message on the dark Live surface, for loading, errors and snapshots with nothing to render. */
-function LiveMessage({ title, tone, children }: { title?: string; tone?: 'error'; children: ReactNode }) {
-  return (
-    <div className="grid min-h-64 place-items-center p-4">
-      {title ? <h1 className="sr-only">{title}</h1> : null}
-      <div
-        role={tone === 'error' ? 'alert' : 'status'}
-        className={`max-w-md space-y-2 text-center text-sm ${tone === 'error' ? 'text-non-cashing' : 'text-muted-foreground'}`}
-      >
-        {children}
-      </div>
-    </div>
-  )
-}
 
 function AllContestsLink({ sportKey, sportLabel }: { sportKey: string; sportLabel: string }) {
   return (
@@ -70,33 +56,33 @@ function Live() {
   )
 
   if (!sport || !sportKey) {
-    return <LiveMessage>No sport selected.</LiveMessage>
+    return <PageMessage>No sport selected.</PageMessage>
   }
 
   const sportLabel = sport.toUpperCase()
   const title = `Live: ${sportLabel}`
 
   if (loading) {
-    return <LiveMessage>Loading live snapshot...</LiveMessage>
+    return <PageMessage>Loading live snapshot...</PageMessage>
   }
 
   if (error instanceof Error) {
     return (
-      <LiveMessage title={title} tone="error">
+      <PageMessage title={title} tone="error">
         <p>{error.message}</p>
-      </LiveMessage>
+      </PageMessage>
     )
   }
 
   if (!snapshot || !result) {
-    return <LiveMessage>Snapshot not available.</LiveMessage>
+    return <PageMessage>Snapshot not available.</PageMessage>
   }
 
   if (result.kind === 'not-renderable') {
     return (
-      <LiveMessage title={title}>
+      <PageMessage title={title}>
         <NotRenderable reason={result.reason} sportKey={sportKey} sportLabel={sportLabel} />
-      </LiveMessage>
+      </PageMessage>
     )
   }
 
