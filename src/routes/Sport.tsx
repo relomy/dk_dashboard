@@ -52,7 +52,7 @@ function PlayerPoolTable({ players }: { players: Player[] }) {
         </div>
       </div>
       <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
-        <Table>
+        <Table className="text-xs sm:text-sm [&_td]:px-1.5 [&_th]:px-1.5 sm:[&_td]:px-2 sm:[&_th]:px-2">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="h-8 text-xs text-muted-foreground">Name</TableHead>
@@ -65,7 +65,7 @@ function PlayerPoolTable({ players }: { players: Player[] }) {
           <TableBody>
             {filtered.map((player) => (
               <TableRow key={player.key}>
-                <TableCell className="font-medium">{player.name}</TableCell>
+                <TableCell className="max-w-32 font-medium whitespace-normal sm:max-w-none">{player.name}</TableCell>
                 <TableCell className="font-mono text-muted-foreground">{player.team}</TableCell>
                 <TableCell className="font-mono text-muted-foreground">{player.position}</TableCell>
                 <TableCell className={numericCell}>{formatPoints(player.points)}</TableCell>
