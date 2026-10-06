@@ -20,6 +20,8 @@ let pointer: string
 let requests: string[]
 /** What each path serves when it isn't the default fixture. */
 let served: Record<string, unknown>
+/** Paths whose download stays pending until the test releases it. */
+let held: Record<string, Promise<void>>
 const store = new Map<string, string>()
 
 /** Stubs the API as the producer cycle drives it: `/api/latest` names the newest path, each path serves its own snapshot. */
@@ -34,6 +36,7 @@ function stubApi() {
       }
       const path = decodeURIComponent(new URL(url, 'http://localhost').searchParams.get('path') ?? '')
       requests.push(path)
+      await held[path]
       return new Response(JSON.stringify(served[path] ?? snapshot))
     }),
   )
@@ -74,6 +77,7 @@ beforeEach(() => {
   pointer = 'snapshots/first.json'
   requests = []
   served = {}
+  held = {}
   store.clear()
   // Node's own `localStorage` shadows jsdom's in this environment, so tests bring a working one.
   vi.stubGlobal('localStorage', {
@@ -161,6 +165,30 @@ it('lands on a sport from the snapshot Live has polled to, not an older one stil
 
   // The first snapshot has golf, listed ahead of nfl, so landing from it would open golf.
   await screen.findByText('Landed on nfl')
+  client.clear()
+})
+
+it.each([
+  { route: 'Live', path: '/live/nfl', pattern: '/live/:sport', element: <Live />, loading: /loading live snapshot/i },
+  { route: 'Sport', path: '/sport/nfl', pattern: '/sport/:sport', element: <Sport />, loading: /loading sport snapshot/i },
+])('$route keeps showing the previous snapshot while the next one downloads', async ({ path, pattern, element, loading }) => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes><Route path={pattern} element={element} /></Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+  await screen.findByRole('row', { name: /Trevor Lawrence/ })
+
+  let release!: () => void
+  held['snapshots/second.json'] = new Promise<void>((resolve) => (release = resolve))
+  await producerCycle('snapshots/second.json')
+
+  expect(screen.queryByText(loading)).toBeNull()
+  expect(screen.getByRole('row', { name: /Trevor Lawrence/ })).toBeTruthy()
+  release()
   client.clear()
 })
 

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { fetchJson } from '../lib/api'
 import type { LatestResponse, Snapshot } from '../lib/types'
 
@@ -21,6 +21,8 @@ export function useLatest() {
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    // Keep showing the previous snapshot while the next path downloads, rather than flashing a loading state each cycle.
+    placeholderData: keepPreviousData,
   })
 
   return {
