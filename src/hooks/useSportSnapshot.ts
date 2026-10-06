@@ -1,52 +1,12 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchJson } from '../lib/api'
-import type { LatestResponse, Snapshot } from '../lib/types'
+import { useLatest } from './useLatest'
 
-function isSnapshot(value: unknown): value is Snapshot {
-  return Boolean(
-    value &&
-      typeof value === 'object' &&
-      'sports' in value &&
-      typeof (value as { sports?: unknown }).sports === 'object',
-  )
-}
-
-function getCachedSnapshot(queryClient: ReturnType<typeof useQueryClient>): Snapshot | undefined {
-  const snapshotEntries = queryClient.getQueriesData({ queryKey: ['snapshot'] })
-  for (const [, value] of snapshotEntries) {
-    if (isSnapshot(value)) {
-      return value
-    }
-  }
-
-  return undefined
-}
-
+/** The latest snapshot for routes that show every sport; it follows the latest pointer, like Live. */
 export function useSportSnapshot() {
-  const queryClient = useQueryClient()
-  const cachedSnapshot = getCachedSnapshot(queryClient)
-
-  const latestQuery = useQuery({
-    queryKey: ['latest'],
-    enabled: !cachedSnapshot,
-    queryFn: () => fetchJson<LatestResponse>('/api/latest'),
-    staleTime: 60_000,
-  })
-
-  const snapshotQuery = useQuery({
-    queryKey: ['snapshot', latestQuery.data?.latest_snapshot_path],
-    enabled: !cachedSnapshot && Boolean(latestQuery.data?.latest_snapshot_path),
-    queryFn: () =>
-      fetchJson<Snapshot>(
-        `/api/snapshot?path=${encodeURIComponent(latestQuery.data!.latest_snapshot_path)}`,
-      ),
-    staleTime: 60_000,
-  })
+  const { latestQuery, snapshotQuery } = useLatest()
 
   return {
-    snapshot: cachedSnapshot ?? snapshotQuery.data,
-    loading: !cachedSnapshot && (latestQuery.isLoading || snapshotQuery.isLoading),
+    snapshot: snapshotQuery.data,
+    loading: latestQuery.isLoading || snapshotQuery.isLoading,
     error: latestQuery.error ?? snapshotQuery.error,
-    usingCache: Boolean(cachedSnapshot),
   }
 }

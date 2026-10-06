@@ -17,8 +17,10 @@ export function useLatest() {
       fetchJson<Snapshot>(
         `/api/snapshot?path=${encodeURIComponent(latestQuery.data!.latest_snapshot_path)}`,
       ),
-    staleTime: 60_000,
-    refetchInterval: 300_000,
+    // A snapshot path is never rewritten (ADR-0001), so a loaded one can't go stale: a new path is a new key.
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 
   return {
