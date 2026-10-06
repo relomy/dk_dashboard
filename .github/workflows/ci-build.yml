@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - main
+  # The producer bump workflow dispatches this on its branch: a PR opened with GITHUB_TOKEN does not
+  # trigger pull_request workflows.
+  workflow_dispatch:
 
 jobs:
   build:

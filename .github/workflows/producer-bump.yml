@@ -1,0 +1,114 @@
+name: Producer contract bump
+
+# Daily, and on demand: when relomy/dk_results `main` is ahead of the pin in contract/producer-pin.json,
+# sync the producer's contract at that commit and open (or update) the single bump PR. The PR's full CI
+# is the verdict on whether the dashboard is compatible with the new producer.
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: producer-bump
+
+env:
+  BRANCH: bump/producer-contract
+  PRODUCER: relomy/dk_results
+
+jobs:
+  bump:
+    name: Open or update the producer bump PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compare the pin with producer main
+        id: compare
+        run: |
+          pinned=$(node -p "require('./contract/producer-pin.json').commit")
+          latest=$(git ls-remote "https://github.com/$PRODUCER" refs/heads/main | cut -f1)
+          if ! [[ "$latest" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Could not resolve $PRODUCER main (got '$latest')" >&2
+            exit 1
+          fi
+          echo "pinned=$pinned" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          if [ "$pinned" = "$latest" ]; then
+            echo "moved=false" >> "$GITHUB_OUTPUT"
+            echo "The pin ($pinned) is producer main; nothing to bump."
+          else
+            echo "moved=true" >> "$GITHUB_OUTPUT"
+            echo "Producer main moved: $pinned -> $latest"
+          fi
+
+      - name: Setup Node
+        if: steps.compare.outputs.moved == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.compare.outputs.moved == 'true'
+        run: npm ci
+
+      - name: Sync the producer contract
+        if: steps.compare.outputs.moved == 'true'
+        run: npm run contract:sync -- "$LATEST"
+        env:
+          LATEST: ${{ steps.compare.outputs.latest }}
+
+      - name: Push the bump branch
+        id: push
+        if: steps.compare.outputs.moved == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git add contract src/lib/generated
+          git commit -m "chore(contract): bump producer contract to ${LATEST:0:7}"
+          if git fetch --quiet origin "$BRANCH" && git diff --quiet "origin/$BRANCH" HEAD; then
+            echo "The bump branch already carries this contract."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git push --force origin "$BRANCH"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          LATEST: ${{ steps.compare.outputs.latest }}
+
+      - name: Open or update the bump PR and run CI on it
+        if: steps.push.outputs.changed == 'true'
+        run: |
+          title="chore(contract): bump producer contract to ${LATEST:0:7}"
+          {
+            echo "Takes the producer contract at [\`${LATEST:0:7}\`](https://github.com/$PRODUCER/commit/$LATEST)"
+            echo "(was [\`${PINNED:0:7}\`](https://github.com/$PRODUCER/commit/$PINNED);"
+            echo "[compare](https://github.com/$PRODUCER/compare/$PINNED...$LATEST)). Opened by the producer bump workflow."
+            echo
+            echo "This PR's CI is the compatibility verdict: the contract suite runs the Live model on the new golden"
+            echo "envelopes, and a type or build error means the dashboard no longer fits the new schema. Review the"
+            echo "\`contract/\` and \`src/lib/generated/\` diff for what changed."
+          } > body.md
+          number=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh pr edit "$number" --title "$title" --body-file body.md
+          else
+            gh pr create --base main --head "$BRANCH" --title "$title" --body-file body.md
+          fi
+          # A PR opened with GITHUB_TOKEN does not trigger pull_request workflows; a dispatched run does,
+          # and its checks attach to the PR through the branch's head commit.
+          gh workflow run ci-build.yml --ref "$BRANCH"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LATEST: ${{ steps.compare.outputs.latest }}
+          PINNED: ${{ steps.compare.outputs.pinned }}
