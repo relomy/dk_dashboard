@@ -1,9 +1,16 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import snapshot from '../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
 import Live from '../routes/Live'
+
+/**
+ * The text of each table row that holds the player. A text query costs milliseconds; `findByRole('row', { name })`
+ * computes an accessible name for every row on each poll (300ms or more on these pages), which pushed the slow
+ * route tests past the 5-second limit on CI.
+ */
+const playerRows = (name: string) => screen.queryAllByText(name).map((cell) => cell.closest('tr')?.textContent ?? '')
 
 afterEach(() => {
   cleanup()
@@ -34,7 +41,7 @@ it('follows the latest pointer when older and historical snapshots are already c
   await act(async () => {
     client.setQueryData(['latest'], { latest_snapshot_path: 'current.json' })
   })
-  await screen.findByRole('row', { name: /Trevor Lawrence.*99\.00/ }, { timeout: 5000 })
+  await waitFor(() => expect(playerRows('Trevor Lawrence').some((row) => /99\.00/.test(row))).toBe(true), { timeout: 5000 })
   expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('current.json'), expect.anything())
   client.clear()
 })

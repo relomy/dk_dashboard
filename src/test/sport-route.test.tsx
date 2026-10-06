@@ -49,12 +49,13 @@ function buildNoPrimaryFixture() {
   return snapshot
 }
 
-it('uses cached snapshot and renders grouped contests plus player table behavior', async () => {
+it('renders the cached latest snapshot as grouped contests plus the player table', async () => {
     const fetchSpy = vi.fn()
   vi.stubGlobal('fetch', fetchSpy)
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   queryClient.setQueryData(['snapshot', 'cached.json'], snapshotFixture)
+  queryClient.setQueryData(['latest'], { latest_snapshot_path: 'cached.json' })
 
   render(
     <QueryClientProvider client={queryClient}>
@@ -174,6 +175,7 @@ it('renders sport route even when primary contest config is missing (live-only c
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   queryClient.setQueryData(['snapshot', 'cached.json'], buildNoPrimaryFixture())
+  queryClient.setQueryData(['latest'], { latest_snapshot_path: 'cached.json' })
 
   render(
     <QueryClientProvider client={queryClient}>
@@ -206,6 +208,7 @@ it('renders completed VIP cashing with payout amount', async () => {
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   queryClient.setQueryData(['snapshot', 'cached.json'], snapshotWithPayout)
+  queryClient.setQueryData(['latest'], { latest_snapshot_path: 'cached.json' })
 
   render(
     <QueryClientProvider client={queryClient}>
@@ -233,6 +236,7 @@ it('does not fallback to legacy entry_fee dollars when entry_fee_cents is missin
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   queryClient.setQueryData(['snapshot', 'cached.json'], snapshotWithLegacyMoneyOnly)
+  queryClient.setQueryData(['latest'], { latest_snapshot_path: 'cached.json' })
 
   render(
     <QueryClientProvider client={queryClient}>
