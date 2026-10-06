@@ -132,6 +132,20 @@ Notes:
 - `--remote` is required to publish to the actual Cloudflare bucket.
 - Wrangler must have `CLOUDFLARE_API_TOKEN` set in non-interactive environments.
 
+## Producer contract sync
+
+The producer's schema and golden envelopes are pinned at a `relomy/dk_results` commit in
+`contract/producer-pin.json` (see `docs/adr/0005-dashboard-verifies-itself-against-the-producer-contract.md`).
+
+- Take a producer version by hand: `npm run contract:sync -- <full commit sha>`, then `npm test` and `npm run build`.
+- `.github/workflows/producer-bump.yml` runs daily and on manual dispatch. When producer `main` is ahead of the
+  pin it syncs, force-pushes `bump/producer-contract`, opens or updates the one bump PR and dispatches `CI Build`
+  on that branch, because a PR opened with `GITHUB_TOKEN` does not trigger `pull_request` workflows.
+- One-time repository setting: enable Settings > Actions > General > "Allow GitHub Actions to create and
+  approve pull requests", or the workflow cannot open the PR.
+- The goldens are listed through the unauthenticated GitHub API (60 requests an hour per IP). If a run fails
+  with HTTP 403 or 429, rerun it with `workflow_dispatch`.
+
 ## Validation checklist
 Before release:
 1. `npm test -- --run`

@@ -27,6 +27,7 @@
   "sports.*.contests[].metrics.threat.vip_vs_field_leverage[].entry_key": "Fallback match key, read only when vip_entry_key is blank",
   "sports.*.contests[].metrics.updated_at": "The Trains panel's update time comes from live_metrics.updated_at; this one is not shown",
   "sports.*.contests[].ownership_watchlist.ownership_remaining_total_pct": "Fallback field figure, read only when the threat metrics lack field_remaining_pct",
+  "sports.*.contests[].positions_paid": "Contest metadata the Live view does not show; the cash line carries its own rank cutoff",
   "sports.*.contests[].prize_pool_cents": "Prize money is shown by the Sport view's contest card; the Live view shows no money",
   "sports.*.contests[].sport": "Repeats the sport key the Live view is already scoped to",
   "sports.*.contests[].standings[].is_vip": "VIPs come from vip_lineups; standings rows are not marked as VIPs",
