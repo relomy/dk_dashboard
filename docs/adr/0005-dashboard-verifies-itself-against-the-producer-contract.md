@@ -41,3 +41,7 @@ A producer change reaches the dashboard as a reviewable bump PR, red when the da
 Generated types alone do not catch a value that is present but unusable (a string `rank` still compiles
 through the dashboard's lenient value helpers), so the contract suite's invariants on real producer output
 remain the guard for that. The pin means the dashboard can lag the producer; the bump PR is how it learns.
+
+Until the hand-written snapshot types re-export the generated ones (relomy/dk_dashboard#46), the generated
+module is checked for freshness against the pinned schema but the app does not yet read it, so a schema change
+turns a bump PR red through the contract suite, not through the build.

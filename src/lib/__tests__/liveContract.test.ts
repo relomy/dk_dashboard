@@ -17,9 +17,10 @@ import { staleAllowlistEntries, unallowlistedPaths } from '../unreadPaths'
  * - Every field an input emits must be read by the Live model or listed, with its reason, in
  *   src/lib/liveUnreadAllowlist.json (the unread-field detector, src/lib/unreadPaths.ts).
  */
+const GOLDENS: Record<string, unknown> = import.meta.glob('../../../contract/goldens/*.json', { eager: true, import: 'default' })
 const INPUTS: Record<string, unknown> = {
   ...import.meta.glob('../../../public/mock/snapshots/*.json', { eager: true, import: 'default' }),
-  ...import.meta.glob('../../../contract/goldens/*.json', { eager: true, import: 'default' }),
+  ...GOLDENS,
 }
 
 function casesOf(): ContractCase[] {
@@ -33,8 +34,10 @@ it('has inputs to check', () => {
 })
 
 it('runs on every producer golden envelope', () => {
+  const goldens = Object.keys(GOLDENS).map((path) => path.split('/').pop())
+  expect(goldens.length, 'run `npm run contract:sync` to fetch the producer goldens').toBeGreaterThan(0)
   const inputs = new Set(CASES.map(({ input }) => input))
-  for (const golden of ['golf.json', 'mlb.json', 'nfl_mid_slate.json', 'zero_vip.json']) {
+  for (const golden of goldens) {
     expect(inputs, golden).toContain(golden)
   }
 })
