@@ -109,7 +109,7 @@ it('does not refetch a loaded snapshot when the tab regains focus', async () => 
   const client = renderLive()
   await screen.findByRole('heading', { name: /live: nfl/i })
 
-  // Long enough that anything with the old 60-second freshness window counts as stale.
+  // Long enough that a query with an ordinary freshness window would count as stale and refetch on focus.
   await act(async () => {
     await vi.advanceTimersByTimeAsync(POLL_MS - 1000)
   })

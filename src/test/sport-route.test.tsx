@@ -49,7 +49,7 @@ function buildNoPrimaryFixture() {
   return snapshot
 }
 
-it('uses cached snapshot and renders grouped contests plus player table behavior', async () => {
+it('renders the cached latest snapshot as grouped contests plus the player table', async () => {
     const fetchSpy = vi.fn()
   vi.stubGlobal('fetch', fetchSpy)
 
