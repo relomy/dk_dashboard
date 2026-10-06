@@ -1,6 +1,17 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { contestOf, load, renderLive, setPlayers, setVips, stubPhone, vipOf, type Json } from './liveHarness'
+import {
+  contestOf,
+  load,
+  playerRow,
+  playersTable,
+  renderLive,
+  setPlayers,
+  setVips,
+  stubPhone,
+  vipOf,
+  type Json,
+} from './liveHarness'
 
 // The Live route as a whole: states where there is nothing to render, the plain-language rules,
 // and edge cases of the producer fixture (no primary contest, missing sections, empty standings).
@@ -80,14 +91,6 @@ describe('nothing to render', () => {
 })
 
 describe('hot and cold markers', () => {
-  function playersTable() {
-    return screen.getByRole('table', { name: /players/i })
-  }
-
-  function playerRow(name: string) {
-    return within(playersTable()).getByRole('row', { name: new RegExp(name) })
-  }
-
   /** A lineup player card: the list item naming the player. */
   function lineupCard(name: string) {
     const card = screen.getAllByRole('listitem').find((item) => within(item).queryByText(name))
@@ -549,14 +552,6 @@ describe('missing and empty sections', () => {
 })
 
 describe('Players table edge cases', () => {
-  function playersTable() {
-    return screen.getByRole('table', { name: /players/i })
-  }
-
-  function playerRow(name: string) {
-    return within(playersTable()).getByRole('row', { name: new RegExp(name) })
-  }
-
   it('drops players with no ownership, points or value', async () => {
     const snapshot = load()
     const zero = { ownership_pct: 0, fantasy_points: 0, value: 0 }
