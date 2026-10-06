@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import snapshot from '../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
@@ -15,6 +15,13 @@ vi.mock('../context/ProfileContext', () => ({
 // the only request worth making is the one for a path the dashboard has not fetched yet.
 
 const POLL_MS = 300_000
+
+/**
+ * The text of each table row that holds the player. A text query costs milliseconds; `findByRole('row', { name })`
+ * computes an accessible name for every row on each poll (300ms or more on these pages), which pushed the slow
+ * route tests past the 5-second limit on CI.
+ */
+const playerRows = (name: string) => screen.queryAllByText(name).map((cell) => cell.closest('tr')?.textContent ?? '')
 
 let pointer: string
 let requests: string[]
@@ -140,7 +147,7 @@ it('shows Sport the snapshot Live has polled to, not an older one still in the c
     </QueryClientProvider>,
   )
 
-  await screen.findByRole('row', { name: /Trevor Lawrence.*99\.00/ })
+  await waitFor(() => expect(playerRows('Trevor Lawrence').some((row) => /99\.00/.test(row))).toBe(true))
   client.clear()
 })
 
@@ -180,14 +187,14 @@ it.each([
       </MemoryRouter>
     </QueryClientProvider>,
   )
-  await screen.findByRole('row', { name: /Trevor Lawrence/ })
+  await waitFor(() => expect(playerRows('Trevor Lawrence').length).toBeGreaterThan(0))
 
   let release!: () => void
   held['snapshots/second.json'] = new Promise<void>((resolve) => (release = resolve))
   await producerCycle('snapshots/second.json')
 
   expect(screen.queryByText(loading)).toBeNull()
-  expect(screen.getByRole('row', { name: /Trevor Lawrence/ })).toBeTruthy()
+  expect(playerRows('Trevor Lawrence').length).toBeGreaterThan(0)
   release()
   client.clear()
 })
