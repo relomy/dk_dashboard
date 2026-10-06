@@ -10,13 +10,16 @@ import { staleAllowlistEntries, unallowlistedPaths } from '../unreadPaths'
  * hand-written invariants on what the Live view would show.
  *
  * - Add an input: add a glob below. Every captured prod fixture in `public/mock/snapshots/`
- *   (provenance in public/mock/PRODUCER_FIXTURE.md) is already an input.
+ *   (provenance in public/mock/PRODUCER_FIXTURE.md) and every producer golden envelope in
+ *   `contract/goldens/` (synced at the pin in contract/producer-pin.json, `npm run contract:sync`)
+ *   is already an input.
  * - Add an invariant: add an entry to INVARIANTS in src/lib/liveInvariants.ts (shared with the prod check).
  * - Every field an input emits must be read by the Live model or listed, with its reason, in
  *   src/lib/liveUnreadAllowlist.json (the unread-field detector, src/lib/unreadPaths.ts).
  */
 const INPUTS: Record<string, unknown> = {
   ...import.meta.glob('../../../public/mock/snapshots/*.json', { eager: true, import: 'default' }),
+  ...import.meta.glob('../../../contract/goldens/*.json', { eager: true, import: 'default' }),
 }
 
 function casesOf(): ContractCase[] {
@@ -27,6 +30,13 @@ const CASES = casesOf()
 
 it('has inputs to check', () => {
   expect(CASES.length).toBeGreaterThan(0)
+})
+
+it('runs on every producer golden envelope', () => {
+  const inputs = new Set(CASES.map(({ input }) => input))
+  for (const golden of ['golf.json', 'mlb.json', 'nfl_mid_slate.json', 'zero_vip.json']) {
+    expect(inputs, golden).toContain(golden)
+  }
 })
 
 it('allowlists only fields some input still emits and the Live model leaves unread', () => {
