@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import producerSnapshot from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import Sport from '../routes/Sport'
-import type { Contest, Snapshot } from '../lib/types'
+import type { Snapshot } from '../lib/types'
 
 vi.mock('../context/ProfileContext', () => ({
   useProfiles: () => ({
@@ -32,18 +32,18 @@ const snapshotFixture = (() => {
       display_name: VIP_NAME,
       rank: 12,
       points: 140.5,
-      payout_cents: 5000,
-      slots: [{ slot: 'QB', player_name: 'Ashton Daniels' }],
+      players_live: [{ slot: 'QB', player_name: 'Ashton Daniels' }],
     },
   ]
+  snapshot.sports.cfb.contests[0].standings.push({ entry_key: 'vip-entry-1', is_cashing: true, payout_cents: 5000 })
   return snapshot
 })()
 
 function buildNoPrimaryFixture() {
   const snapshot = structuredClone(snapshotFixture) as unknown as Snapshot
-  delete snapshot.sports.cfb.primary_contest
+  snapshot.sports.cfb.primary_contest.contest_key = 'cfb:missing'
+  snapshot.sports.cfb.primary_contest.contest_id = 'missing'
   snapshot.sports.cfb.contests.forEach((contest) => {
-    contest.is_primary = false
     contest.state = 'live'
   })
   return snapshot
@@ -169,7 +169,7 @@ it('does not use history snapshot cache for sport route data', async () => {
   expect(fetchSpy).toHaveBeenCalled()
 })
 
-it('renders sport route even when primary contest config is missing (live-only contract)', async () => {
+it('renders sport route even when the configured primary contest is absent', async () => {
   const fetchSpy = vi.fn()
   vi.stubGlobal('fetch', fetchSpy)
 
@@ -197,11 +197,7 @@ it('renders completed VIP cashing with payout amount', async () => {
   const contest = snapshotWithPayout.sports.cfb.contests[0]
   contest.state = 'completed'
   contest.currency = 'USD'
-  contest.vip_lineups[0].payout_cents = 2000
-  contest.vip_lineups[0].live = {
-    updated_at: '2026-10-03T20:48:31Z',
-    payout_cents: 2000,
-  }
+  contest.standings.find((row) => row.entry_key === 'vip-entry-1')!.payout_cents = 2000
 
   const fetchSpy = vi.fn()
   vi.stubGlobal('fetch', fetchSpy)
@@ -225,17 +221,16 @@ it('renders completed VIP cashing with payout amount', async () => {
   expect(fetchSpy).not.toHaveBeenCalled()
 })
 
-it('does not fallback to legacy entry_fee dollars when entry_fee_cents is missing', async () => {
-  const snapshotWithLegacyMoneyOnly = structuredClone(snapshotFixture) as unknown as Snapshot
-  const contest = snapshotWithLegacyMoneyOnly.sports.cfb.contests[0] as Partial<Contest> & { entry_fee?: number }
-  contest.entry_fee = 25
-  delete contest.entry_fee_cents
+it('preserves a zero entry fee', async () => {
+  const snapshotWithFreeEntry = structuredClone(snapshotFixture) as unknown as Snapshot
+  const contest = snapshotWithFreeEntry.sports.cfb.contests[0]
+  contest.entry_fee_cents = 0
 
   const fetchSpy = vi.fn()
   vi.stubGlobal('fetch', fetchSpy)
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  queryClient.setQueryData(['snapshot', 'cached.json'], snapshotWithLegacyMoneyOnly)
+  queryClient.setQueryData(['snapshot', 'cached.json'], snapshotWithFreeEntry)
   queryClient.setQueryData(['latest'], { latest_snapshot_path: 'cached.json' })
 
   render(
@@ -249,6 +244,6 @@ it('does not fallback to legacy entry_fee dollars when entry_fee_cents is missin
   )
 
   expect(await screen.findByRole('heading', { name: /sport: cfb/i })).toBeInTheDocument()
-  expect(screen.queryByText('$25')).not.toBeInTheDocument()
+  expect(screen.getByText('$0.00')).toBeInTheDocument()
   expect(fetchSpy).not.toHaveBeenCalled()
 })
