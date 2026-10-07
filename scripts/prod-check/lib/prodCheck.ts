@@ -2,7 +2,7 @@ import { INVARIANTS, contractCasesOf } from '../../../src/lib/liveInvariants'
 import { buildLiveModel, type LiveModel, type LiveNotRenderableReason, type LiveVip, type Section } from '../../../src/lib/liveModel'
 import { LIVE_UNREAD_ALLOWLIST, liveUnreadPaths } from '../../../src/lib/liveUnreadPaths'
 import { formatOwnership } from '../../../src/lib/playerPool'
-import type { Snapshot } from '../../../src/lib/types'
+import { interpretSnapshot, type LiveSnapshot as Snapshot } from '../../../src/lib/interpretedSnapshot'
 import { unallowlistedPaths } from '../../../src/lib/unreadPaths'
 import { SNAPSHOT_KEY, guardProdRead, type ProdReadDeps, type SnapshotSource } from '../../lib/snapshotSource'
 
@@ -27,7 +27,7 @@ export function runProdCheck(args: string[], deps: ProdCheckDeps): ProdCheckResu
   guardProdRead({ task: 'The prod check', key: requestedKey, usage: USAGE }, deps)
 
   const key = requestedKey ?? latestSnapshotKey(deps.source)
-  const snapshot = JSON.parse(deps.source.read(key)) as Snapshot
+  const snapshot = interpretSnapshot(JSON.parse(deps.source.read(key)))
   return checkSnapshot(snapshot, sport, key)
 }
 

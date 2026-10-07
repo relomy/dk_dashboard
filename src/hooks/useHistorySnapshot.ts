@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchJson } from '../lib/api'
 import { getUtcManifestDate, parseHistoryTimestamp } from '../lib/time'
-import type { DayManifest, Snapshot } from '../lib/types'
+import type { DayManifest } from '../lib/types'
+import { interpretPublicSnapshot } from '../lib/interpretedSnapshot'
 
 export function useHistorySnapshot(timestampParam?: string) {
   const timestamp = timestampParam ? parseHistoryTimestamp(timestampParam) : ''
@@ -20,7 +21,7 @@ export function useHistorySnapshot(timestampParam?: string) {
   const snapshotQuery = useQuery({
     queryKey: ['history-snapshot', snapshotPath],
     enabled: Boolean(snapshotPath),
-    queryFn: () => fetchJson<Snapshot>(`/api/snapshot?path=${encodeURIComponent(snapshotPath!)}`),
+    queryFn: () => fetchJson<unknown>(`/api/snapshot?path=${encodeURIComponent(snapshotPath!)}`).then(interpretPublicSnapshot),
     staleTime: 300_000,
   })
 

@@ -81,7 +81,6 @@ function SwingPlayers({ model, focus }: { model: LiveModel; focus: LeverageFocus
 /** What the field figure averages over, by the producer's scope. */
 const FIELD_CAPTIONS: Record<NonNullable<LiveFieldRemaining['scope']>, string> = {
   contest_field: 'Contest field',
-  watchlist: 'Watchlist',
 }
 
 /** The field figure's caption; plain "Field" when the producer states no scope. */

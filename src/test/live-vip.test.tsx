@@ -166,10 +166,10 @@ describe('VIP stats', () => {
     expect(stat('vs cash').getByText('not cashing')).toBeInTheDocument()
   })
 
-  it('treats a payout as cashing when the feed has no distance to cash', async () => {
+  it('uses the matched standings cashing flag when the feed has no distance to cash', async () => {
     const snapshot = load()
     delete contestOf(snapshot).metrics.distance_to_cash
-    vipOf(snapshot, EMPIRE).payout_cents = 100
+    contestOf(snapshot).standings.push({ entry_key: vipOf(snapshot, EMPIRE).entry_key, is_cashing: true })
     await renderLive(snapshot, vipView(snapshot, EMPIRE))
 
     expect(stat('vs cash').getByText('cashing')).toBeInTheDocument()
@@ -222,11 +222,10 @@ describe('VIP stats', () => {
     expect(stat('Lineup own').getByText('contrarian')).toBeInTheDocument()
   })
 
-  it('reads lineup ownership from either field name', async () => {
+  it('reads lineup ownership from the producer summary', async () => {
     const snapshot = load()
     const row = ownershipRow(snapshot, EMPIRE)
-    row.lineup_ownership_pct = 301.5
-    delete row.total_ownership_pct
+    row.total_ownership_pct = 301.5
     await renderLive(snapshot, vipView(snapshot, EMPIRE))
 
     expect(stat('Lineup own').getByText('301.5%')).toBeInTheDocument()
@@ -269,16 +268,12 @@ describe('lineup', () => {
   const ROW = {
     slot: 'QB',
     player_name: 'Ashton Daniels',
-    ownership_pct: 84.67,
     salary: 3500,
-    points: 7.25,
-    value: 2.07,
-    game_status: 'In Progress',
   }
   const LINEUP = [
-    { ...ROW, slot: 'QB', player_name: 'Live Guy', game_status: 'In Progress', points: 12.5, value: 4.5, ownership_pct: 31.5 },
-    { ...ROW, slot: 'RB', player_name: 'Later Guy', game_status: 'FSU@MIZZ 07:30PM ET', points: 0, value: 0, ownership_pct: 12 },
-    { ...ROW, slot: 'WR', player_name: 'Finished Guy', game_status: 'Final', points: 30, value: 6.5, ownership_pct: 55 },
+    { ...ROW, slot: 'QB', player_name: 'Live Guy' },
+    { ...ROW, slot: 'RB', player_name: 'Later Guy' },
+    { ...ROW, slot: 'WR', player_name: 'Finished Guy' },
   ]
   const HAND_BUILT: VipSpec = { key: 'vip-a', name: 'First VIP', rank: 12, points: 140.5, pmr: 88.5, delta: 50.25, liveRows: LINEUP }
 
@@ -369,7 +364,11 @@ describe('lineup', () => {
 
   it('hides value for players who have not started and projection for finished ones', async () => {
     const snapshot = load()
-    snapshot.sports.nfl.players.push({ name: 'Later Guy', rt_projection: 15 }, { name: 'Finished Guy', rt_projection: 30 })
+    snapshot.sports.nfl.players.push(
+      { name: 'Live Guy', game_status: 'In Progress', fantasy_points: 12.5, value: 4.5, ownership_pct: 31.5 },
+      { name: 'Later Guy', rt_projection: 15, game_status: 'FSU@MIZZ 07:30PM ET', fantasy_points: 0, value: 0, ownership_pct: 12 },
+      { name: 'Finished Guy', rt_projection: 30, game_status: 'Final', fantasy_points: 30, value: 6.5, ownership_pct: 55 },
+    )
     setVips(snapshot, [HAND_BUILT])
     await renderLive(snapshot, VIPS)
 
@@ -432,17 +431,16 @@ describe('lineup', () => {
   it('puts players with no game status in Yet to play', async () => {
     // A player the pool does not carry has no status; the captured lineups only roster pooled players.
     const snapshot = load()
-    setVips(snapshot, [{ ...HAND_BUILT, liveRows: [{ ...ROW, player_name: 'Unknown Status', game_status: undefined }] }])
+    setVips(snapshot, [{ ...HAND_BUILT, liveRows: [{ ...ROW, player_name: 'Unknown Status' }] }])
     await renderLive(snapshot, VIPS)
 
     expect(within(group(/^yet to play/i)).getByText('Unknown Status')).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: /^playing now/i })).not.toBeInTheDocument()
   })
 
-  it('shows the name-only slots, as yet to play, when the feed has no live details', async () => {
-    // The legacy lineup shape: the producer sends `players_live` only.
+  it('shows an unmatched player as yet to play when the pool has no live details', async () => {
     const snapshot = load()
-    setVips(snapshot, [{ key: 'vip-a', name: 'First VIP', players: ['Slot Only Guy'], liveRows: null }])
+    setVips(snapshot, [{ key: 'vip-a', name: 'First VIP', players: ['Slot Only Guy'] }])
     await renderLive(snapshot, VIPS)
 
     expect(within(group(/^yet to play/i)).getByText('Slot Only Guy')).toBeInTheDocument()

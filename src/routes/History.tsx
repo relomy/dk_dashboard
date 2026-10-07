@@ -256,6 +256,10 @@ function History() {
     )
   }
 
+  if (snapshotQuery.data.schema_version !== 3) {
+    return <DataPage title="History"><p>Unsupported snapshot schema version: {String(snapshotQuery.data.schema_version ?? 'unknown')}.</p></DataPage>
+  }
+
   return (
     <DataPage
       title="History"
