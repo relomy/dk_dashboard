@@ -47,6 +47,10 @@ Profile username rules match the producer's display name, while general rules ca
 also match the producer's entry keys; unsupported VIP username/entry-id fields are
 not read.
 
-Final verification and compact production reports are recorded with the implementation
-handoff and integration PR. The required NFL and golf production checks use the
-immutable October 4 snapshot because the current latest snapshot only carries Showdown.
+Verification on October 7, 2026: all 562 tests in 61 files pass, including captured/golden
+contract inputs and generated-type freshness. Lint, strict TypeScript/Vite build,
+Functions typecheck, and diff whitespace checks pass. NFL and golf production checks
+pass all six invariants with zero unallowlisted unread fields (44 NFL and 34 golf
+allowlisted fields). Those checks use the immutable October 4 snapshot because the
+current latest snapshot only carries Showdown. Compact production reports accompany
+the integration PR and implementation handoff.
