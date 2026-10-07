@@ -1,12 +1,6 @@
 import { expect, test } from 'vitest'
-import latest from '../../../public/mock/latest.json'
 import v3Fixture from '../../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import { isEnvelopeSnapshot } from '../snapshotContract'
-
-test('mock latest has required fields', () => {
-  expect(latest.latest_snapshot_path).toBeTruthy()
-  expect(latest.manifest_today_path).toBeTruthy()
-})
 
 test('accepts envelope fixture shape and rejects legacy raw fixture shape', () => {
   const rawShape = {

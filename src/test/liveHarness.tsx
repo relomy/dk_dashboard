@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- a test helper, never hot-reloaded */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { useState, type ReactNode } from 'react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, vi } from 'vitest'
@@ -211,4 +211,22 @@ export function location() {
 /** The tablet and desktop rail. */
 export function rail() {
   return screen.getByRole('navigation', { name: /live views/i })
+}
+
+/** The Players view's table. */
+export function playersTable() {
+  return screen.getByRole('table', { name: /players/i })
+}
+
+/**
+ * The Players table row whose text matches `name`. Finds rows by role, then matches their text: `getByRole('row', { name })`
+ * computes an accessible name for every row, which cost 350ms to 1s a call here and made these the slowest route tests.
+ */
+export function playerRow(name: string) {
+  const pattern = new RegExp(name)
+  const rows = within(playersTable())
+    .getAllByRole('row')
+    .filter((row) => pattern.test(row.textContent ?? ''))
+  if (rows.length !== 1) throw new Error(`Expected one Players row matching ${pattern}, found ${rows.length}`)
+  return rows[0]
 }

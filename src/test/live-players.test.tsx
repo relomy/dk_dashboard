@@ -1,19 +1,11 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { load, location, rail, renderLive, setPlayers, stubPhone, vipOf } from './liveHarness'
+import { load, location, playerRow, playersTable, rail, renderLive, setPlayers, stubPhone, vipOf } from './liveHarness'
 
 // The Live Command center: Players view, rail, phone tab bar and URL state.
 // Driven by the captured NFL slate: 45 pooled players, all in progress, six VIPs, trains led by a ×312.
 // The sort, status and share tests need controlled values or statuses the captured pool lacks (every
 // player is in progress), so they replace the pool with `setPlayers` rows and say so.
-
-function playersTable() {
-  return screen.getByRole('table', { name: /players/i })
-}
-
-function playerRow(name: string) {
-  return within(playersTable()).getByRole('row', { name: new RegExp(name) })
-}
 
 /** Player names in table order. The player cell reads "<team chip><name>"; the hand-built pools use FSU and MIZZ. */
 function playerNames() {
