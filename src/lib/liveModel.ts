@@ -23,7 +23,7 @@ export type LiveNotRenderableReason =
 /**
  * A section the feed may omit. A missing object is `unavailable`; a present one is
  * `available`, and a present but empty list inside it is the section's empty state.
- * The discriminant is `availability`, not `status`: Status means data freshness (CONTEXT.md).
+ * The discriminant is `availability`, not `status`: Status means data freshness (docs/GLOSSARY.md).
  */
 export type Section<T> = { availability: 'unavailable' } | { availability: 'available'; data: T }
 
