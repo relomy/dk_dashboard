@@ -14,25 +14,25 @@ function isContainer(value: unknown): value is object {
   return typeof value === 'object' && value !== null
 }
 
-function addLeafPaths(value: unknown, path: string, paths: Set<string>): void {
+function addLeafPaths(value: unknown, path: string, paths: Set<string>, concrete = false): void {
   if (Array.isArray(value)) {
     if (value.length === 0) paths.add(path)
-    for (const item of value) addLeafPaths(item, `${path}[]`, paths)
+    for (const [index, item] of value.entries()) addLeafPaths(item, concrete ? `${path}[${index}]` : `${path}[]`, paths, concrete)
     return
   }
   if (isContainer(value)) {
     const entries = Object.entries(value)
     if (entries.length === 0) paths.add(path)
-    for (const [key, item] of entries) addLeafPaths(item, join(path, key), paths)
+    for (const [key, item] of entries) addLeafPaths(item, join(path, key), paths, concrete)
     return
   }
   paths.add(path)
 }
 
 /** Every leaf path in `value`, indices collapsed. */
-export function leafPaths(value: unknown): Set<string> {
+export function leafPaths(value: unknown, concrete = false): Set<string> {
   const paths = new Set<string>()
-  addLeafPaths(value, '', paths)
+  addLeafPaths(value, '', paths, concrete)
   return paths
 }
 
@@ -58,7 +58,7 @@ function findProxy(value: unknown, proxyPaths: WeakMap<object, string>, seen = n
  * Only reads made while `read` runs count. So that none happen later, `read` must not return any
  * part of the value (an object or array from it); it throws, naming the path, if it does.
  */
-export function readPaths<T>(value: T, read: (value: T) => unknown): Set<string> {
+export function readPaths<T>(value: T, read: (value: T) => unknown, concrete = false): Set<string> {
   const paths = new Set<string>()
   const proxies = new WeakMap<object, object>()
   const proxyPaths = new WeakMap<object, string>()
@@ -74,8 +74,9 @@ export function readPaths<T>(value: T, read: (value: T) => unknown): Set<string>
         if (!recording || typeof key !== 'string' || !Object.hasOwn(object, key)) return item
         if (Array.isArray(object)) {
           if (!/^\d+$/.test(key)) return item
-          paths.add(`${path}[]`)
-          return wrap(item, `${path}[]`)
+          const itemPath = concrete ? `${path}[${key}]` : `${path}[]`
+          paths.add(itemPath)
+          return wrap(item, itemPath)
         }
         const itemPath = join(path, key)
         paths.add(itemPath)

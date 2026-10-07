@@ -6,7 +6,7 @@ function normalize(value: string | undefined): string {
 }
 
 function lineupTokens(lineup: VipLineup): string[] {
-  const values = [lineup.display_name, lineup.entry_id, lineup.username]
+  const values = [lineup.display_name, lineup.entry_key, lineup.vip_entry_key]
   return values
     .map((value) => normalize(value))
     .filter((value) => value.length > 0)
@@ -28,7 +28,7 @@ export function lineupMatchesProfile(lineup: VipLineup, rules: ProfileMatchRules
 
   const containsMatch = contains ? tokens.some((token) => token.includes(contains)) : false
   const exactMatch = exact ? tokens.some((token) => token === exact) : false
-  const usernameMatch = username ? normalize(lineup.username) === username : false
+  const usernameMatch = username ? normalize(lineup.display_name) === username : false
 
   return containsMatch || exactMatch || usernameMatch
 }

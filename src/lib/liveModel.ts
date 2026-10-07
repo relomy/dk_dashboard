@@ -1,17 +1,12 @@
+import { resolveVipCashing } from './contestDisplay'
 import { LOCKED_LABEL, parseLineupSignature, type LineupSlot } from './lineup'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from './perVipKeys'
 import { buildPlayerPool, numberOrNull, readValueIcon, type PlayerPoolRow } from './playerPool'
+import { interpretSnapshot, type LiveContest as Contest, type InterpretedSnapshot, isSupportedSnapshot, type LiveSport as SportSnapshot } from './interpretedSnapshot'
+import type { OwnershipSummary as ContestMetricsOwnershipSummary, Threat as ContestMetricsThreat, VipLineupRow as VipLineup, VipLineupSlot as VipLineupPlayerLive } from './generated/snapshot'
 import type {
-  Contest,
-  ContestMetricsDistanceToCash,
-  ContestMetricsOwnershipSummary,
-  ContestMetricsThreat,
   Player,
-  Snapshot,
-  SportSnapshot,
   ValueIcon,
-  VipLineup,
-  VipLineupPlayerLive,
 } from './types'
 
 export type LiveNotRenderableReason =
@@ -53,24 +48,24 @@ export interface LiveVip {
   name: string
   cashing: boolean
   distanceToCash: LiveDistanceToCash
-  /** The VIP's live block update time; null when absent. */
+  /** The contest live metrics update time; null when absent. */
   updatedAt: string | null
-  /** The live block's current rank, then the lineup's rank, then the standings row's. */
+  /** The normalized lineup rank, then the standings row's. */
   rank: number | null
-  /** The live block's current points, then the lineup's `points` or `pts`, then the standings row's. */
+  /** The normalized lineup points, then the standings row's. */
   points: number | null
   /** Points if the lineup scores as projected: final points for finished players, else the real-time projection. */
   projectedPoints: number | null
-  /** The live block's PMR, then the lineup's, then the standings row's. */
+  /** The normalized lineup PMR, then the standings row's. */
   pmr: number | null
-  /** The live block's, then the standings row's, then the VIP's `vip_vs_field_leverage` row's `vip_remaining_pct`. */
+  /** The standings row's, then the VIP leverage row's remaining ownership. */
   ownershipRemainingPct: number | null
   /**
    * Lineup ownership: the summed ownership of the lineup's players, from the per-VIP ownership
-   * summary as `lineup_ownership_pct`, or `total_ownership_pct` before the rename.
+   * summary as `total_ownership_pct`.
    */
   lineupOwnershipPct: number | null
-  /** A present `players_live` list (even an empty one) is the lineup; when it is missing the name-only slots stand in. */
+  /** The producer's `players_live` list; missing and empty lists show no players. */
   players: LiveLineupPlayer[]
   /** The train this VIP's lineup shares the most players with, when that is at least `TRAIN_NOTICE_MIN_SHARED`. */
   trainOverlap: LiveVipTrainOverlap | null
@@ -257,7 +252,7 @@ export interface LiveModel {
   sport: string
   snapshotAt: string
   contest: LiveContestHeader
-  /** Entries in the field: `entries_count`, else `max_entries`; null when the feed gives neither. */
+  /** Entries in the field: `max_entries`; null when the feed gives neither. */
   fieldSize: number | null
   cashLine: LiveCashLine
   vips: LiveVip[]
@@ -285,13 +280,12 @@ function notRenderable(reason: LiveNotRenderableReason): LiveModelResult {
   return { kind: 'not-renderable', reason }
 }
 
-/** `is_primary` wins; otherwise match the configured primary contest by key, then by id. */
-export function resolvePrimaryContest(
-  contests: Contest[],
+/** Match the configured primary contest by key, then by id. */
+export function resolvePrimaryContest<T extends { contest_key: string; contest_id: string }>(
+  contests: T[],
   configured: NonNullable<SportSnapshot['primary_contest']>,
-): Contest | null {
+): T | null {
   return (
-    contests.find((contest) => contest.is_primary === true) ??
     contests.find((contest) => contest.contest_key === configured.contest_key) ??
     contests.find((contest) => contest.contest_id === configured.contest_id) ??
     null
@@ -302,33 +296,11 @@ function nonEmptyString(value: unknown): string | null {
   return typeof value === 'string' && value ? value : null
 }
 
-type DistanceToCashRow = ContestMetricsDistanceToCash['per_vip'][number]
-type StandingsRow = NonNullable<Contest['standings']>[number]
+type StandingsRow = Contest['standings'][number]
 
-/**
- * Metrics first: a matched distance-to-cash row decides by points delta, then rank delta.
- * Without one, any payout on the lineup (or its live block) means cashing, then the standings row decides.
- */
-function resolveVipCashing(
-  lineup: VipLineup,
-  distance: DistanceToCashRow | undefined,
-  standing: StandingsRow | undefined,
-): boolean {
-  if (typeof distance?.points_delta === 'number') {
-    return distance.points_delta >= 0
-  }
-  if (typeof distance?.rank_delta === 'number') {
-    return distance.rank_delta >= 0
-  }
-  if (lineup.payout_cents != null || lineup.live?.payout_cents != null) {
-    return true
-  }
-  return standing?.is_cashing === true
-}
-
-/** Lineup ownership under either name: `lineup_ownership_pct`, else the older `total_ownership_pct`. */
+/** Lineup ownership from the producer's per-VIP summary. */
 function lineupOwnershipOf(row: ContestMetricsOwnershipSummary['per_vip'][number] | undefined): number | null {
-  return numberOrNull(row?.lineup_ownership_pct) ?? numberOrNull(row?.total_ownership_pct)
+  return numberOrNull(row?.total_ownership_pct)
 }
 
 /** The player pool keyed by `keyOf`; the first row wins when a key repeats. */
@@ -384,13 +356,13 @@ function lockedPlayer(key: string, slot: string): LiveLineupPlayer {
   return { key, slot, name: LOCKED_LABEL, locked: true, ...LOCKED_SLOT_DETAIL }
 }
 
-/** Fields on the row itself come first; the pool player fills in what the row lacks. A locked row is a locked slot. */
+/** A slot identifies its player; the matched pool player supplies figures. Locked slots reveal no figures. */
 function buildLineupPlayers(lineup: VipLineup, pool: PoolIndex): LiveLineupPlayer[] {
   if (Array.isArray(lineup.players_live)) {
     return lineup.players_live.map((player, index) => {
       if (player.is_locked) return lockedPlayer(`${player.slot ?? 'row'}-${index}`, player.slot ?? '')
       const pooled = poolPlayerOf(player, pool)
-      const gameStatus = player.game_status ?? pooled?.game_status
+      const gameStatus = pooled?.game_status
       return {
         key: `${player.slot ?? 'row'}-${index}`,
         slot: player.slot ?? '',
@@ -398,33 +370,20 @@ function buildLineupPlayers(lineup: VipLineup, pool: PoolIndex): LiveLineupPlaye
         playerKey: player.player_key ?? null,
         locked: false,
         gameStatus: classifyGameStatus(gameStatus),
-        points: numberOrNull(player.points) ?? numberOrNull(pooled?.fantasy_points),
-        projection: numberOrNull(player.rt_projection),
-        clock: nonEmptyString(player.time_remaining_display) ?? nonEmptyString(gameStatus),
+        points: numberOrNull(pooled?.fantasy_points),
+        projection: numberOrNull(pooled?.rt_projection),
+        clock: numberOrNull(pooled?.time_remaining_minutes) !== null
+          ? `${pooled?.time_remaining_minutes} min`
+          : nonEmptyString(gameStatus),
         matchup: matchupOf(pooled),
-        ownershipPct: numberOrNull(player.ownership_pct) ?? numberOrNull(pooled?.ownership_pct),
-        value: numberOrNull(player.value) ?? numberOrNull(pooled?.value),
-        valueIcon: readValueIcon(player.value_icon),
-        stats: nonEmptyString(player.stats_text),
+        ownershipPct: numberOrNull(pooled?.ownership_pct),
+        value: numberOrNull(pooled?.value),
+        valueIcon: readValueIcon(pooled?.value_icon),
+        stats: nonEmptyString(pooled?.stats_text),
       }
     })
   }
-  return (lineup.slots ?? []).map((slot, index) => ({
-    key: `${slot.slot}-${index}`,
-    slot: slot.slot,
-    name: slot.player_name,
-    playerKey: null,
-    locked: false,
-    gameStatus: null,
-    points: null,
-    projection: null,
-    clock: null,
-    matchup: matchupOf(pool.byName.get(slot.player_name)),
-    ownershipPct: null,
-    value: null,
-    valueIcon: null,
-    stats: null,
-  }))
+  return []
 }
 
 /**
@@ -437,15 +396,6 @@ function projectLineup(players: LiveLineupPlayer[]): number | null {
     const points = player.points ?? 0
     return sum + (player.gameStatus === 'final' ? points : (player.projection ?? points))
   }, 0)
-}
-
-/**
- * A figure on the VIP's lineup row: a finite number, or a numeric string as the producer sends
- * `rank` and `pmr` (`"879"`). Anything else (blank, junk, absent) is null.
- */
-function parseLineupNumber(value: unknown): number | null {
-  if (typeof value === 'string' && /^\s*-?\d+(\.\d+)?\s*$/.test(value)) return Number(value)
-  return numberOrNull(value)
 }
 
 /** The contest's raw standings rows: v3 `standings` is a bare array, and any other shape has none. */
@@ -466,21 +416,18 @@ function buildVips(contest: Contest, trains: Section<LiveTrains>, pool: PoolInde
     const leverage = metricKey ? leverageByKey.get(metricKey) : undefined
     const players = buildLineupPlayers(lineup, pool)
     return {
-      key: lineup.entry_key || lineup.vip_entry_key || lineup.display_name,
-      name: lineup.display_name,
-      cashing: resolveVipCashing(lineup, distance, standing),
+      key: lineup.entry_key || lineup.vip_entry_key || lineup.display_name || `vip-${vipIndex}`,
+      name: lineup.display_name || lineup.entry_key || lineup.vip_entry_key || 'VIP',
+      cashing: resolveVipCashing(distance, standing) === true,
       distanceToCash: { points: numberOrNull(distance?.points_delta), rank: numberOrNull(distance?.rank_delta) },
-      updatedAt: lineup.live?.updated_at || null,
-      rank: numberOrNull(lineup.live?.current_rank) ?? parseLineupNumber(lineup.rank) ?? numberOrNull(standing?.rank),
+      updatedAt: contest.live_metrics?.updated_at || null,
+      rank: numberOrNull(lineup.rank) ?? numberOrNull(standing?.rank),
       points:
-        numberOrNull(lineup.live?.current_points) ??
-        parseLineupNumber(lineup.points) ??
-        parseLineupNumber(lineup.pts) ??
+        numberOrNull(lineup.points) ??
         numberOrNull(standing?.points),
       projectedPoints: projectLineup(players),
-      pmr: numberOrNull(lineup.live?.pmr) ?? parseLineupNumber(lineup.pmr) ?? numberOrNull(standing?.pmr),
+      pmr: numberOrNull(lineup.pmr) ?? numberOrNull(standing?.pmr),
       ownershipRemainingPct:
-        numberOrNull(lineup.live?.ownership_remaining_pct) ??
         numberOrNull(standing?.ownership_remaining_total_pct) ??
         numberOrNull(leverage?.vip_remaining_pct),
       lineupOwnershipPct: lineupOwnershipOf(metricKey ? summaryByKey.get(metricKey) : undefined),
@@ -507,9 +454,9 @@ function buildFieldRemaining(contest: Contest): LiveFieldRemaining | null {
   return leadersPct === null ? null : { pct: leadersPct, scope: null }
 }
 
-/** The lineup's size, counted as `buildLineupPlayers` would list it: `players_live` when present, else the slots. */
+/** The producer lineup's size, including locked slots. */
 function lineupSlotCount(lineup: VipLineup): number {
-  return Array.isArray(lineup.players_live) ? lineup.players_live.length : (lineup.slots ?? []).length
+  return lineup.players_live?.length ?? 0
 }
 
 /** The train a VIP shares the most players with (ties: the larger train), if that reaches the notice threshold. */
@@ -574,9 +521,9 @@ function buildTrains(
       if (row.name !== null) namesByEntryKey.set(row.key, row.name)
     }
   }
-  const vipNames = contest.vip_lineups.map((lineup) => ({
-    key: lineup.entry_key || lineup.vip_entry_key || lineup.display_name,
-    name: lineup.display_name,
+  const vipNames = contest.vip_lineups.map((lineup, index) => ({
+    key: lineup.entry_key || lineup.vip_entry_key || lineup.display_name || `vip-${index}`,
+    name: lineup.display_name || lineup.entry_key || lineup.vip_entry_key || 'VIP',
     players: lineupPlayerNames(lineup),
   }))
 
@@ -704,7 +651,7 @@ function buildThreat(contest: Contest): Section<LiveThreat> {
       key: player.player_key ?? `${player.player_name}-${index}`,
       name: player.player_name,
       playerKey: player.player_key ?? null,
-      ownershipRemainingPct: numberOrNull(player.ownership_remaining_pct ?? player.remaining_ownership_pct),
+      ownershipRemainingPct: numberOrNull(player.ownership_remaining_pct),
       vipCount: player.vip_count ?? 0,
     })),
   })
@@ -743,13 +690,12 @@ export function isSamePlayer(a: PlayerRef, b: PlayerRef): boolean {
   return a.name.trim() === b.name.trim()
 }
 
-/** The players on a VIP's lineup: its slots plus any `players_live` rows, leaving out locked slots. */
+/** The revealed players on a VIP's `players_live` lineup. */
 function lineupPlayerRefs(lineup: VipLineup): PlayerRef[] {
-  const slots = (lineup.slots ?? []).map((slot) => ({ playerKey: null, name: slot.player_name }))
   const live = (Array.isArray(lineup.players_live) ? lineup.players_live : [])
     .filter((player) => !player.is_locked)
     .map((player) => ({ playerKey: player.player_key ?? null, name: player.player_name }))
-  return [...slots, ...live]
+  return live
 }
 
 /** The trimmed player names on a VIP's lineup, for matching against a train's name-only lineup. */
@@ -792,8 +738,13 @@ function buildTotalOwnership(players: Player[]): LiveTotalOwnership {
 /** The only snapshot schema the dashboard reads (ADR 0002). */
 export const SUPPORTED_SCHEMA_VERSION = 3
 
-export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelResult {
-  if (snapshot.schema_version !== SUPPORTED_SCHEMA_VERSION) {
+export function buildLiveModel(snapshot: unknown, sportKey: string): LiveModelResult {
+  return buildInterpretedLiveModel(interpretSnapshot(snapshot), sportKey)
+}
+
+/** Already interpreted input, also used to trace only actual model consumption. */
+export function buildInterpretedLiveModel(snapshot: InterpretedSnapshot, sportKey: string): LiveModelResult {
+  if (!isSupportedSnapshot(snapshot)) {
     return notRenderable({ kind: 'unsupported-schema', version: numberOrNull(snapshot.schema_version) })
   }
   const sportData = snapshot.sports[sportKey]
@@ -821,7 +772,7 @@ export function buildLiveModel(snapshot: Snapshot, sportKey: string): LiveModelR
       sport: sportKey,
       snapshotAt: snapshot.snapshot_at,
       contest: { name: contest.name },
-      fieldSize: numberOrNull(contest.entries_count) ?? numberOrNull(contest.max_entries),
+      fieldSize: numberOrNull(contest.max_entries),
       cashLine: { points: numberOrNull(cashLine?.points_cutoff), rank: numberOrNull(cashLine?.rank_cutoff) },
       vips: buildVips(contest, trains, pool),
       pool: buildPool(sportData, contest),

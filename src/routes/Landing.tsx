@@ -5,7 +5,7 @@ import { chooseLandingSport, readLastViewedSport } from '../lib/landing'
 
 /** The home page: sends the visitor to the Live view for the sport they should see first. */
 function Landing() {
-  const { snapshot, loading, error } = useSportSnapshot()
+  const { snapshot, loading, error, unsupportedVersion } = useSportSnapshot()
 
   if (loading) {
     return <PageMessage>Loading live snapshot...</PageMessage>
@@ -14,6 +14,8 @@ function Landing() {
   if (error instanceof Error) {
     return <PageMessage tone="error">{error.message}</PageMessage>
   }
+
+  if (unsupportedVersion !== undefined) return <PageMessage>Unsupported snapshot schema version: {String(unsupportedVersion)}.</PageMessage>
 
   if (!snapshot) {
     return <PageMessage>Snapshot not available.</PageMessage>

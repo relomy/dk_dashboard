@@ -145,11 +145,6 @@ function SportSection({
         <div className="mt-2 flex flex-col gap-1 font-mono text-xs text-muted-foreground tabular-nums">
           <p>Players tracked: {data.players.length}</p>
           <p>Sport updated: {new Date(data.updated_at).toLocaleString()}</p>
-          {data.error ? (
-            <p className="rounded-lg bg-non-cashing-muted px-3 py-2 font-sans text-sm text-non-cashing-foreground">
-              Error: {data.error}
-            </p>
-          ) : null}
         </div>
       </details>
     </article>

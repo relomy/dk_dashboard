@@ -57,17 +57,16 @@ export interface VipSpec {
   name: string
   /** Lineup player names; each row takes the pool player's `player_key` when the pool has the name, as the producer's rows do. */
   players?: string[]
-  /** `players_live` rows to use instead of the ones built from `players`; null sends name-only `slots`, the legacy shape. */
+  /** `players_live` rows to use instead of the ones built from `players`; null omits the list. */
   liveRows?: Json[] | null
-  /** Sent as the producer sends them: rank and PMR as strings, points as `pts`. */
+  /** Current producer figures; historical aliases are covered by captured inputs. */
   rank?: number
   points?: number
   pmr?: number
   /** Points distance to cash (the per-VIP metric). */
   delta?: number
-  /** Lineup ownership, under either field name. */
+  /** Lineup ownership from the producer summary. */
   lineupOwn?: number
-  lineupOwnField?: 'lineup_ownership_pct' | 'total_ownership_pct'
 }
 
 /** Replaces the sport's VIP lineups (and their per-VIP metrics) with hand-built ones shaped as the producer sends them. */
@@ -88,12 +87,10 @@ export function setVips(snapshot: Json, vips: VipSpec[], sport = SPORT) {
       entry_key: vip.key,
       vip_entry_key: vip.key,
       display_name: vip.name,
-      ...(liveRows === null
-        ? { slots: names.map((player_name) => ({ slot: 'FLEX', player_name })) }
-        : { players_live: liveRows }),
-      ...(vip.rank === undefined ? {} : { rank: String(vip.rank) }),
-      ...(vip.points === undefined ? {} : { pts: vip.points }),
-      ...(vip.pmr === undefined ? {} : { pmr: String(vip.pmr) }),
+      ...(liveRows === null ? {} : { players_live: liveRows }),
+      ...(vip.rank === undefined ? {} : { rank: vip.rank }),
+      ...(vip.points === undefined ? {} : { points: vip.points }),
+      ...(vip.pmr === undefined ? {} : { pmr: vip.pmr }),
     }
   })
   contest.metrics ??= {}
@@ -110,7 +107,9 @@ export function setVips(snapshot: Json, vips: VipSpec[], sport = SPORT) {
       scope: 'vip_lineup',
       per_vip: withLineupOwn.map((vip) => ({
         entry_key: vip.key,
-        [vip.lineupOwnField ?? 'lineup_ownership_pct']: vip.lineupOwn,
+        vip_entry_key: vip.key,
+        total_ownership_pct: vip.lineupOwn,
+        is_partial: false,
       })),
     }
   }

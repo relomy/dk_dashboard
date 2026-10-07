@@ -44,9 +44,10 @@ describe('chooseLandingSport', () => {
     expect(chooseLandingSport(snapshot, null)).toBe('golf')
   })
 
-  it('skips sports with no primary contest configured', () => {
+  it('skips sports whose configured primary contest is absent', () => {
     const snapshot = load()
-    delete snapshot.sports.cfb.primary_contest
+    snapshot.sports.cfb.primary_contest.contest_key = 'cfb:missing'
+    snapshot.sports.cfb.primary_contest.contest_id = 'missing'
     expect(chooseLandingSport(snapshot, null)).toBe('golf')
   })
 

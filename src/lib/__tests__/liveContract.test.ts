@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { INVARIANTS, contractCasesOf, type ContractCase } from '../liveInvariants'
 import { buildLiveModel, type LiveModel } from '../liveModel'
 import { LIVE_UNREAD_ALLOWLIST, liveUnreadPaths } from '../liveUnreadPaths'
-import type { Snapshot } from '../types'
 import { staleAllowlistEntries, unallowlistedPaths } from '../unreadPaths'
 
 /**
@@ -24,7 +23,7 @@ const INPUTS: Record<string, unknown> = {
 }
 
 function casesOf(): ContractCase[] {
-  return Object.entries(INPUTS).flatMap(([path, raw]) => contractCasesOf(path.split('/').pop() ?? path, raw as Snapshot))
+  return Object.entries(INPUTS).flatMap(([path, raw]) => contractCasesOf(path.split('/').pop() ?? path, raw))
 }
 
 const CASES = casesOf()

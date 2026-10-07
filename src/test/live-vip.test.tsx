@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { contestOf, load, location, rail, renderLive, setVips, stubPhone, vipOf, type Json, type VipSpec } from './liveHarness'
+import mlbGolden from '../../contract/goldens/mlb.json'
 
 // The Live VIP view: rail rows, the focused VIP's stats, cash-line meter and grouped lineup.
 // Driven by the captured NFL slate (field of 1,136, cash line at rank 500): six VIPs ranked 511-1014, all
@@ -165,10 +166,10 @@ describe('VIP stats', () => {
     expect(stat('vs cash').getByText('not cashing')).toBeInTheDocument()
   })
 
-  it('treats a payout as cashing when the feed has no distance to cash', async () => {
+  it('uses the matched standings cashing flag when the feed has no distance to cash', async () => {
     const snapshot = load()
     delete contestOf(snapshot).metrics.distance_to_cash
-    vipOf(snapshot, EMPIRE).payout_cents = 100
+    contestOf(snapshot).standings.push({ entry_key: vipOf(snapshot, EMPIRE).entry_key, is_cashing: true })
     await renderLive(snapshot, vipView(snapshot, EMPIRE))
 
     expect(stat('vs cash').getByText('cashing')).toBeInTheDocument()
@@ -221,11 +222,10 @@ describe('VIP stats', () => {
     expect(stat('Lineup own').getByText('contrarian')).toBeInTheDocument()
   })
 
-  it('reads lineup ownership from either field name', async () => {
+  it('reads lineup ownership from the producer summary', async () => {
     const snapshot = load()
     const row = ownershipRow(snapshot, EMPIRE)
-    row.lineup_ownership_pct = 301.5
-    delete row.total_ownership_pct
+    row.total_ownership_pct = 301.5
     await renderLive(snapshot, vipView(snapshot, EMPIRE))
 
     expect(stat('Lineup own').getByText('301.5%')).toBeInTheDocument()
@@ -264,25 +264,16 @@ describe('cash-line meter', () => {
 })
 
 describe('lineup', () => {
-  // `players_live` rows from the producer carry only the slot, key, name and salary. The row details below
-  // (points, projection, clock, stat line, hot/cold icon) are ones the model reads that the captured
-  // fixture never sends, so the tests that cover them hand-build the rows.
+  // Synthetic game-status combinations cover cases absent from the captured mid-slate lineup.
   const ROW = {
     slot: 'QB',
     player_name: 'Ashton Daniels',
-    ownership_pct: 84.67,
     salary: 3500,
-    points: 7.25,
-    value: 2.07,
-    rt_projection: 21.11,
-    time_remaining_display: '38.02',
-    stats_text: '1 TD',
-    game_status: 'In Progress',
   }
   const LINEUP = [
-    { ...ROW, slot: 'QB', player_name: 'Live Guy', game_status: 'In Progress', points: 12.5, rt_projection: 24.25, value: 4.5, stats_text: '2 TD', ownership_pct: 31.5, time_remaining_display: '21.5' },
-    { ...ROW, slot: 'RB', player_name: 'Later Guy', game_status: 'FSU@MIZZ 07:30PM ET', points: 0, rt_projection: 15, value: 0, stats_text: null, ownership_pct: 12, time_remaining_display: null },
-    { ...ROW, slot: 'WR', player_name: 'Finished Guy', game_status: 'Final', points: 30, rt_projection: 30, value: 6.5, stats_text: '3 TD', ownership_pct: 55, time_remaining_display: null },
+    { ...ROW, slot: 'QB', player_name: 'Live Guy' },
+    { ...ROW, slot: 'RB', player_name: 'Later Guy' },
+    { ...ROW, slot: 'WR', player_name: 'Finished Guy' },
   ]
   const HAND_BUILT: VipSpec = { key: 'vip-a', name: 'First VIP', rank: 12, points: 140.5, pmr: 88.5, delta: 50.25, liveRows: LINEUP }
 
@@ -335,17 +326,20 @@ describe('lineup', () => {
 
   it('shows each player projection, game clock and stat line when the feed sends them', async () => {
     const snapshot = load()
-    setVips(snapshot, [HAND_BUILT])
-    await renderLive(snapshot, VIPS)
+    Object.assign(poolPlayer(snapshot, 'Trevor Lawrence'), {
+      rt_projection: 24.25, time_remaining_minutes: 21.5, stats_text: '2 TD', value_icon: 'fire',
+    })
+    await renderLive(snapshot, vipView(snapshot, EMPIRE))
 
-    const live = within(within(group(/^playing now/i)).getByRole('listitem'))
+    const live = card('Trevor Lawrence')
     expect(live.getByText('QB')).toBeInTheDocument()
-    expect(live.getByText('12.50')).toBeInTheDocument()
+    expect(live.getByText('9.44')).toBeInTheDocument()
     expect(live.getByText('proj 24.25')).toBeInTheDocument()
-    expect(live.getByText('21.5')).toBeInTheDocument()
-    expect(live.getByText('31.5% own')).toBeInTheDocument()
-    expect(live.getByText('4.5')).toBeInTheDocument()
+    expect(live.getByText('21.5 min')).toBeInTheDocument()
+    expect(live.getByText('70.86% own')).toBeInTheDocument()
+    expect(live.getByText('1.6')).toBeInTheDocument()
     expect(live.getByText('2 TD')).toBeInTheDocument()
+    expect(live.getByRole('img', { name: /hot/i })).toBeInTheDocument()
   })
 
   it("shows each player's matchup from the player pool, and none for golf, where the pool has no matchup", async () => {
@@ -370,6 +364,11 @@ describe('lineup', () => {
 
   it('hides value for players who have not started and projection for finished ones', async () => {
     const snapshot = load()
+    snapshot.sports.nfl.players.push(
+      { name: 'Live Guy', game_status: 'In Progress', fantasy_points: 12.5, value: 4.5, ownership_pct: 31.5 },
+      { name: 'Later Guy', rt_projection: 15, game_status: 'FSU@MIZZ 07:30PM ET', fantasy_points: 0, value: 0, ownership_pct: 12 },
+      { name: 'Finished Guy', rt_projection: 30, game_status: 'Final', fantasy_points: 30, value: 6.5, ownership_pct: 55 },
+    )
     setVips(snapshot, [HAND_BUILT])
     await renderLive(snapshot, VIPS)
 
@@ -384,20 +383,64 @@ describe('lineup', () => {
     expect(done.getByText('6.5')).toBeInTheDocument()
   })
 
+  it('shows the producer golden Scorecard and explicitly supplied zero minutes', async () => {
+    await renderLive(mlbGolden, '/live/mlb?view=vips')
+    const judge = card('Aaron Judge')
+    expect(judge.getByText('proj 31.25')).toBeInTheDocument()
+    expect(judge.getByText('0 min')).toBeInTheDocument()
+    expect(judge.getByText('1 HR, 2 RBI, 1 R')).toBeInTheDocument()
+    expect(judge.getByRole('img', { name: /hot/i })).toBeInTheDocument()
+  })
+
+  it('preserves zero projection and cold markers for a keyless matched player', async () => {
+    const snapshot = load()
+    Object.assign(poolPlayer(snapshot, 'Trevor Lawrence'), { rt_projection: 0, time_remaining_minutes: 0, value_icon: 'ice' })
+    delete vipOf(snapshot, EMPIRE).players_live.find((row: Json) => row.player_name === 'Trevor Lawrence').player_key
+    await renderLive(snapshot, vipView(snapshot, EMPIRE))
+    expect(card('Trevor Lawrence').getByText('proj 0.00')).toBeInTheDocument()
+    expect(card('Trevor Lawrence').getByText('0 min')).toBeInTheDocument()
+    expect(card('Trevor Lawrence').getByRole('img', { name: /cold/i })).toBeInTheDocument()
+  })
+
+  it.each(['21.5', '2 innings', undefined])('leaves absent or invalid minutes unavailable (%s)', async (minutes) => {
+    const snapshot = load()
+    Object.assign(poolPlayer(snapshot, 'Trevor Lawrence'), { time_remaining_minutes: minutes, time_remaining_display: '2 innings' })
+    await renderLive(snapshot, vipView(snapshot, EMPIRE))
+    const player = card('Trevor Lawrence')
+    expect(player.queryByText(/min|innings/)).not.toBeInTheDocument()
+    expect(player.queryByText(/^proj/)).not.toBeInTheDocument()
+    expect(player.queryByRole('img', { name: /hot|cold/i })).not.toBeInTheDocument()
+  })
+
+  it('does not reveal pool Scorecard details for unmatched keys or locked slots', async () => {
+    const snapshot = load()
+    const pooled = poolPlayer(snapshot, 'Trevor Lawrence')
+    Object.assign(pooled, { rt_projection: 88, time_remaining_minutes: 7, stats_text: 'Hidden stats', value_icon: 'fire' })
+    const rows = vipOf(snapshot, EMPIRE).players_live
+    rows.find((row: Json) => row.player_name === 'Trevor Lawrence').player_key = 'missing-key'
+    const locked = rows.find((row: Json) => row.is_locked)
+    Object.assign(locked, { player_key: pooled.player_key, player_name: pooled.name })
+    await renderLive(snapshot, vipView(snapshot, EMPIRE))
+    expect(card('Trevor Lawrence').queryByText(/^proj/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Hidden stats')).not.toBeInTheDocument()
+    expect(screen.queryByText('7 min')).not.toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: /hot/i })).not.toBeInTheDocument()
+    expect(screen.getAllByText('Locked 🔒')).toHaveLength(3)
+  })
+
   it('puts players with no game status in Yet to play', async () => {
     // A player the pool does not carry has no status; the captured lineups only roster pooled players.
     const snapshot = load()
-    setVips(snapshot, [{ ...HAND_BUILT, liveRows: [{ ...ROW, player_name: 'Unknown Status', game_status: undefined }] }])
+    setVips(snapshot, [{ ...HAND_BUILT, liveRows: [{ ...ROW, player_name: 'Unknown Status' }] }])
     await renderLive(snapshot, VIPS)
 
     expect(within(group(/^yet to play/i)).getByText('Unknown Status')).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: /^playing now/i })).not.toBeInTheDocument()
   })
 
-  it('shows the name-only slots, as yet to play, when the feed has no live details', async () => {
-    // The legacy lineup shape: the producer sends `players_live` only.
+  it('shows an unmatched player as yet to play when the pool has no live details', async () => {
     const snapshot = load()
-    setVips(snapshot, [{ key: 'vip-a', name: 'First VIP', players: ['Slot Only Guy'], liveRows: null }])
+    setVips(snapshot, [{ key: 'vip-a', name: 'First VIP', players: ['Slot Only Guy'] }])
     await renderLive(snapshot, VIPS)
 
     expect(within(group(/^yet to play/i)).getByText('Slot Only Guy')).toBeInTheDocument()

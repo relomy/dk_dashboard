@@ -118,7 +118,7 @@ function Sport() {
   const { sport } = useParams()
   const [vipFilterMode, setVipFilterMode] = useState<'all' | 'active'>('all')
 
-  const { snapshot, loading, error } = useSportSnapshot()
+  const { snapshot, loading, error, unsupportedVersion } = useSportSnapshot()
 
   if (!sport) {
     return (
@@ -145,6 +145,8 @@ function Sport() {
       </DataPage>
     )
   }
+
+  if (unsupportedVersion !== undefined) return <DataPage title={`Sport: ${sport.toUpperCase()}`}><p>Unsupported snapshot schema version: {String(unsupportedVersion)}.</p></DataPage>
 
   const sportData = snapshot?.sports[sportKey]
 
@@ -174,11 +176,6 @@ function Sport() {
       <div className="flex flex-col gap-1 font-mono text-xs text-muted-foreground tabular-nums">
         <p>Snapshot at: {new Date(snapshot.snapshot_at).toLocaleString()}</p>
         <p>Sport updated: {new Date(sportData.updated_at).toLocaleString()}</p>
-        {sportData.error ? (
-          <p className="mt-1 rounded-lg bg-non-cashing-muted px-3 py-2 font-sans text-sm text-non-cashing-foreground">
-            Sport error: {sportData.error}
-          </p>
-        ) : null}
       </div>
       <div className="grid w-fit min-w-36 gap-1">
         <Label htmlFor="sport-vip-filter" className="text-xs font-normal text-muted-foreground">
