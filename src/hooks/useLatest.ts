@@ -7,7 +7,6 @@ export function useLatest() {
   const latestQuery = useQuery({
     queryKey: ['latest'],
     queryFn: () => fetchJson<LatestResponse>('/api/latest'),
-    structuralSharing: false,
     staleTime: 60_000,
     refetchInterval: 300_000,
   })
@@ -20,6 +19,8 @@ export function useLatest() {
         `/api/snapshot?path=${encodeURIComponent(latestQuery.data!.latest_snapshot_path)}`,
       ).then(interpretSnapshot),
     // A snapshot path is never rewritten (ADR-0001), so a loaded one can't go stale: a new path is a new key.
+    // Preserve the interpreter's root identity and raw provenance on explicit refetches.
+    structuralSharing: false,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

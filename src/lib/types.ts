@@ -1,12 +1,11 @@
 import type {
   Contest as GeneratedContest, SnapshotEnvelope, SportPayload, SportPlayer,
-  PrimaryContest as GeneratedPrimaryContest, StandingsRow as GeneratedStanding,
+  StandingsRow as GeneratedStanding,
   TrainCluster as GeneratedTrain, OwnershipWatchlist as GeneratedWatchlist,
-  SelectionReason as GeneratedSelectionReason,
 } from './generated/snapshot'
 import type { Status as SportStatus } from './generated/snapshot'
 export type {
-  Status as SportStatus, ValueIcon, VipLineupRow as VipLineup, VipLineupSlot,
+  Status as SportStatus, PrimaryContest, SelectionReason, ValueIcon, VipLineupRow as VipLineup, VipLineupSlot,
   VipLineupSlot as VipLineupPlayerLive, LiveMetrics, ContestMetrics,
   DistanceToCash as ContestMetricsDistanceToCash, Threat as ContestMetricsThreat,
   OwnershipSummary as ContestMetricsOwnershipSummary, NonCashing as ContestMetricsNonCashing,
@@ -63,17 +62,14 @@ export interface OwnershipWatchlist extends GeneratedWatchlist {
     pmr?: number
   }>
 }
-export interface SelectionReason extends GeneratedSelectionReason { mode?: string }
-export type PrimaryContest = Omit<GeneratedPrimaryContest, 'selection_reason'> & { selection_reason: SelectionReason }
 export type Contest = Omit<GeneratedContest, 'standings' | 'train_clusters' | 'ownership_watchlist'> & {
   standings: StandingsRow[]
   train_clusters: TrainCluster[]
   ownership_watchlist?: OwnershipWatchlist
 }
-export type SportSnapshot = Omit<SportPayload, 'players' | 'contests' | 'primary_contest'> & {
+export type SportSnapshot = Omit<SportPayload, 'players' | 'contests'> & {
   players: Player[]
   contests: Contest[]
-  primary_contest: PrimaryContest
 }
 export type Snapshot = Omit<SnapshotEnvelope, 'sports'> & { sports: Record<string, SportSnapshot> }
 

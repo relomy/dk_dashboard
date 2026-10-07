@@ -19,7 +19,7 @@ afterEach(() => {
   cleanup()
 })
 
-async function renderRoute(path: string, headingName: RegExp) {
+async function renderRoute(path: string, headingName: RegExp, snapshot: unknown = producerSnapshot) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -36,7 +36,7 @@ async function renderRoute(path: string, headingName: RegExp) {
           { status: 200 },
         )
       }
-      return new Response(JSON.stringify(producerSnapshot), { status: 200 })
+      return new Response(JSON.stringify(snapshot), { status: 200 })
     }),
   )
 
@@ -94,12 +94,35 @@ it('Sport pool shows real positions, actual points and ownership with no Project
   expect(records.every((r) => r.Positions !== '-' && r.Positions !== '—')).toBe(true)
 })
 
-it('Sport cards render the producer roster slots including locked placeholders', async () => {
+it('Sport cards render the producer roster slots and names', async () => {
   await renderRoute('/sport/nfl', /sport: nfl/i)
   const lists = screen.getAllByRole('list')
   expect(lists.some((list) => within(list).queryByText('Trevor Lawrence'))).toBe(true)
-  expect(screen.getAllByText('LOCKED 🔒').length).toBeGreaterThan(0)
   expect(lists.some((list) => within(list).queryByText('QB'))).toBe(true)
+})
+
+it('Sport cards hide player details for a locked roster slot', async () => {
+  const snapshot = structuredClone(producerSnapshot)
+  Object.assign(snapshot.sports.nfl.contests[0].vip_lineups[0].players_live[0], {
+    is_locked: true, player_name: 'Hidden player', salary: 9900,
+  })
+  await renderRoute('/sport/nfl', /sport: nfl/i, snapshot)
+  expect(screen.getAllByText('Locked 🔒').length).toBeGreaterThan(0)
+  expect(screen.queryByText('Hidden player')).not.toBeInTheDocument()
+  expect(screen.queryByText('9900')).not.toBeInTheDocument()
+})
+
+it('Sport cards never use another entry cashing evidence and leave missing evidence unavailable', async () => {
+  const snapshot = structuredClone(producerSnapshot)
+  const contest = snapshot.sports.nfl.contests[0]
+  contest.vip_lineups = [contest.vip_lineups[0]]
+  Object.assign(contest, {
+    standings: [{ entry_key: 'someone-else', is_cashing: true, payout_cents: 12000 }],
+    metrics: { updated_at: snapshot.generated_at, distance_to_cash: { per_vip: [{ vip_entry_key: 'someone-else', points_delta: 30 }] } },
+  })
+  await renderRoute('/sport/nfl', /sport: nfl/i, snapshot)
+  expect(screen.queryByText('Cashing')).not.toBeInTheDocument()
+  expect(screen.queryByText('Outside cash')).not.toBeInTheDocument()
 })
 
 it('Sport pool and Live pool agree on position, points and ownership for the same players', async () => {
