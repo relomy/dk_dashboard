@@ -486,12 +486,10 @@ describe('the producer snapshot', () => {
     expect(document.body.textContent).not.toMatch(/unknown/i)
   })
 
-  it('follows a contest flagged is_primary over the configured key and id', async () => {
+  it('follows the configured primary contest among multiple contests', async () => {
     const snapshot = load()
     const primary = contestOf(snapshot)
-    primary.is_primary = true
     const decoy = structuredClone(primary)
-    decoy.is_primary = false
     decoy.contest_id = '1002'
     decoy.contest_key = 'nfl:1002'
     decoy.name = 'Decoy Contest'
@@ -502,8 +500,8 @@ describe('the producer snapshot', () => {
     await renderLive(snapshot)
 
     const bar = within(screen.getByRole('banner'))
-    expect(bar.getByText('NFL GIANT $50 Double Up [Single Entry]')).toBeInTheDocument()
-    expect(bar.queryByText('Decoy Contest')).not.toBeInTheDocument()
+    expect(bar.getByText('Decoy Contest')).toBeInTheDocument()
+    expect(bar.queryByText('NFL GIANT $50 Double Up [Single Entry]')).not.toBeInTheDocument()
   })
 })
 

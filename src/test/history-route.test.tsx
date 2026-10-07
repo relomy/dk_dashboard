@@ -33,8 +33,8 @@ function buildMissingSectionsFixture() {
   const snapshot = structuredClone(snapshotFixture) as unknown as Snapshot
   const contest = snapshot.sports.cfb.contests[0]
   delete contest.ownership_watchlist
-  delete contest.train_clusters
-  delete contest.standings
+  contest.train_clusters = []
+  contest.standings = []
   return snapshot
 }
 

@@ -5,21 +5,20 @@ describe('lineupMatchesProfile', () => {
   const lineup = {
     vip_entry_key: 'k1',
     display_name: 'Alex Core',
-    entry_id: 'entry-42',
-    username: 'alex_user',
-    slots: [],
+    entry_key: 'entry-42',
+    players_live: [],
   }
 
   it('matches contains rule against display name', () => {
     expect(lineupMatchesProfile(lineup, { contains: 'alex' })).toBe(true)
   })
 
-  it('matches exact rule against entry id', () => {
+  it('matches exact rule against entry key', () => {
     expect(lineupMatchesProfile(lineup, { exact: 'entry-42' })).toBe(true)
   })
 
-  it('matches username rule when username is present', () => {
-    expect(lineupMatchesProfile(lineup, { username: 'alex_user' })).toBe(true)
+  it('matches username rule against the emitted display name', () => {
+    expect(lineupMatchesProfile(lineup, { username: 'alex core' })).toBe(true)
   })
 
   it('returns false when no configured rules match', () => {
@@ -33,8 +32,8 @@ describe('lineupMatchesProfile', () => {
 
 describe('filterVipLineups', () => {
   const lineups = [
-    { vip_entry_key: '1', display_name: 'Alex Core', slots: [] },
-    { vip_entry_key: '2', display_name: 'Jamie SD', slots: [] },
+    { vip_entry_key: '1', display_name: 'Alex Core', players_live: [] },
+    { vip_entry_key: '2', display_name: 'Jamie SD', players_live: [] },
   ]
 
   it('returns all lineups in all mode', () => {

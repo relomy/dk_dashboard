@@ -13,7 +13,6 @@ afterEach(() => {
 function buildHealthFixture() {
   const snapshot = structuredClone(snapshotFixture) as unknown as Snapshot
   snapshot.sports.golf.status = 'stale'
-  snapshot.sports.golf.error = 'Upstream timeout'
   return snapshot
 }
 
@@ -59,7 +58,6 @@ it('shows snapshot age and per-sport status from latest+snapshot', async () => {
   expect(details.getByText(/cfb/i)).toBeInTheDocument()
   expect(details.getAllByText('Fresh').length).toBeGreaterThan(0)
   expect(details.getByText(/golf/i)).toBeInTheDocument()
-  expect(details.getByText(/upstream timeout/i)).toBeInTheDocument()
 
   // The stale sport is also called out in the "Needs attention" list.
   const attention = within(screen.getByRole('region', { name: /needs attention/i }))

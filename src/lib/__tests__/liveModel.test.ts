@@ -63,10 +63,9 @@ describe('not renderable results', () => {
     expect(build(load(), 'nba')).toEqual({ kind: 'not-renderable', reason: { kind: 'sport-missing' } })
   })
 
-  it('reports a sport with no primary contest configured, even when a contest claims is_primary', () => {
+  it('reports a sport with no primary contest configured', () => {
     const snapshot = load()
     delete snapshot.sports.cfb.primary_contest
-    contestOf(snapshot).is_primary = true
 
     expect(build(snapshot)).toEqual({ kind: 'not-renderable', reason: { kind: 'no-primary-contest' } })
   })
@@ -91,12 +90,10 @@ describe('primary contest', () => {
     expect(model.cashLine).toEqual({ points: 129.04001, rank: 98 })
   })
 
-  it('prefers a contest flagged is_primary over the configured key and id', () => {
+  it('selects the configured contest from multiple contests', () => {
     const snapshot = load()
     const primary = contestOf(snapshot)
-    primary.is_primary = true
     const decoy = structuredClone(primary)
-    decoy.is_primary = false
     decoy.contest_id = '1002'
     decoy.contest_key = 'cfb:1002'
     decoy.name = 'Decoy Contest'
@@ -104,7 +101,7 @@ describe('primary contest', () => {
     snapshot.sports.cfb.primary_contest.contest_id = '1002'
     snapshot.sports.cfb.primary_contest.contest_key = 'cfb:1002'
 
-    expect(modelOf(snapshot).contest.name).toBe('CFB Single Entry $25 Double Up')
+    expect(modelOf(snapshot).contest.name).toBe('Decoy Contest')
   })
 
   it('falls back to the configured contest id when the key does not match', () => {
@@ -347,8 +344,7 @@ describe('VIP card from a minimal producer lineup', () => {
     rank: '74',
     pts: 433,
     pmr: '82',
-    players_live: [{ player_key: 'cfb:ashton-daniels:fsu:6500:qb', player_name: 'Ashton Daniels', salary: 6500, is_live: true }],
-    slots: undefined,
+    players_live: [{ slot: 'QB', player_key: 'cfb:ashton-daniels:fsu:6500:qb', player_name: 'Ashton Daniels', salary: 6500, is_live: true }],
   }
   const STANDINGS_ROW = {
     entry_key: VIP_KEY,
@@ -500,15 +496,15 @@ describe('VIP card from a minimal producer lineup', () => {
       expect(playersOf(snapshot)).toEqual([expect.objectContaining({ ownershipPct: 24.02, points: 18.16 })])
     })
 
-    it('lists a row with no slot under a stable key and no slot label', () => {
+    it('keeps separate rows for players with the same roster slot', () => {
       const snapshot = load()
       addVip(snapshot, 'cfb', {
         players_live: [KEYED_ROW, { ...KEYED_ROW, player_key: 'cfb:austin-simmons:mizz:6700:qb', player_name: 'Austin Simmons' }],
       })
 
       expect(playersOf(snapshot).map((player) => [player.key, player.slot])).toEqual([
-        ['row-0', ''],
-        ['row-1', ''],
+        ['QB-0', 'QB'],
+        ['QB-1', 'QB'],
       ])
     })
   })
@@ -553,11 +549,11 @@ describe('VIP card from a minimal producer lineup', () => {
     expect(vipOf(snapshot).cashing).toBe(false)
   })
 
-  it('reads only a boolean is_cashing from the standings row, not its payout', () => {
+  it('uses a matched standings payout when its cashing flag is absent', () => {
     const snapshot = load()
     addVip(snapshot, 'cfb', MINIMAL_LINEUP)
     setStandings(snapshot, [{ ...STANDINGS_ROW, is_cashing: undefined, payout_cents: 1000 }])
-    expect(vipOf(snapshot).cashing).toBe(false)
+    expect(vipOf(snapshot).cashing).toBe(true)
 
     setStandings(snapshot, [{ ...STANDINGS_ROW, is_cashing: false }])
     expect(vipOf(snapshot).cashing).toBe(false)
@@ -594,15 +590,15 @@ describe('VIP card below the standings cut (prod NFL fixture)', () => {
 })
 
 describe('field size', () => {
-  it('prefers entries_count and falls back to max_entries', () => {
+  it('uses the producer max_entries field', () => {
     const snapshot = load()
     expect(modelOf(snapshot).fieldSize).toBe(229)
 
-    contestOf(snapshot).entries_count = 211
+    contestOf(snapshot).max_entries = 211
     expect(modelOf(snapshot).fieldSize).toBe(211)
   })
 
-  it('is null when the feed gives neither', () => {
+  it('is null when the producer emits null', () => {
     const snapshot = load()
     contestOf(snapshot).max_entries = null
     expect(modelOf(snapshot).fieldSize).toBeNull()
@@ -786,8 +782,8 @@ describe('trains', () => {
     function overlapSnapshot() {
       const snapshot = load()
       contestOf(snapshot).vip_lineups = [
-        { entry_key: 'v1', display_name: 'VIP One', players_live: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((player_name) => ({ slot: 'X', player_name })), payout_cents: null },
-        { entry_key: 'v2', display_name: 'VIP Two', players_live: ['A', 'Z1', 'Z2', 'Z3'].map((player_name) => ({ slot: 'X', player_name })), payout_cents: null },
+        { entry_key: 'v1', display_name: 'VIP One', players_live: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((player_name) => ({ slot: 'X', player_name })) },
+        { entry_key: 'v2', display_name: 'VIP Two', players_live: ['A', 'Z1', 'Z2', 'Z3'].map((player_name) => ({ slot: 'X', player_name })) },
       ]
       contestOf(snapshot).train_clusters = [
         { cluster_id: 'big', user_count: 14, rank: 36, lineup_signature: 'A|B|C|D|X1|X2|X3|X4' },
@@ -1282,7 +1278,6 @@ describe('VIP cross-reference on the player pool', () => {
   it('reads the lineup from players_live when the feed provides it', () => {
     const snapshot = load()
     addVip(snapshot, 'cfb', {
-      slots: [],
       players_live: [{ slot: 'RB', player_name: 'Ousmane Kromah' }],
     })
 
