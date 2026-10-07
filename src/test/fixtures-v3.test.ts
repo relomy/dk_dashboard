@@ -5,6 +5,7 @@ import manifestToday from '../../public/mock/manifest/2026-10-03.json'
 // Exported by the dk_results producer; provenance in public/mock/PRODUCER_FIXTURE.md.
 import snapshotV3 from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import snapshotNflMidSlate from '../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
+import snapshotNflShowdown from '../../public/mock/snapshots/live-2026-10-06T04-21-19Z.json'
 import { isEnvelopeSnapshot } from '../lib/snapshotContract'
 import type { Snapshot } from '../lib/types'
 
@@ -13,6 +14,7 @@ const SNAPSHOT_PATH = 'snapshots/live-2026-10-03T20-48-31Z.json'
 const PRODUCER_FIXTURES: Array<[string, unknown]> = [
   ['live-2026-10-03T20-48-31Z', snapshotV3],
   ['live-2026-10-04T18-41-34Z', snapshotNflMidSlate],
+  ['live-2026-10-06T04-21-19Z', snapshotNflShowdown],
 ]
 
 describe('producer v3 fixture bundle', () => {

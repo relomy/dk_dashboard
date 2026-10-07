@@ -11,6 +11,7 @@
   "sports.*.contests[].metrics.distance_to_cash.per_vip[].display_name": "Per-VIP rows match VIPs by entry key; the VIP card's name comes from vip_lineups",
   "sports.*.contests[].metrics.distance_to_cash.per_vip[].entry_key": "Fallback match key, read only when vip_entry_key is blank",
   "sports.*.contests[].metrics.non_cashing.avg_pmr_remaining": "No Live panel shows the non-cashing figures yet (#37 out of scope)",
+  "sports.*.contests[].metrics.non_cashing.top_remaining_players": "The list as an empty array, which the producer emits once no non-cashing player has a game left; the rows are listed below. No Live panel shows the non-cashing figures yet (#37 out of scope)",
   "sports.*.contests[].metrics.non_cashing.top_remaining_players[].ownership_remaining_pct": "No Live panel shows the non-cashing figures yet (#37 out of scope)",
   "sports.*.contests[].metrics.non_cashing.top_remaining_players[].player_name": "No Live panel shows the non-cashing figures yet (#37 out of scope)",
   "sports.*.contests[].metrics.non_cashing.users_not_cashing": "No Live panel shows the non-cashing figures yet (#37 out of scope)",
