@@ -1,3 +1,5 @@
+import type { SportPlayer } from './generated/snapshot'
+
 export type SportStatus = 'ok' | 'stale' | 'error'
 
 export type ContestState = 'upcoming' | 'live' | 'completed' | 'cancelled' | 'unknown'
@@ -193,7 +195,8 @@ export interface Contest {
   metrics?: ContestMetrics
 }
 
-export interface Player {
+/** Base pool fields remain open upstream; declared Scorecard fields come from the producer. */
+export interface Player extends SportPlayer {
   player_key?: string
   name: string
   team: string
@@ -205,7 +208,6 @@ export interface Player {
   fantasy_points?: number | null
   value?: number | null
   ownership_pct?: number | null
-  value_icon?: ValueIcon | null
 }
 
 export interface SportSnapshot {

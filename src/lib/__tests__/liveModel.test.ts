@@ -216,9 +216,6 @@ describe('VIP lineup players', () => {
     salary: 3500,
     points: 7.25,
     value: 2.07,
-    rt_projection: 21.11,
-    time_remaining_display: '38.02',
-    stats_text: '1 TD',
     game_status: 'In Progress',
   }
 
@@ -230,6 +227,9 @@ describe('VIP lineup players', () => {
 
   it('reads each players_live row into a lineup player with its game status', () => {
     const snapshot = load()
+    Object.assign(snapshot.sports.cfb.players.find((row: Json) => row.name === 'Ashton Daniels'), {
+      rt_projection: 21.11, time_remaining_minutes: 38.02, stats_text: '1 TD',
+    })
     addVip(snapshot, 'cfb', { players_live: [PLAYERS_LIVE_ROW] })
 
     expect(playersOf(snapshot)).toEqual([
@@ -242,7 +242,7 @@ describe('VIP lineup players', () => {
         gameStatus: 'in-progress',
         points: 7.25,
         projection: 21.11,
-        clock: '38.02',
+        clock: '38.02 min',
         // The fixture's pool repeats the game status as the matchup, which is no matchup at all.
         matchup: null,
         ownershipPct: 84.67,
@@ -308,11 +308,16 @@ describe('VIP lineup players', () => {
 
   it('projects final points for finished players and the real-time projection for the rest', () => {
     const snapshot = load()
+    snapshot.sports.cfb.players = [
+      { name: 'Finished', rt_projection: 25 },
+      { name: 'Playing', rt_projection: 12.5 },
+      { name: 'Later' },
+    ]
     addVip(snapshot, 'cfb', {
       players_live: [
-        { ...PLAYERS_LIVE_ROW, slot: 'QB', points: 20, rt_projection: 25, game_status: 'Final' },
-        { ...PLAYERS_LIVE_ROW, slot: 'RB', points: 5, rt_projection: 12.5, game_status: 'In Progress' },
-        { ...PLAYERS_LIVE_ROW, slot: 'WR', points: 0, rt_projection: undefined, game_status: 'FSU@MIZZ 07:30PM ET' },
+        { slot: 'QB', player_name: 'Finished', points: 20, game_status: 'Final' },
+        { slot: 'RB', player_name: 'Playing', points: 5, game_status: 'In Progress' },
+        { slot: 'WR', player_name: 'Later', points: 0, game_status: 'FSU@MIZZ 07:30PM ET' },
       ],
     })
 
@@ -606,13 +611,14 @@ describe('VIP card from a minimal producer lineup', () => {
 
   it('projects from the pool-enriched points when some rows carry a real-time projection', () => {
     const snapshot = load()
+    snapshot.sports.cfb.players.find((row: Json) => row.name === 'Austin Simmons').rt_projection = 20
     const [keyed] = MINIMAL_LINEUP.players_live
     addVip(snapshot, 'cfb', {
       players_live: [
         // Final, so its points count: 3 on the row, not the pool's 18.16.
         { ...keyed, game_status: 'Final', points: 3 },
         // In progress with a projection; the points so far are pool-only.
-        { ...keyed, player_key: 'cfb:austin-simmons:mizz:6700:qb', player_name: 'Austin Simmons', rt_projection: 20 },
+        { ...keyed, player_key: 'cfb:austin-simmons:mizz:6700:qb', player_name: 'Austin Simmons' },
         // In progress with no projection: the pool's 4.5 points so far count.
         { ...keyed, player_key: 'cfb:beau-pribula:uva:7600:qb', player_name: 'Beau Pribula' },
       ],
@@ -1252,11 +1258,11 @@ describe('value icon', () => {
     expect(modelOf(load()).pool.every((player) => player.valueIcon === null)).toBe(true)
   })
 
-  it('passes the icon through to VIP lineup players from players_live', () => {
-    const snapshot = load()
+  it('passes the icon through to VIP lineup players from the matching pool player', () => {
+    const snapshot = snapshotWith([{ name: 'Hot Guy', value_icon: 'fire' }, { name: 'Plain Guy' }])
     addVip(snapshot, 'cfb', {
       players_live: [
-        { slot: 'QB', player_name: 'Hot Guy', value_icon: 'fire' },
+        { slot: 'QB', player_name: 'Hot Guy' },
         { slot: 'RB', player_name: 'Plain Guy' },
       ],
     })

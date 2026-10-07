@@ -147,6 +147,10 @@ export type Rank = number;
 export type VipEntryKey3 = string;
 export type VipLineups = VipLineupRow[];
 export type Contests = Contest[];
+export type RtProjection = number;
+export type StatsText = string;
+export type TimeRemainingMinutes = number;
+export type ValueIcon = "fire" | "ice";
 export type Players = SportPlayer[];
 export type ContestId1 = string;
 export type ContestKey1 = string;
@@ -362,9 +366,14 @@ export interface VipLineupSlot {
 /**
  * One row of a sport payload's `players`.
  *
- * Not typed field by field yet, but a `name` it carries has no leading or trailing whitespace.
+ * Not typed field by field yet, except the Scorecard fields below, each omitted when
+ * DraftKings does not supply it. A `name` it carries has no leading or trailing whitespace.
  */
 export interface SportPlayer {
+  rt_projection?: RtProjection;
+  stats_text?: StatsText;
+  time_remaining_minutes?: TimeRemainingMinutes;
+  value_icon?: ValueIcon;
   [k: string]: unknown;
 }
 /**

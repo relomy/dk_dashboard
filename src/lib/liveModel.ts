@@ -399,13 +399,15 @@ function buildLineupPlayers(lineup: VipLineup, pool: PoolIndex): LiveLineupPlaye
         locked: false,
         gameStatus: classifyGameStatus(gameStatus),
         points: numberOrNull(player.points) ?? numberOrNull(pooled?.fantasy_points),
-        projection: numberOrNull(player.rt_projection),
-        clock: nonEmptyString(player.time_remaining_display) ?? nonEmptyString(gameStatus),
+        projection: numberOrNull(pooled?.rt_projection),
+        clock: numberOrNull(pooled?.time_remaining_minutes) !== null
+          ? `${pooled?.time_remaining_minutes} min`
+          : nonEmptyString(gameStatus),
         matchup: matchupOf(pooled),
         ownershipPct: numberOrNull(player.ownership_pct) ?? numberOrNull(pooled?.ownership_pct),
         value: numberOrNull(player.value) ?? numberOrNull(pooled?.value),
-        valueIcon: readValueIcon(player.value_icon),
-        stats: nonEmptyString(player.stats_text),
+        valueIcon: readValueIcon(pooled?.value_icon),
+        stats: nonEmptyString(pooled?.stats_text),
       }
     })
   }
