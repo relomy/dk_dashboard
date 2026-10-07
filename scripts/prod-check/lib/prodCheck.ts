@@ -2,7 +2,7 @@ import { INVARIANTS, contractCasesOf } from '../../../src/lib/liveInvariants'
 import { buildLiveModel, type LiveModel, type LiveNotRenderableReason, type LiveVip, type Section } from '../../../src/lib/liveModel'
 import { LIVE_UNREAD_ALLOWLIST, liveUnreadPaths } from '../../../src/lib/liveUnreadPaths'
 import { formatOwnership } from '../../../src/lib/playerPool'
-import { interpretSnapshot, type LiveSnapshot as Snapshot } from '../../../src/lib/interpretedSnapshot'
+import { interpretSnapshot, type InterpretedSnapshot, isSupportedSnapshot, type LiveSnapshot as Snapshot } from '../../../src/lib/interpretedSnapshot'
 import { unallowlistedPaths } from '../../../src/lib/unreadPaths'
 import { SNAPSHOT_KEY, guardProdRead, type ProdReadDeps, type SnapshotSource } from '../../lib/snapshotSource'
 
@@ -40,7 +40,8 @@ function latestSnapshotKey(source: SnapshotSource): string {
   return key
 }
 
-function checkSnapshot(snapshot: Snapshot, sport: string, key: string): ProdCheckResult {
+function checkSnapshot(snapshot: InterpretedSnapshot, sport: string, key: string): ProdCheckResult {
+  if (!isSupportedSnapshot(snapshot)) return { exitCode: 1, output: `Unsupported snapshot schema version: ${String(snapshot.schema_version)}` }
   const lines = [`Prod check: ${sport} | ${key} | snapshot_at ${String(snapshot.snapshot_at)}`]
   const fail = (message: string): ProdCheckResult => ({ exitCode: 1, output: [...lines, `FAIL: ${message}`].join('\n') })
 

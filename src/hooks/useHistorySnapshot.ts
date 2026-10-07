@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchJson } from '../lib/api'
 import { getUtcManifestDate, parseHistoryTimestamp } from '../lib/time'
 import type { DayManifest } from '../lib/types'
-import { interpretPublicSnapshot } from '../lib/interpretedSnapshot'
+import { interpretSnapshot } from '../lib/interpretedSnapshot'
 
 export function useHistorySnapshot(timestampParam?: string) {
   const timestamp = timestampParam ? parseHistoryTimestamp(timestampParam) : ''
@@ -13,6 +13,7 @@ export function useHistorySnapshot(timestampParam?: string) {
     queryKey: ['history-manifest', manifestPath],
     enabled: Boolean(manifestPath),
     queryFn: () => fetchJson<DayManifest>(`/api/snapshot?path=${encodeURIComponent(manifestPath)}`),
+    structuralSharing: false,
     staleTime: 300_000,
   })
 
@@ -21,7 +22,7 @@ export function useHistorySnapshot(timestampParam?: string) {
   const snapshotQuery = useQuery({
     queryKey: ['history-snapshot', snapshotPath],
     enabled: Boolean(snapshotPath),
-    queryFn: () => fetchJson<unknown>(`/api/snapshot?path=${encodeURIComponent(snapshotPath!)}`).then(interpretPublicSnapshot),
+    queryFn: () => fetchJson<unknown>(`/api/snapshot?path=${encodeURIComponent(snapshotPath!)}`).then(interpretSnapshot),
     staleTime: 300_000,
   })
 

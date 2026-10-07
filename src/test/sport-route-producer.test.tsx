@@ -94,6 +94,14 @@ it('Sport pool shows real positions, actual points and ownership with no Project
   expect(records.every((r) => r.Positions !== '-' && r.Positions !== '—')).toBe(true)
 })
 
+it('Sport cards render the producer roster slots including locked placeholders', async () => {
+  await renderRoute('/sport/nfl', /sport: nfl/i)
+  const lists = screen.getAllByRole('list')
+  expect(lists.some((list) => within(list).queryByText('Trevor Lawrence'))).toBe(true)
+  expect(screen.getAllByText('LOCKED 🔒').length).toBeGreaterThan(0)
+  expect(lists.some((list) => within(list).queryByText('QB'))).toBe(true)
+})
+
 it('Sport pool and Live pool agree on position, points and ownership for the same players', async () => {
   await renderRoute('/sport/nfl', /sport: nfl/i)
   const sport = poolRecords().records

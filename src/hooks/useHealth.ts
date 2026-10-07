@@ -1,3 +1,4 @@
+import { isSupportedSnapshot } from '../lib/interpretedSnapshot'
 import { useMemo } from 'react'
 import { useLatest } from './useLatest'
 
@@ -5,7 +6,7 @@ export function useHealth() {
   const { latestQuery, snapshotQuery } = useLatest()
 
   const snapshotAgeSeconds = useMemo(() => {
-    if (!snapshotQuery.data) {
+    if (!snapshotQuery.data || !isSupportedSnapshot(snapshotQuery.data)) {
       return null
     }
 
@@ -22,7 +23,7 @@ export function useHealth() {
   }, [snapshotQuery.data])
 
   const sports = useMemo(() => {
-    if (!snapshotQuery.data) {
+    if (!snapshotQuery.data || !isSupportedSnapshot(snapshotQuery.data)) {
       return []
     }
 
@@ -30,7 +31,7 @@ export function useHealth() {
       sport,
       status: details.status,
       updatedAt: details.updated_at,
-      error: details.error,
+      error: undefined as string | undefined,
     }))
   }, [snapshotQuery.data])
 

@@ -1,8 +1,9 @@
+import { resolveVipCashing } from './contestDisplay'
 import { LOCKED_LABEL, parseLineupSignature, type LineupSlot } from './lineup'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from './perVipKeys'
 import { buildPlayerPool, numberOrNull, readValueIcon, type PlayerPoolRow } from './playerPool'
-import { interpretSnapshot, type LiveContest as Contest, type LiveSnapshot, type LiveSport as SportSnapshot } from './interpretedSnapshot'
-import type { DistanceToCash as ContestMetricsDistanceToCash, OwnershipSummary as ContestMetricsOwnershipSummary, Threat as ContestMetricsThreat, VipLineupRow as VipLineup, VipLineupSlot as VipLineupPlayerLive } from './generated/snapshot'
+import { interpretSnapshot, type LiveContest as Contest, type InterpretedSnapshot, isSupportedSnapshot, type LiveSport as SportSnapshot } from './interpretedSnapshot'
+import type { OwnershipSummary as ContestMetricsOwnershipSummary, Threat as ContestMetricsThreat, VipLineupRow as VipLineup, VipLineupSlot as VipLineupPlayerLive } from './generated/snapshot'
 import type {
   Player,
   ValueIcon,
@@ -251,7 +252,7 @@ export interface LiveModel {
   sport: string
   snapshotAt: string
   contest: LiveContestHeader
-  /** Entries in the field: `entries_count`, else `max_entries`; null when the feed gives neither. */
+  /** Entries in the field: `max_entries`; null when the feed gives neither. */
   fieldSize: number | null
   cashLine: LiveCashLine
   vips: LiveVip[]
@@ -279,13 +280,12 @@ function notRenderable(reason: LiveNotRenderableReason): LiveModelResult {
   return { kind: 'not-renderable', reason }
 }
 
-/** `is_primary` wins; otherwise match the configured primary contest by key, then by id. */
-export function resolvePrimaryContest<T extends { is_primary?: boolean; contest_key: string; contest_id: string }>(
+/** Match the configured primary contest by key, then by id. */
+export function resolvePrimaryContest<T extends { contest_key: string; contest_id: string }>(
   contests: T[],
   configured: NonNullable<SportSnapshot['primary_contest']>,
 ): T | null {
   return (
-    contests.find((contest) => contest.is_primary === true) ??
     contests.find((contest) => contest.contest_key === configured.contest_key) ??
     contests.find((contest) => contest.contest_id === configured.contest_id) ??
     null
@@ -296,25 +296,7 @@ function nonEmptyString(value: unknown): string | null {
   return typeof value === 'string' && value ? value : null
 }
 
-type DistanceToCashRow = ContestMetricsDistanceToCash['per_vip'][number]
-type StandingsRow = NonNullable<Contest['standings']>[number]
-
-/**
- * Metrics first: a matched distance-to-cash row decides by points delta, then rank delta.
- * Without one, the matched standings row decides.
- */
-function resolveVipCashing(
-  distance: DistanceToCashRow | undefined,
-  standing: StandingsRow | undefined,
-): boolean {
-  if (typeof distance?.points_delta === 'number') {
-    return distance.points_delta >= 0
-  }
-  if (typeof distance?.rank_delta === 'number') {
-    return distance.rank_delta >= 0
-  }
-  return standing?.is_cashing === true
-}
+type StandingsRow = Contest['standings'][number]
 
 /** Lineup ownership from the producer's per-VIP summary. */
 function lineupOwnershipOf(row: ContestMetricsOwnershipSummary['per_vip'][number] | undefined): number | null {
@@ -436,7 +418,7 @@ function buildVips(contest: Contest, trains: Section<LiveTrains>, pool: PoolInde
     return {
       key: lineup.entry_key || lineup.vip_entry_key || lineup.display_name || `vip-${vipIndex}`,
       name: lineup.display_name || lineup.entry_key || lineup.vip_entry_key || 'VIP',
-      cashing: resolveVipCashing(distance, standing),
+      cashing: resolveVipCashing(distance, standing) === true,
       distanceToCash: { points: numberOrNull(distance?.points_delta), rank: numberOrNull(distance?.rank_delta) },
       updatedAt: contest.live_metrics?.updated_at || null,
       rank: numberOrNull(lineup.rank) ?? numberOrNull(standing?.rank),
@@ -761,8 +743,8 @@ export function buildLiveModel(snapshot: unknown, sportKey: string): LiveModelRe
 }
 
 /** Already interpreted input, also used to trace only actual model consumption. */
-export function buildInterpretedLiveModel(snapshot: LiveSnapshot, sportKey: string): LiveModelResult {
-  if (snapshot.schema_version !== SUPPORTED_SCHEMA_VERSION) {
+export function buildInterpretedLiveModel(snapshot: InterpretedSnapshot, sportKey: string): LiveModelResult {
+  if (!isSupportedSnapshot(snapshot)) {
     return notRenderable({ kind: 'unsupported-schema', version: numberOrNull(snapshot.schema_version) })
   }
   const sportData = snapshot.sports[sportKey]
@@ -790,7 +772,7 @@ export function buildInterpretedLiveModel(snapshot: LiveSnapshot, sportKey: stri
       sport: sportKey,
       snapshotAt: snapshot.snapshot_at,
       contest: { name: contest.name },
-      fieldSize: numberOrNull(contest.entries_count) ?? numberOrNull(contest.max_entries),
+      fieldSize: numberOrNull(contest.max_entries),
       cashLine: { points: numberOrNull(cashLine?.points_cutoff), rank: numberOrNull(cashLine?.rank_cutoff) },
       vips: buildVips(contest, trains, pool),
       pool: buildPool(sportData, contest),

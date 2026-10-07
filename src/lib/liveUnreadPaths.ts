@@ -1,5 +1,5 @@
 import { buildInterpretedLiveModel } from './liveModel'
-import { interpretSnapshot, snapshotProvenance } from './interpretedSnapshot'
+import { interpretSnapshot, isSupportedSnapshot, snapshotProvenance } from './interpretedSnapshot'
 import allowlist from './liveUnreadAllowlist.json'
 import { leafPaths, readPaths, type UnreadAllowlist } from './unreadPaths'
 
@@ -20,6 +20,7 @@ export const LIVE_UNREAD_ALLOWLIST: UnreadAllowlist = allowlist
  */
 export function liveUnreadPaths(raw: unknown, sport: string): string[] {
   const snapshot = interpretSnapshot(raw)
+  if (!isSupportedSnapshot(snapshot)) return []
   const provenance = snapshotProvenance(snapshot)!
   const original = provenance.raw as typeof snapshot
   const scoped = { ...snapshot, sports: { [sport]: snapshot.sports[sport] } }

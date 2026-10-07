@@ -2,7 +2,7 @@ import { LOCKED_SLOT_DETAIL, resolvePrimaryContest, type LiveModel, type LiveVip
 import { haveOrFade } from './livePresentation'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from './perVipKeys'
 import type { VipLineupRow as VipLineup } from './generated/snapshot'
-import { interpretSnapshot, type LiveContest as Contest, type LiveSnapshot as Snapshot } from './interpretedSnapshot'
+import { interpretSnapshot, isSupportedSnapshot, type LiveContest as Contest, type LiveSnapshot as Snapshot } from './interpretedSnapshot'
 
 /**
  * The Live contract's invariants (#37): hand-written checks on what the Live view would show for one
@@ -184,6 +184,7 @@ export const INVARIANTS: Record<string, Invariant> = {
 /** The contract cases of one snapshot, named by its fixture file or snapshot key: one per sport it carries. */
 export function contractCasesOf(sourceName: string, raw: unknown): ContractCase[] {
   const snapshot = interpretSnapshot(raw)
+  if (!isSupportedSnapshot(snapshot)) return []
   return Object.entries(snapshot.sports).map(([sport, sportSnapshot]) => ({
     input: sourceName,
     sport,

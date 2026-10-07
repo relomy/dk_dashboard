@@ -1,3 +1,4 @@
+import { isSupportedSnapshot } from '../lib/interpretedSnapshot'
 import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -78,6 +79,8 @@ function Health() {
       </DataPage>
     )
   }
+
+  if (snapshotQuery.data && !isSupportedSnapshot(snapshotQuery.data)) return <DataPage title="Health"><p>Unsupported snapshot schema version: {String(snapshotQuery.data.schema_version)}.</p></DataPage>
 
   if (!snapshotQuery.data || !latestQuery.data) {
     return (

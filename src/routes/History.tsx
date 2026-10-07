@@ -1,3 +1,4 @@
+import { isSupportedSnapshot } from '../lib/interpretedSnapshot'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -256,7 +257,7 @@ function History() {
     )
   }
 
-  if (snapshotQuery.data.schema_version !== 3) {
+  if (!isSupportedSnapshot(snapshotQuery.data)) {
     return <DataPage title="History"><p>Unsupported snapshot schema version: {String(snapshotQuery.data.schema_version ?? 'unknown')}.</p></DataPage>
   }
 

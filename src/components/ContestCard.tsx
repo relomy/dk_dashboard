@@ -7,6 +7,7 @@ import {
   normalizeContestState,
 } from '../lib/contestDisplay'
 import type { Contest, VipLineup } from '../lib/types'
+import { LOCKED_LABEL } from '../lib/lineup'
 
 /** One contest: name, fee, state, field facts and the VIP lineups that survived the filter. */
 function ContestCard({
@@ -45,7 +46,7 @@ function ContestCard({
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {lineups.map((lineup, lineupIndex) => {
-              const cashingStatus = getVipCashingStatus(contestState, lineup, contest.currency)
+              const cashingStatus = getVipCashingStatus(contest, lineup)
               const lineupKey = lineup.entry_key || lineup.vip_entry_key || lineup.display_name
               return (
                 <div
@@ -53,7 +54,7 @@ function ContestCard({
                   className="min-w-0 rounded-lg border bg-background/40 p-2"
                 >
                   <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <p className="min-w-0 truncate font-medium">{lineup.display_name}</p>
+                    <p className="min-w-0 truncate font-medium">{lineup.display_name || lineup.entry_key || lineup.vip_entry_key || 'VIP'}</p>
                     {cashingStatus ? (
                       <Badge
                         className={cn(
@@ -68,14 +69,11 @@ function ContestCard({
                     ) : null}
                   </div>
                   <ol className="flex flex-col gap-0.5 text-xs">
-                    {(lineup.slots ?? []).map((slot, index) => (
+                    {(lineup.players_live ?? []).map((slot, index) => (
                       <li key={`${lineupKey}-${index}`} className="flex gap-2">
                         <span className="w-9 shrink-0 font-mono text-muted-foreground">{slot.slot}</span>
                         <span className="min-w-0 break-words">
-                          {slot.player_name}
-                          {slot.multiplier ? (
-                            <span className="ml-1 font-mono text-muted-foreground">x{slot.multiplier}</span>
-                          ) : null}
+                          {slot.is_locked ? LOCKED_LABEL : slot.player_name}
                         </span>
                       </li>
                     ))}
