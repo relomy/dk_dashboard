@@ -5,6 +5,7 @@ changes (for example when relomy/dk_results#156 adds metrics).
 
 | Fixture | R2 key (bucket `dk-dashboard-data`) |
 | --- | --- |
+| `snapshots/live-2026-10-06T04-21-19Z.json` | `snapshots/live-2026-10-06T04-21-19Z.json` |
 | `snapshots/live-2026-10-04T18-41-34Z.json` | `snapshots/live-2026-10-04T18-41-34Z.json` |
 | `snapshots/live-2026-10-03T20-48-31Z.json` | `snapshots/live-2026-10-03T20-48-31Z.json` |
 | `manifest/2026-10-03.json` | `manifest/2026-10-03.json` |
@@ -33,6 +34,27 @@ or added. Kept elements are copied byte for byte, so key order and the producer'
   VIP lineups and metrics, and every name in a `train_clusters[].lineup_signature`; names match after
   trimming whitespace) plus the 25 most owned.
 - Every other array, including `train_clusters`, `vip_lineups` and all metrics, is complete.
+
+## `snapshots/live-2026-10-06T04-21-19Z.json`
+
+NFL Showdown, Monday night (ATL @ NO), captured for the unread-field detector's empty-list case and as
+the first Showdown sample (relomy/dk_dashboard#49).
+
+- Producer: `dk_results` production feed `snapshot_feed.py`.
+- Producer commit: `6ae728d8062629852789c3ded7e6f663ca68fdf9` (relomy/dk_results#193), the producer's `main` at snapshot time. As above,
+  the deployed revision is not recorded in the snapshot.
+- Pulled read-only from R2 on 2026-10-07 with `npm run fixture:refresh`.
+- `nflshowdown` is the only feed; there is no classic `nfl` feed in this snapshot. One contest: 459
+  entries, 200 paid, cash line at rank 184 (99.01 points), 37 trains, three VIPs (ranks 337, 184 and
+  184) with standings rows, and every VIP showing 0% ownership remaining and 0 PMR.
+- `metrics.non_cashing.top_remaining_players` is `[]`: the producer lists only players with a game
+  left, and none is. The detector reports an empty array as a leaf, so the allowlist names that path
+  itself as well as the list's rows (`src/lib/liveUnreadAllowlist.json`).
+
+| Array | Rows |
+| --- | --- |
+| `sports.nflshowdown.contests[0].standings` | 459 → 232 |
+| `sports.nflshowdown.players` | 56 → 27 |
 
 ## `snapshots/live-2026-10-04T18-41-34Z.json`
 
