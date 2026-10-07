@@ -13,7 +13,6 @@ export function useHistorySnapshot(timestampParam?: string) {
     queryKey: ['history-manifest', manifestPath],
     enabled: Boolean(manifestPath),
     queryFn: () => fetchJson<DayManifest>(`/api/snapshot?path=${encodeURIComponent(manifestPath)}`),
-    structuralSharing: false,
     staleTime: 300_000,
   })
 
@@ -23,6 +22,8 @@ export function useHistorySnapshot(timestampParam?: string) {
     queryKey: ['history-snapshot', snapshotPath],
     enabled: Boolean(snapshotPath),
     queryFn: () => fetchJson<unknown>(`/api/snapshot?path=${encodeURIComponent(snapshotPath!)}`).then(interpretSnapshot),
+    // Preserve the interpreter's root identity and raw provenance on explicit refetches.
+    structuralSharing: false,
     staleTime: 300_000,
   })
 

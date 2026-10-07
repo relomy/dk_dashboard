@@ -29,13 +29,6 @@ function formatAgeValue(snapshotAgeSeconds: number | null): string {
   return `${minutes}m ${seconds}s`
 }
 
-function truncateText(value: string, max = 80): string {
-  if (value.length <= max) {
-    return value
-  }
-
-  return `${value.slice(0, max).trimEnd()}...`
-}
 
 const headCell = 'h-8 text-xs text-muted-foreground'
 
@@ -154,9 +147,6 @@ function Health() {
                 <p className="font-mono text-xs text-muted-foreground tabular-nums">
                   Updated at: {new Date(item.updatedAt).toLocaleString()}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {item.error ? 'Error message available in per-sport details.' : 'No error message.'}
-                </p>
               </li>
             ))}
           </ul>
@@ -174,7 +164,6 @@ function Health() {
                 <TableHead className={headCell}>Sport</TableHead>
                 <TableHead className={headCell}>Status</TableHead>
                 <TableHead className={headCell}>Updated at</TableHead>
-                <TableHead className={headCell}>Error</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -186,22 +175,6 @@ function Health() {
                   </TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground tabular-nums">
                     {item.updatedAt}
-                  </TableCell>
-                  <TableCell className="max-w-xs whitespace-normal">
-                    {item.error ? (
-                      item.error.length > 80 ? (
-                        <details>
-                          <summary className="cursor-pointer text-xs text-muted-foreground">
-                            {truncateText(item.error)}
-                          </summary>
-                          <p className="mt-1 text-xs break-words text-muted-foreground">{item.error}</p>
-                        </details>
-                      ) : (
-                        item.error
-                      )
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
                   </TableCell>
                 </TableRow>
               ))}

@@ -31,7 +31,6 @@ export function useHealth() {
       sport,
       status: details.status,
       updatedAt: details.updated_at,
-      error: undefined as string | undefined,
     }))
   }, [snapshotQuery.data])
 
