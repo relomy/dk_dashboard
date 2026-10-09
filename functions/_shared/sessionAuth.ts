@@ -1,12 +1,13 @@
 import { readCookie } from './cookies'
 import { jsonError } from './errors'
+import { SESSION_COOKIE, SESSION_EXTEND_AFTER_SECONDS, SESSION_TTL_SECONDS } from './session'
 import { hashSessionToken, requireSessionPepper } from './security'
 import type { EnvBindings } from './types'
 
-const SESSION_COOKIE = 'session_token'
 
 interface SessionIdentityRow {
   session_id: string
+  expires_at: string
   user_id: string
   username: string
   role: 'owner' | 'friend'
@@ -58,6 +59,7 @@ export async function requireAuthenticatedSession(
     .prepare(
       `SELECT
         s.id AS session_id,
+        s.expires_at,
         u.id AS user_id,
         u.username,
         u.role,
@@ -79,6 +81,16 @@ export async function requireAuthenticatedSession(
       ok: false,
       response: jsonError(401, 'unauthenticated', 'Authentication required.'),
     }
+  }
+
+  const now = Date.now()
+  const newExpiresAt = new Date(now + SESSION_TTL_SECONDS * 1000).toISOString()
+  const extendThreshold = new Date(now + (SESSION_TTL_SECONDS - SESSION_EXTEND_AFTER_SECONDS) * 1000).toISOString()
+  if (row.expires_at < extendThreshold) {
+    await env.AUTH_DB
+      .prepare('UPDATE sessions SET expires_at = ? WHERE id = ? AND revoked_at IS NULL')
+      .bind(newExpiresAt, row.session_id)
+      .run()
   }
 
   return {
