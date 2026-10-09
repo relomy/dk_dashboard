@@ -8,10 +8,9 @@ import { hashPassword, verifyPassword } from '../../_shared/password'
 import { hashSessionToken, requireSessionPepper } from '../../_shared/security'
 import { requireAuthenticatedSession } from '../../_shared/sessionAuth'
 import type { EnvBindings } from '../../_shared/types'
+import { SESSION_COOKIE, SESSION_TTL_SECONDS } from '../../_shared/session'
 
-const SESSION_COOKIE = 'session_token'
 const CSRF_COOKIE = 'csrf_token'
-const SESSION_TTL_SECONDS = 8 * 60 * 60
 const MIN_PASSWORD_LENGTH = 12
 
 interface ChangePasswordBody {

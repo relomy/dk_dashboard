@@ -6,8 +6,8 @@ import { jsonError } from '../../_shared/errors'
 import { validateStateChangingOrigin } from '../../_shared/origin'
 import { requireAuthenticatedSession } from '../../_shared/sessionAuth'
 import type { EnvBindings } from '../../_shared/types'
+import { SESSION_COOKIE } from '../../_shared/session'
 
-const SESSION_COOKIE = 'session_token'
 const CSRF_COOKIE = 'csrf_token'
 
 function randomToken(bytes = 16): string {

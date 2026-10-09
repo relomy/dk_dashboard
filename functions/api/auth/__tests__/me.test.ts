@@ -118,4 +118,51 @@ describe('/api/auth/me', () => {
     expect(lookupCall).toBeDefined()
     expect(lookupCall?.args[0]).toBe(tokenHash)
   })
+
+  it('re-issues the session cookie with the full TTL', async () => {
+    const db = createMockDb({
+      session_id: 's1',
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+      user_id: 'u1',
+      username: 'friend',
+      role: 'friend',
+      must_change_password: 0,
+    })
+    const response = await invoke({ Cookie: 'session_token=abc' }, buildEnv({ AUTH_DB: db }))
+
+    const setCookie = response.headers.get('set-cookie') ?? ''
+    expect(setCookie).toContain('session_token=abc')
+    expect(setCookie).toContain(`Max-Age=${14 * 24 * 60 * 60}`)
+    expect(setCookie).toContain('HttpOnly')
+  })
+
+  it('extends the session expiry when it is more than an hour old', async () => {
+    const db = createMockDb({
+      session_id: 's1',
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+      user_id: 'u1',
+      username: 'friend',
+      role: 'friend',
+      must_change_password: 0,
+    })
+    await invoke({ Cookie: 'session_token=abc' }, buildEnv({ AUTH_DB: db }))
+
+    const update = db.calls.find((call) => call.kind === 'run' && call.sql.includes('UPDATE sessions SET expires_at'))
+    expect(update).toBeDefined()
+    expect(update?.args[1]).toBe('s1')
+  })
+
+  it('skips the write when the session was extended recently', async () => {
+    const db = createMockDb({
+      session_id: 's1',
+      expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000 - 60_000).toISOString(),
+      user_id: 'u1',
+      username: 'friend',
+      role: 'friend',
+      must_change_password: 0,
+    })
+    await invoke({ Cookie: 'session_token=abc' }, buildEnv({ AUTH_DB: db }))
+
+    expect(db.calls.some((call) => call.sql.includes('UPDATE sessions SET expires_at'))).toBe(false)
+  })
 })

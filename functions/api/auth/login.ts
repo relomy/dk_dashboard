@@ -7,10 +7,9 @@ import { requireSessionPepper, hashSessionToken } from '../../_shared/security'
 import type { EnvBindings } from '../../_shared/types'
 import { findUserByUsername, insertSession, pruneSessionsToLimit } from '../../_shared/authRepo'
 import { writeAuditEvent } from '../../_shared/audit'
+import { SESSION_COOKIE, SESSION_TTL_SECONDS } from '../../_shared/session'
 
-const SESSION_COOKIE = 'session_token'
 const CSRF_COOKIE = 'csrf_token'
-const SESSION_TTL_SECONDS = 8 * 60 * 60
 
 interface LoginBody {
   username: string
