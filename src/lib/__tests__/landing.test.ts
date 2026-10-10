@@ -13,14 +13,80 @@ function finish(snapshot: Snapshot, sport: string) {
 }
 
 describe('chooseLandingSport', () => {
-  it('prefers the last-viewed sport when the snapshot still has it', () => {
-    expect(chooseLandingSport(load(), 'mlb')).toBe('mlb')
+  it('lands on a sport with a live primary contest over the last-viewed sport', () => {
+    const snapshot = load()
+    finish(snapshot, 'cfb')
+    finish(snapshot, 'golf')
+    expect(chooseLandingSport(snapshot, 'cfb')).toBe('mlb')
   })
 
-  it('prefers the last-viewed sport even when its contest is not live', () => {
+  it('prefers a completed primary contest over a stale last-viewed sport', () => {
+    const snapshot = load()
+    for (const sport of Object.keys(snapshot.sports)) finish(snapshot, sport)
+    expect(chooseLandingSport(snapshot, 'cfb')).toBe('mlb')
+  })
+
+  it('prefers a live primary contest over a more recent completed one', () => {
     const snapshot = load()
     finish(snapshot, 'mlb')
+    snapshot.sports.mlb.contests[0].start_time = '2026-10-04T01:00:00Z'
+    finish(snapshot, 'cfb')
+    expect(chooseLandingSport(snapshot, null)).toBe('golf')
+  })
+
+  it('opens the most recently completed primary contest when several are completed', () => {
+    const snapshot = load()
+    for (const sport of Object.keys(snapshot.sports)) finish(snapshot, sport)
+    snapshot.sports.golf.contests[0].start_time = '2026-10-04T01:00:00Z'
+    expect(chooseLandingSport(snapshot, null)).toBe('golf')
+  })
+
+  it('orders completed contests by instant, not by ISO string, across UTC offsets', () => {
+    const snapshot = load()
+    for (const sport of Object.keys(snapshot.sports)) finish(snapshot, sport)
+    // As strings golf sorts lowest, but at 01:00Z on the 4th it started last.
+    snapshot.sports.cfb.contests[0].start_time = '2026-10-03T22:00:00+00:00'
+    snapshot.sports.golf.contests[0].start_time = '2026-10-03T20:00:00-05:00'
+    snapshot.sports.mlb.contests[0].start_time = '2026-10-03T23:30:00+00:00'
+    expect(chooseLandingSport(snapshot, null)).toBe('golf')
+  })
+
+  it('treats a missing or unparseable start time as oldest', () => {
+    const snapshot = load()
+    for (const sport of Object.keys(snapshot.sports)) finish(snapshot, sport)
+    snapshot.sports.cfb.contests[0].start_time = 'not a date'
+    snapshot.sports.golf.contests[0].start_time = ''
+    snapshot.sports.mlb.contests[0].start_time = '2026-10-01T00:00:00Z'
+    expect(chooseLandingSport(snapshot, null)).toBe('mlb')
+  })
+
+  it('ignores cancelled contests', () => {
+    const snapshot = load()
+    for (const sport of Object.keys(snapshot.sports)) finish(snapshot, sport)
+    snapshot.sports.mlb.contests[0].state = 'cancelled'
+    snapshot.sports.cfb.contests[0].state = 'cancelled'
+    expect(chooseLandingSport(snapshot, null)).toBe('golf')
+  })
+
+  it('falls back to the last-viewed sport when nothing is live or completed', () => {
+    const snapshot = load()
+    for (const sport of Object.keys(snapshot.sports)) snapshot.sports[sport].contests[0].state = 'cancelled'
     expect(chooseLandingSport(snapshot, 'mlb')).toBe('mlb')
+    expect(chooseLandingSport(snapshot, null)).toBe('cfb')
+  })
+
+  it('does not count a completed contest that is not the primary one', () => {
+    const snapshot = load()
+    finish(snapshot, 'mlb')
+    const decoy = structuredClone(snapshot.sports.golf.contests[0])
+    decoy.contest_id = 'decoy'
+    decoy.contest_key = 'golf:decoy'
+    decoy.state = 'completed'
+    decoy.start_time = '2026-10-09T00:00:00Z'
+    snapshot.sports.golf.contests.push(decoy)
+    snapshot.sports.golf.contests[0].state = 'cancelled'
+    snapshot.sports.cfb.contests[0].state = 'cancelled'
+    expect(chooseLandingSport(snapshot, null)).toBe('mlb')
   })
 
   it('ignores a last-viewed sport that is no longer in the snapshot', () => {
@@ -49,12 +115,6 @@ describe('chooseLandingSport', () => {
     snapshot.sports.cfb.primary_contest.contest_key = 'cfb:missing'
     snapshot.sports.cfb.primary_contest.contest_id = 'missing'
     expect(chooseLandingSport(snapshot, null)).toBe('golf')
-  })
-
-  it('falls back to the first available sport when nothing is live', () => {
-    const snapshot = load()
-    for (const sport of Object.keys(snapshot.sports)) finish(snapshot, sport)
-    expect(chooseLandingSport(snapshot, null)).toBe('cfb')
   })
 
   it('returns null when the snapshot has no sports', () => {

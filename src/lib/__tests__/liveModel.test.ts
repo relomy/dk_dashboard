@@ -86,7 +86,7 @@ describe('primary contest', () => {
     expect(model.sport).toBe('cfb')
     expect(model.snapshotAt).toBe('2026-10-03T20:48:31Z')
     // Only the name: contest key, id and selection reason are internal and never shown.
-    expect(model.contest).toEqual({ name: 'CFB Single Entry $25 Double Up' })
+    expect(model.contest).toEqual({ name: 'CFB Single Entry $25 Double Up', state: 'live', startTime: '2026-10-03T16:00:00Z' })
     expect(model.cashLine).toEqual({ points: 129.04001, rank: 98 })
   })
 

@@ -1,10 +1,11 @@
-import { resolveVipCashing } from './contestDisplay'
+import { normalizeContestState, resolveVipCashing } from './contestDisplay'
 import { LOCKED_LABEL, parseLineupSignature, type LineupSlot } from './lineup'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from './perVipKeys'
 import { buildPlayerPool, numberOrNull, readValueIcon, type PlayerPoolRow } from './playerPool'
 import { interpretSnapshot, type LiveContest as Contest, type InterpretedSnapshot, isSupportedSnapshot, type LiveSport as SportSnapshot } from './interpretedSnapshot'
 import type { OwnershipSummary as ContestMetricsOwnershipSummary, Threat as ContestMetricsThreat, VipLineupRow as VipLineup, VipLineupSlot as VipLineupPlayerLive } from './generated/snapshot'
 import type {
+  ContestState,
   Player,
   ValueIcon,
 } from './types'
@@ -30,6 +31,9 @@ function available<T>(data: T): Section<T> {
 
 export interface LiveContestHeader {
   name: string
+  state: ContestState
+  /** The contest's start time; null when absent. Stands in for a finish time until the feed has one. */
+  startTime: string | null
 }
 
 export interface LiveCashLine {
@@ -771,7 +775,7 @@ export function buildInterpretedLiveModel(snapshot: InterpretedSnapshot, sportKe
     model: {
       sport: sportKey,
       snapshotAt: snapshot.snapshot_at,
-      contest: { name: contest.name },
+      contest: { name: contest.name, state: normalizeContestState(contest.state), startTime: contest.start_time || null },
       fieldSize: numberOrNull(contest.max_entries),
       cashLine: { points: numberOrNull(cashLine?.points_cutoff), rank: numberOrNull(cashLine?.rank_cutoff) },
       vips: buildVips(contest, trains, pool),

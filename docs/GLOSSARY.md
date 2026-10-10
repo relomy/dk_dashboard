@@ -37,6 +37,11 @@ _Avoid_: status
 **Health**:
 The diagnostics view of snapshot freshness and per-sport status.
 
+**Final standings**:
+A contest's standings once its state is completed. "Final" describes the
+contest here; for a player's game it is a **Game status**.
+_Avoid_: final results, final scores
+
 ### Sports and contests
 
 **Sport**:

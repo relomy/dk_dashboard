@@ -8,7 +8,8 @@ import App from '../App'
 import type { Snapshot } from '../lib/types'
 
 // The home page and /latest both land on Live. The producer fixture has cfb, golf and mlb,
-// each with a live primary contest.
+// each with a live primary contest. Landing order: live primary contest, most recently completed
+// primary contest, last-viewed sport, first sport.
 
 const store = new Map<string, string>()
 
@@ -87,13 +88,48 @@ const currentPath = () => screen.getByLabelText('current path').textContent
 // landing waits get 3s: still well inside the 5s test timeout, so a view that never appears fails here.
 const APP_READY = { timeout: 3000 }
 
-it('opens Live for the last-viewed sport from the home page', async () => {
+it('opens Live for the last-viewed sport when nothing is live or completed', async () => {
   store.set('dk_dashboard_last_sport', 'mlb')
-  stubApi(load())
+  const snapshot = load()
+  for (const sport of Object.values(snapshot.sports)) sport.contests[0].state = 'cancelled'
+  stubApi(snapshot)
   renderApp('/')
 
   expect(await screen.findByRole('heading', { name: /live: mlb/i }, APP_READY)).toBeInTheDocument()
   expect(currentPath()).toBe('/live/mlb')
+})
+
+it('opens a live primary contest over the last-viewed sport', async () => {
+  store.set('dk_dashboard_last_sport', 'mlb')
+  const snapshot = load()
+  snapshot.sports.mlb.contests[0].state = 'completed'
+  stubApi(snapshot)
+  renderApp('/')
+
+  expect(await screen.findByRole('heading', { name: /live: cfb/i }, APP_READY)).toBeInTheDocument()
+})
+
+it('opens the most recently completed primary contest over a stale last-viewed sport', async () => {
+  store.set('dk_dashboard_last_sport', 'cfb')
+  const snapshot = load()
+  for (const sport of Object.values(snapshot.sports)) sport.contests[0].state = 'completed'
+  snapshot.sports.golf.contests[0].start_time = '2026-10-04T01:00:00Z'
+  stubApi(snapshot)
+  renderApp('/')
+
+  expect(await screen.findByRole('heading', { name: /live: golf/i }, APP_READY)).toBeInTheDocument()
+  expect(currentPath()).toBe('/live/golf')
+})
+
+it('ignores a cancelled contest when choosing the most recently completed one', async () => {
+  const snapshot = load()
+  for (const sport of Object.values(snapshot.sports)) sport.contests[0].state = 'completed'
+  snapshot.sports.mlb.contests[0].state = 'cancelled'
+  snapshot.sports.cfb.contests[0].state = 'cancelled'
+  stubApi(snapshot)
+  renderApp('/')
+
+  expect(await screen.findByRole('heading', { name: /live: golf/i }, APP_READY)).toBeInTheDocument()
 })
 
 it('opens the first sport with a live primary contest for a first-time visitor', async () => {
@@ -106,9 +142,9 @@ it('opens the first sport with a live primary contest for a first-time visitor',
   expect(currentPath()).toBe('/live/golf')
 })
 
-it('opens the first available sport when no primary contest is live', async () => {
+it('opens the first available sport when no primary contest is live or completed', async () => {
   const snapshot = load()
-  for (const sport of Object.values(snapshot.sports)) sport.contests[0].state = 'completed'
+  for (const sport of Object.values(snapshot.sports)) sport.contests[0].state = 'cancelled'
   stubApi(snapshot)
   renderApp('/')
 
@@ -132,7 +168,9 @@ it('lands on the first sport when browser storage is unavailable', async () => {
 })
 
 it('remembers the sport last viewed on Live for the next visit', async () => {
-  stubApi(load())
+  const snapshot = load()
+  for (const sport of Object.values(snapshot.sports)) sport.contests[0].state = 'cancelled'
+  stubApi(snapshot)
   renderApp('/live/golf')
   await screen.findByRole('heading', { name: /live: golf/i }, APP_READY)
 
@@ -143,8 +181,11 @@ it('remembers the sport last viewed on Live for the next visit', async () => {
 })
 
 it('redirects the retired /latest URL to the landing view', async () => {
-  store.set('dk_dashboard_last_sport', 'golf')
-  stubApi(load())
+  store.set('dk_dashboard_last_sport', 'cfb')
+  const snapshot = load()
+  for (const sport of Object.values(snapshot.sports)) sport.contests[0].state = 'completed'
+  snapshot.sports.golf.contests[0].start_time = '2026-10-04T01:00:00Z'
+  stubApi(snapshot)
   renderApp('/latest')
 
   expect(await screen.findByRole('heading', { name: /live: golf/i }, APP_READY)).toBeInTheDocument()
@@ -166,6 +207,61 @@ it('brand link returns to the landing view', async () => {
 
   const brand = await screen.findByRole('link', { name: /dk\/live/i }, APP_READY)
   expect(brand).toHaveAttribute('href', '/')
+})
+
+it('marks a completed primary contest as Final with its start time on Live', async () => {
+  const snapshot = load()
+  snapshot.sports.cfb.contests[0].state = 'completed'
+  stubApi(snapshot)
+  renderApp('/live/cfb')
+
+  const marker = await screen.findByLabelText(/contest state/i, undefined, APP_READY)
+  expect(within(marker).getByText('Final')).toBeInTheDocument()
+  expect(within(marker).getByText(/started/i)).toBeInTheDocument()
+  expect(marker.querySelector('time')).toHaveAttribute('datetime', '2026-10-03T16:00:00Z')
+  // Age is measured to the snapshot's time (20:48:31Z), not the wall clock.
+  expect(within(marker).getByText(/4h ago/)).toBeInTheDocument()
+  // The completed contest's standings render in full.
+  expect(screen.getByRole('navigation', { name: /live views/i })).toBeInTheDocument()
+  expect(screen.getByRole('complementary', { name: /leverage/i })).toBeInTheDocument()
+})
+
+it('measures the Final age to the current time when the snapshot time is unusable', async () => {
+  const snapshot = load()
+  snapshot.sports.cfb.contests[0].state = 'completed'
+  snapshot.snapshot_at = 'not a date'
+  stubApi(snapshot)
+  vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-04T01:00:00Z') })
+  try {
+    renderApp('/live/cfb')
+    const marker = await screen.findByLabelText(/contest state/i, undefined, APP_READY)
+    expect(within(marker).getByText(/9h ago/)).toBeInTheDocument()
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it.each(['players', 'vips', 'trains', 'leverage'])('renders a completed contest on the %s view without errors', async (view) => {
+  const snapshot = load()
+  snapshot.sports.cfb.contests[0].state = 'completed'
+  stubApi(snapshot)
+  const error = vi.spyOn(console, 'error')
+  renderApp(`/live/cfb?view=${view}`)
+
+  expect(await screen.findByLabelText(/contest state/i, undefined, APP_READY)).toBeInTheDocument()
+  expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument()
+  expect(error).not.toHaveBeenCalled()
+})
+
+it.each(['live', 'upcoming', 'cancelled'] as const)('does not mark a %s primary contest as Final', async (state) => {
+  const snapshot = load()
+  snapshot.sports.cfb.contests[0].state = state
+  stubApi(snapshot)
+  renderApp('/live/cfb')
+
+  await screen.findByRole('heading', { name: /live: cfb/i }, APP_READY)
+  // Player game statuses also read "Final", so the contest's own marker is found by its label.
+  expect(screen.queryByLabelText(/contest state/i)).not.toBeInTheDocument()
 })
 
 it('reaches the multi-contest Sport page from All contests', async () => {

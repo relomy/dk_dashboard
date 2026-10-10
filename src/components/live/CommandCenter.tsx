@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Radar, Star, Table2, TrainFront, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useIsPhone } from '../../hooks/useMediaQuery'
-import { formatPoints } from '../../lib/format'
+import { formatAge, formatPoints } from '../../lib/format'
 import type { LiveModel, LiveTrain, LiveVip } from '../../lib/liveModel'
 import TopBarSlot from '../TopBarSlot'
 import LeveragePanel, { type LeverageFocus } from './LeveragePanel'
@@ -16,6 +16,41 @@ import ViewLink from './ViewLink'
 function formatSnapshotTime(iso: string): string {
   const date = new Date(iso)
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+}
+
+/**
+ * Height of the Final marker, published as a CSS variable on the page root so the marker and the grid's
+ * viewport-height calc read the same value. Zero when no marker shows.
+ */
+const FINAL_MARKER_HEIGHT = '2.25rem'
+
+/**
+ * Marks a completed contest as Final. The feed has no completion time yet, so the contest's start time
+ * stands in for it and is labelled as such, with its age measured from the snapshot's time (the current
+ * time when the snapshot's is unusable). Other states, cancelled included, show nothing.
+ */
+function FinalMarker({ contest, snapshotAt }: { contest: LiveModel['contest']; snapshotAt: string }) {
+  if (contest.state !== 'completed') return null
+  const started = contest.startTime ? new Date(contest.startTime) : null
+  const age = contest.startTime
+    ? (formatAge(contest.startTime, snapshotAt) ?? formatAge(contest.startTime, new Date().toISOString()))
+    : null
+  return (
+    <div role="group" aria-label="Contest state" className="flex min-h-[var(--final-marker-height)] items-center gap-2 border-b px-4 text-xs">
+      <span className="rounded-sm bg-muted px-1.5 py-0.5 font-mono font-semibold tracking-widest uppercase">Final</span>
+      {contest.startTime ? (
+        <span className="text-muted-foreground">
+          Started{' '}
+          <time dateTime={contest.startTime}>
+            {started && !Number.isNaN(started.getTime())
+              ? started.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+              : contest.startTime}
+          </time>
+          {age ? <> · {age}</> : null}
+        </span>
+      ) : null}
+    </div>
+  )
 }
 
 /** The cash line and snapshot time, rendered into the app shell's top bar. */
@@ -153,13 +188,23 @@ function CommandCenter({ model, title }: { model: LiveModel; title: ReactNode })
     )
 
   return (
-    <div className={cn('min-h-[calc(100vh-37px)]', isPhone && 'pb-20')}>
+    <div
+      className={cn('min-h-[calc(100vh-37px)]', isPhone && 'pb-20')}
+      style={{ '--final-marker-height': model.contest.state === 'completed' ? FINAL_MARKER_HEIGHT : '0px' } as CSSProperties}
+    >
       <h1 className="sr-only">{title}</h1>
       <TopBarSlot>
         <TopBarReadout model={model} />
       </TopBarSlot>
+      <FinalMarker contest={model.contest} snapshotAt={model.snapshotAt} />
 
-      <div className="grid md:grid-cols-[220px_minmax(0,1fr)] xl:h-[calc(100vh-37px)] xl:grid-cols-[220px_minmax(0,1fr)_320px]">
+      <div
+        className={cn(
+          'grid md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_320px]',
+          // The Final marker sits above the grid, so the grid gives up its height (0px when there is no marker).
+          'xl:h-[calc(100vh-37px-var(--final-marker-height))]',
+        )}
+      >
         {isPhone ? null : (
           <nav aria-label="Live views" className="flex flex-col gap-1 border-r p-2 xl:overflow-y-auto">
             <RailLink
