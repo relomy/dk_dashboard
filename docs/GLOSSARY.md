@@ -37,6 +37,11 @@ _Avoid_: status
 **Health**:
 The diagnostics view of snapshot freshness and per-sport status.
 
+**Final standings**:
+A contest's standings once its state is completed. "Final" describes the
+contest here; for a player's game it is a **Game status**.
+_Avoid_: final results, final scores
+
 ### Sports and contests
 
 **Sport**:
@@ -74,6 +79,12 @@ _Avoid_: user, player
 An authenticated person who can sign in to the dashboard; holds the role of
 Owner or Friend.
 _Avoid_: account
+
+**DraftKings username**:
+The DraftKings name a User is known by in a contest's standings. It defaults to
+the User's login username and the User can change it. Case is ignored when
+matching it to entries; two Users may share one.
+_Avoid_: handle, alias
 
 **Owner**:
 A User role with administrative rights, including creating other users.
