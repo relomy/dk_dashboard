@@ -20,22 +20,40 @@ export function writeLastViewedSport(sport: string): void {
   }
 }
 
+/** The sport's primary contest, or null when none is configured or it is absent from the snapshot. */
+function primaryContestOf(snapshot: Snapshot, sport: string) {
+  const { primary_contest: configured, contests } = snapshot.sports[sport]
+  return configured ? resolvePrimaryContest(contests, configured) : null
+}
+
 /**
- * The sport the home page opens on: the last-viewed sport if the snapshot still has it,
- * otherwise the first sport whose primary contest is live, otherwise the first sport.
- * Null only when the snapshot has no sports.
+ * The sport the home page opens on: the first sport whose primary contest is live, then the sport whose
+ * primary contest completed most recently, then the last-viewed sport if the snapshot still has it, then
+ * the first sport. Cancelled contests never count as completed. Null only when the snapshot has no sports.
+ *
+ * Known limitation: the feed has no completion timestamp, so "most recently completed" is ordered by the
+ * contest's `start_time`. A contest that runs long can be mis-ordered against one that started later.
+ * Switch to `completed_at` once the producer emits it (relomy/dk_results#210).
  */
 export function chooseLandingSport(snapshot: Snapshot, lastViewed: string | null): string | null {
   const sports = Object.keys(snapshot.sports)
 
-  if (lastViewed && sports.includes(lastViewed)) {
-    return lastViewed
+  const live = sports.find((sport) => primaryContestOf(snapshot, sport)?.state === 'live')
+  if (live) return live
+
+  let completed: string | null = null
+  let completedStart = ''
+  for (const sport of sports) {
+    const contest = primaryContestOf(snapshot, sport)
+    // ISO-8601 UTC timestamps compare correctly as strings; the first sport wins a tie.
+    if (contest?.state === 'completed' && (completed === null || contest.start_time > completedStart)) {
+      completed = sport
+      completedStart = contest.start_time
+    }
   }
+  if (completed) return completed
 
-  const live = sports.find((sport) => {
-    const { primary_contest: configured, contests } = snapshot.sports[sport]
-    return Boolean(configured) && resolvePrimaryContest(contests, configured!)?.state === 'live'
-  })
+  if (lastViewed && sports.includes(lastViewed)) return lastViewed
 
-  return live ?? sports[0] ?? null
+  return sports[0] ?? null
 }
