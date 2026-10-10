@@ -35,3 +35,19 @@ export function formatSigned(value: number | null | undefined): string {
   const text = String(Math.abs(rounded))
   return rounded < 0 ? `−${text}` : `+${text}`
 }
+
+/**
+ * How long before `nowIso` the `thenIso` instant was, as "9h ago" / "3d ago" / "just now" (under a minute).
+ * Null when either timestamp is unparseable. A `thenIso` after `nowIso` reads "just now".
+ */
+export function formatAge(thenIso: string, nowIso: string): string | null {
+  const then = Date.parse(thenIso)
+  const now = Date.parse(nowIso)
+  if (Number.isNaN(then) || Number.isNaN(now)) return null
+  const minutes = Math.floor(Math.max(0, now - then) / 60_000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
+}

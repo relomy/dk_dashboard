@@ -219,9 +219,26 @@ it('marks a completed primary contest as Final with its start time on Live', asy
   expect(within(marker).getByText('Final')).toBeInTheDocument()
   expect(within(marker).getByText(/started/i)).toBeInTheDocument()
   expect(marker.querySelector('time')).toHaveAttribute('datetime', '2026-10-03T16:00:00Z')
+  // Age is measured to the snapshot's time (20:48:31Z), not the wall clock.
+  expect(within(marker).getByText(/4h ago/)).toBeInTheDocument()
   // The completed contest's standings render in full.
   expect(screen.getByRole('navigation', { name: /live views/i })).toBeInTheDocument()
   expect(screen.getByRole('complementary', { name: /leverage/i })).toBeInTheDocument()
+})
+
+it('measures the Final age to the current time when the snapshot time is unusable', async () => {
+  const snapshot = load()
+  snapshot.sports.cfb.contests[0].state = 'completed'
+  snapshot.snapshot_at = 'not a date'
+  stubApi(snapshot)
+  vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-04T01:00:00Z') })
+  try {
+    renderApp('/live/cfb')
+    const marker = await screen.findByLabelText(/contest status/i, undefined, APP_READY)
+    expect(within(marker).getByText(/9h ago/)).toBeInTheDocument()
+  } finally {
+    vi.useRealTimers()
+  }
 })
 
 it.each(['players', 'vips', 'trains', 'leverage'])('renders a completed contest on the %s view without errors', async (view) => {
