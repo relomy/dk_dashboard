@@ -215,7 +215,7 @@ it('marks a completed primary contest as Final with its start time on Live', asy
   stubApi(snapshot)
   renderApp('/live/cfb')
 
-  const marker = await screen.findByLabelText(/contest status/i, undefined, APP_READY)
+  const marker = await screen.findByLabelText(/contest state/i, undefined, APP_READY)
   expect(within(marker).getByText('Final')).toBeInTheDocument()
   expect(within(marker).getByText(/started/i)).toBeInTheDocument()
   expect(marker.querySelector('time')).toHaveAttribute('datetime', '2026-10-03T16:00:00Z')
@@ -234,7 +234,7 @@ it('measures the Final age to the current time when the snapshot time is unusabl
   vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-04T01:00:00Z') })
   try {
     renderApp('/live/cfb')
-    const marker = await screen.findByLabelText(/contest status/i, undefined, APP_READY)
+    const marker = await screen.findByLabelText(/contest state/i, undefined, APP_READY)
     expect(within(marker).getByText(/9h ago/)).toBeInTheDocument()
   } finally {
     vi.useRealTimers()
@@ -248,7 +248,7 @@ it.each(['players', 'vips', 'trains', 'leverage'])('renders a completed contest 
   const error = vi.spyOn(console, 'error')
   renderApp(`/live/cfb?view=${view}`)
 
-  expect(await screen.findByLabelText(/contest status/i, undefined, APP_READY)).toBeInTheDocument()
+  expect(await screen.findByLabelText(/contest state/i, undefined, APP_READY)).toBeInTheDocument()
   expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument()
   expect(error).not.toHaveBeenCalled()
 })
@@ -261,7 +261,7 @@ it.each(['live', 'upcoming', 'cancelled'] as const)('does not mark a %s primary 
 
   await screen.findByRole('heading', { name: /live: cfb/i }, APP_READY)
   // Player game statuses also read "Final", so the contest's own marker is found by its label.
-  expect(screen.queryByLabelText(/contest status/i)).not.toBeInTheDocument()
+  expect(screen.queryByLabelText(/contest state/i)).not.toBeInTheDocument()
 })
 
 it('reaches the multi-contest Sport page from All contests', async () => {

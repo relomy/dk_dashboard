@@ -36,7 +36,7 @@ function FinalMarker({ contest, snapshotAt }: { contest: LiveModel['contest']; s
     ? (formatAge(contest.startTime, snapshotAt) ?? formatAge(contest.startTime, new Date().toISOString()))
     : null
   return (
-    <div role="group" aria-label="Contest status" className="flex h-[var(--final-marker-height)] items-center gap-2 border-b px-4 text-xs">
+    <div role="group" aria-label="Contest state" className="flex min-h-[var(--final-marker-height)] items-center gap-2 border-b px-4 text-xs">
       <span className="rounded-sm bg-muted px-1.5 py-0.5 font-mono font-semibold tracking-widest uppercase">Final</span>
       {contest.startTime ? (
         <span className="text-muted-foreground">
