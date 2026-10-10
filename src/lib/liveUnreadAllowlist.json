@@ -33,8 +33,6 @@
   "sports.*.contests[].sport": "Repeats the sport key the Live view is already scoped to",
   "sports.*.contests[].standings[].is_vip": "VIPs come from vip_lineups; standings rows are not marked as VIPs",
   "sports.*.contests[].standings[].remaining_salary": "No Live panel shows salary remaining yet",
-  "sports.*.contests[].start_time": "Contest metadata the Sport view's contest card shows; the Live view does not",
-  "sports.*.contests[].state": "Read by landing (which sport opens first) and the Sport view, not the Live view",
   "sports.*.contests[].vip_lineups[].players_live[].is_live": "A lineup player's game status comes from the matched pool player's game_status; is_live repeats whether that player is active",
   "sports.*.contests[].vip_lineups[].players_live[].salary": "Lineup cards show no salary",
   "sports.*.primary_contest.contest_id": "Contest selection matches configured contest_key; contest_id is the last fallback",

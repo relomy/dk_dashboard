@@ -168,6 +168,44 @@ it('brand link returns to the landing view', async () => {
   expect(brand).toHaveAttribute('href', '/')
 })
 
+it('marks a completed primary contest as Final with its start time on Live', async () => {
+  const snapshot = load()
+  snapshot.sports.cfb.contests[0].state = 'completed'
+  stubApi(snapshot)
+  renderApp('/live/cfb')
+
+  const marker = await screen.findByLabelText(/contest status/i, undefined, APP_READY)
+  expect(within(marker).getByText('Final')).toBeInTheDocument()
+  expect(within(marker).getByText(/started/i)).toBeInTheDocument()
+  expect(marker.querySelector('time')).toHaveAttribute('datetime', '2026-10-03T16:00:00Z')
+  // The completed contest's standings render in full.
+  expect(screen.getByRole('navigation', { name: /live views/i })).toBeInTheDocument()
+  expect(screen.getByRole('complementary', { name: /leverage/i })).toBeInTheDocument()
+})
+
+it.each(['players', 'vips', 'trains', 'leverage'])('renders a completed contest on the %s view without errors', async (view) => {
+  const snapshot = load()
+  snapshot.sports.cfb.contests[0].state = 'completed'
+  stubApi(snapshot)
+  const error = vi.spyOn(console, 'error')
+  renderApp(`/live/cfb?view=${view}`)
+
+  expect(await screen.findByLabelText(/contest status/i, undefined, APP_READY)).toBeInTheDocument()
+  expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument()
+  expect(error).not.toHaveBeenCalled()
+})
+
+it.each(['live', 'upcoming', 'cancelled'] as const)('does not mark a %s primary contest as Final', async (state) => {
+  const snapshot = load()
+  snapshot.sports.cfb.contests[0].state = state
+  stubApi(snapshot)
+  renderApp('/live/cfb')
+
+  await screen.findByRole('heading', { name: /live: cfb/i }, APP_READY)
+  // Player game statuses also read "Final", so the contest's own marker is found by its label.
+  expect(screen.queryByLabelText(/contest status/i)).not.toBeInTheDocument()
+})
+
 it('reaches the multi-contest Sport page from All contests', async () => {
   stubApi(load())
   renderApp('/')
