@@ -8,7 +8,8 @@ import App from '../App'
 import type { Snapshot } from '../lib/types'
 
 // The home page and /latest both land on Live. The producer fixture has cfb, golf and mlb,
-// each with a live primary contest.
+// each with a live primary contest. Landing order: live primary contest, most recently completed
+// primary contest, last-viewed sport, first sport.
 
 const store = new Map<string, string>()
 
@@ -87,13 +88,48 @@ const currentPath = () => screen.getByLabelText('current path').textContent
 // landing waits get 3s: still well inside the 5s test timeout, so a view that never appears fails here.
 const APP_READY = { timeout: 3000 }
 
-it('opens Live for the last-viewed sport from the home page', async () => {
+it('opens Live for the last-viewed sport when nothing is live or completed', async () => {
   store.set('dk_dashboard_last_sport', 'mlb')
-  stubApi(load())
+  const snapshot = load()
+  for (const sport of Object.values(snapshot.sports)) sport.contests[0].state = 'cancelled'
+  stubApi(snapshot)
   renderApp('/')
 
   expect(await screen.findByRole('heading', { name: /live: mlb/i }, APP_READY)).toBeInTheDocument()
   expect(currentPath()).toBe('/live/mlb')
+})
+
+it('opens a live primary contest over the last-viewed sport', async () => {
+  store.set('dk_dashboard_last_sport', 'mlb')
+  const snapshot = load()
+  snapshot.sports.mlb.contests[0].state = 'completed'
+  stubApi(snapshot)
+  renderApp('/')
+
+  expect(await screen.findByRole('heading', { name: /live: cfb/i }, APP_READY)).toBeInTheDocument()
+})
+
+it('opens the most recently completed primary contest over a stale last-viewed sport', async () => {
+  store.set('dk_dashboard_last_sport', 'cfb')
+  const snapshot = load()
+  for (const sport of Object.values(snapshot.sports)) sport.contests[0].state = 'completed'
+  snapshot.sports.golf.contests[0].start_time = '2026-10-04T01:00:00Z'
+  stubApi(snapshot)
+  renderApp('/')
+
+  expect(await screen.findByRole('heading', { name: /live: golf/i }, APP_READY)).toBeInTheDocument()
+  expect(currentPath()).toBe('/live/golf')
+})
+
+it('ignores a cancelled contest when choosing the most recently completed one', async () => {
+  const snapshot = load()
+  for (const sport of Object.values(snapshot.sports)) sport.contests[0].state = 'completed'
+  snapshot.sports.mlb.contests[0].state = 'cancelled'
+  snapshot.sports.cfb.contests[0].state = 'cancelled'
+  stubApi(snapshot)
+  renderApp('/')
+
+  expect(await screen.findByRole('heading', { name: /live: golf/i }, APP_READY)).toBeInTheDocument()
 })
 
 it('opens the first sport with a live primary contest for a first-time visitor', async () => {
@@ -106,9 +142,9 @@ it('opens the first sport with a live primary contest for a first-time visitor',
   expect(currentPath()).toBe('/live/golf')
 })
 
-it('opens the first available sport when no primary contest is live', async () => {
+it('opens the first available sport when no primary contest is live or completed', async () => {
   const snapshot = load()
-  for (const sport of Object.values(snapshot.sports)) sport.contests[0].state = 'completed'
+  for (const sport of Object.values(snapshot.sports)) sport.contests[0].state = 'cancelled'
   stubApi(snapshot)
   renderApp('/')
 
@@ -132,7 +168,9 @@ it('lands on the first sport when browser storage is unavailable', async () => {
 })
 
 it('remembers the sport last viewed on Live for the next visit', async () => {
-  stubApi(load())
+  const snapshot = load()
+  for (const sport of Object.values(snapshot.sports)) sport.contests[0].state = 'cancelled'
+  stubApi(snapshot)
   renderApp('/live/golf')
   await screen.findByRole('heading', { name: /live: golf/i }, APP_READY)
 
@@ -143,8 +181,11 @@ it('remembers the sport last viewed on Live for the next visit', async () => {
 })
 
 it('redirects the retired /latest URL to the landing view', async () => {
-  store.set('dk_dashboard_last_sport', 'golf')
-  stubApi(load())
+  store.set('dk_dashboard_last_sport', 'cfb')
+  const snapshot = load()
+  for (const sport of Object.values(snapshot.sports)) sport.contests[0].state = 'completed'
+  snapshot.sports.golf.contests[0].start_time = '2026-10-04T01:00:00Z'
+  stubApi(snapshot)
   renderApp('/latest')
 
   expect(await screen.findByRole('heading', { name: /live: golf/i }, APP_READY)).toBeInTheDocument()
