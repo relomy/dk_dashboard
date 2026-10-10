@@ -26,6 +26,28 @@ function primaryContestOf(snapshot: Snapshot, sport: string) {
   return configured ? resolvePrimaryContest(contests, configured) : null
 }
 
+/** Epoch milliseconds of an ISO-8601 timestamp; missing or unparseable values are the oldest possible. */
+function startedAt(startTime: string | null | undefined): number {
+  const parsed = startTime ? Date.parse(startTime) : Number.NaN
+  return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed
+}
+
+/** The sport whose completed primary contest started last; the first sport wins a tie. Null when none completed. */
+function findLatestCompletedSport(snapshot: Snapshot, sports: string[]): string | null {
+  let latestSport: string | null = null
+  let latestStart = Number.NEGATIVE_INFINITY
+  for (const sport of sports) {
+    const contest = primaryContestOf(snapshot, sport)
+    if (contest?.state !== 'completed') continue
+    const start = startedAt(contest.start_time)
+    if (latestSport === null || start > latestStart) {
+      latestSport = sport
+      latestStart = start
+    }
+  }
+  return latestSport
+}
+
 /**
  * The sport the home page opens on: the first sport whose primary contest is live, then the sport whose
  * primary contest completed most recently, then the last-viewed sport if the snapshot still has it, then
@@ -38,20 +60,11 @@ function primaryContestOf(snapshot: Snapshot, sport: string) {
 export function chooseLandingSport(snapshot: Snapshot, lastViewed: string | null): string | null {
   const sports = Object.keys(snapshot.sports)
 
-  const live = sports.find((sport) => primaryContestOf(snapshot, sport)?.state === 'live')
-  if (live) return live
+  const liveSport = sports.find((sport) => primaryContestOf(snapshot, sport)?.state === 'live')
+  if (liveSport) return liveSport
 
-  let completed: string | null = null
-  let completedStart = ''
-  for (const sport of sports) {
-    const contest = primaryContestOf(snapshot, sport)
-    // ISO-8601 UTC timestamps compare correctly as strings; the first sport wins a tie.
-    if (contest?.state === 'completed' && (completed === null || contest.start_time > completedStart)) {
-      completed = sport
-      completedStart = contest.start_time
-    }
-  }
-  if (completed) return completed
+  const latestCompletedSport = findLatestCompletedSport(snapshot, sports)
+  if (latestCompletedSport) return latestCompletedSport
 
   if (lastViewed && sports.includes(lastViewed)) return lastViewed
 

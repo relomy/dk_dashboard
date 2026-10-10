@@ -41,6 +41,25 @@ describe('chooseLandingSport', () => {
     expect(chooseLandingSport(snapshot, null)).toBe('golf')
   })
 
+  it('orders completed contests by instant, not by ISO string, across UTC offsets', () => {
+    const snapshot = load()
+    for (const sport of Object.keys(snapshot.sports)) finish(snapshot, sport)
+    // As strings golf sorts lowest, but at 01:00Z on the 4th it started last.
+    snapshot.sports.cfb.contests[0].start_time = '2026-10-03T22:00:00+00:00'
+    snapshot.sports.golf.contests[0].start_time = '2026-10-03T20:00:00-05:00'
+    snapshot.sports.mlb.contests[0].start_time = '2026-10-03T23:30:00+00:00'
+    expect(chooseLandingSport(snapshot, null)).toBe('golf')
+  })
+
+  it('treats a missing or unparseable start time as oldest', () => {
+    const snapshot = load()
+    for (const sport of Object.keys(snapshot.sports)) finish(snapshot, sport)
+    snapshot.sports.cfb.contests[0].start_time = 'not a date'
+    snapshot.sports.golf.contests[0].start_time = ''
+    snapshot.sports.mlb.contests[0].start_time = '2026-10-01T00:00:00Z'
+    expect(chooseLandingSport(snapshot, null)).toBe('mlb')
+  })
+
   it('ignores cancelled contests', () => {
     const snapshot = load()
     for (const sport of Object.keys(snapshot.sports)) finish(snapshot, sport)
