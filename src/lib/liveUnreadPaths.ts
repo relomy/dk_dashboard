@@ -20,12 +20,16 @@ export const LIVE_UNREAD_ALLOWLIST: UnreadAllowlist = allowlist
  * Live views. The sport key is written `*` (`sports.*.players[].salary`), so one path covers every sport.
  */
 export function liveUnreadPaths(snapshot: LiveSnapshot, sport: string): string[] {
-  const provenance = snapshotProvenance(snapshot)!
+  const provenance = snapshotProvenance(snapshot)
+  if (!provenance) {
+    throw new Error(
+      'liveUnreadPaths needs a snapshot interpreted by the snapshot module (interpretSnapshot); got a raw object',
+    )
+  }
   const original = provenance.raw as typeof snapshot
   const scoped = { ...snapshot, sports: { [sport]: snapshot.sports[sport] } }
   const rawScoped = { ...original, sports: { [sport]: original.sports[sport] } }
-  // The version gate reads `schema_version` before the model is built, so that field counts as read.
-  // The guard is not for unsupported input: reading `schema_version` here keeps it counted as read.
+  // The version gate reads `schema_version` before the model is built; the guard below makes that read count.
   const reads = readPaths(scoped, (feed) => (isSupportedSnapshot(feed) ? buildLiveModel(feed, sport) : null), true)
   const consumed = new Set([...reads].map((path) => provenance.origins.has(path) ? provenance.origins.get(path) : path))
   const collapse = (path: string) => path.replace(/\[\d+\]/g, '[]')

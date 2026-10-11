@@ -57,4 +57,10 @@ describe('the Live unread-field check', () => {
     const allowlist = { 'sports.*.contests[].brand_new_figure': 'No panel shows it yet', 'sports.*.gone': 'Removed' }
     expect(staleAllowlistEntries([unread], allowlist)).toEqual(['sports.*.gone'])
   })
+
+  it("refuses a snapshot that did not come from the snapshot module's interpretation", () => {
+    expect(() => liveUnreadPaths(syntheticSnapshot(), 'nfl')).toThrow(
+      'liveUnreadPaths needs a snapshot interpreted by the snapshot module (interpretSnapshot); got a raw object',
+    )
+  })
 })
