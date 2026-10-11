@@ -2,20 +2,20 @@ import { expect, it } from 'vitest'
 import captured from '../../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
 import { buildLiveModel } from '../liveModel'
 import { LIVE_UNREAD_ALLOWLIST, liveUnreadPaths } from '../liveUnreadPaths'
-import { supported } from './supportedSnapshot'
+import { asSupportedSnapshot } from './supportedSnapshot'
 import { unallowlistedPaths } from '../unreadPaths'
 
 it('does not fall back to historical pts when current points is invalid', () => {
   const snapshot = structuredClone(captured)
   Object.assign(snapshot.sports.nfl.contests[0].vip_lineups[0], { points: 'invalid', pts: 99 })
-  const result = buildLiveModel(supported(snapshot), 'nfl')
+  const result = buildLiveModel(asSupportedSnapshot(snapshot), 'nfl')
   expect(result.kind === 'ready' && result.model.vips[0].points).toBeNull()
 })
 
 it('keeps unused raw VIP additions and shadowed aliases accountable', () => {
   const snapshot = structuredClone(captured)
   Object.assign(snapshot.sports.nfl.contests[0].vip_lineups[0], { unused_new_field: 42, points: 0 })
-  const unread = unallowlistedPaths(liveUnreadPaths(supported(snapshot), 'nfl'), LIVE_UNREAD_ALLOWLIST)
+  const unread = unallowlistedPaths(liveUnreadPaths(asSupportedSnapshot(snapshot), 'nfl'), LIVE_UNREAD_ALLOWLIST)
   expect(unread).toContain('sports.*.contests[].vip_lineups[].unused_new_field')
   expect(unread).toContain('sports.*.contests[].vip_lineups[].pts')
 })
@@ -27,12 +27,12 @@ it.each([
 ])('normalizes only finite historical figures without losing zero ($rank / $pmr)', ({ rank, pmr, points, expected }) => {
   const snapshot = structuredClone(captured)
   Object.assign(snapshot.sports.nfl.contests[0].vip_lineups[0], { rank, pmr, points })
-  const result = buildLiveModel(supported(snapshot), 'nfl')
+  const result = buildLiveModel(asSupportedSnapshot(snapshot), 'nfl')
   expect(result.kind === 'ready' && result.model.vips[0]).toMatchObject(expected)
 })
 
 it('does not credit discarded malformed figures as consumed', () => {
   const snapshot = structuredClone(captured)
   Object.assign(snapshot.sports.nfl.contests[0].vip_lineups[0], { rank: 'invalid' })
-  expect(liveUnreadPaths(supported(snapshot), 'nfl')).toContain('sports.*.contests[].vip_lineups[].rank')
+  expect(liveUnreadPaths(asSupportedSnapshot(snapshot), 'nfl')).toContain('sports.*.contests[].vip_lineups[].rank')
 })

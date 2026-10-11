@@ -6,7 +6,7 @@ import producerSnapshot from '../../../public/mock/snapshots/live-2026-10-03T20-
 import nflSnapshot from '../../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
 import { formatSigned } from '../format'
 import { buildLiveModel, largestTrains, type LiveModel } from '../liveModel'
-import { supported } from './supportedSnapshot'
+import { asSupportedSnapshot } from './supportedSnapshot'
 
 const VIP_KEY = '5067365318'
 const VIP_NAME = 'cglenn91'
@@ -35,7 +35,7 @@ function addVip(snapshot: Json, sport = 'cfb', overrides: Json = {}): Json {
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 function build(snapshot: unknown, sport = 'cfb') {
-  return buildLiveModel(supported(snapshot), sport)
+  return buildLiveModel(asSupportedSnapshot(snapshot), sport)
 }
 
 function modelOf(snapshot: unknown, sport = 'cfb'): LiveModel {
