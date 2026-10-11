@@ -1,16 +1,20 @@
-import { isSupportedSnapshot } from '../lib/interpretedSnapshot'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { useLatest } from './useLatest'
+import { latestPointerOptions, useLatestSnapshot } from './useSnapshot'
 
 export function useHealth() {
-  const { latestQuery, snapshotQuery } = useLatest()
+  const outcome = useLatestSnapshot()
+  // Health shows which path Latest names; this reads the same cached pointer the module polls.
+  const latestSnapshotPath = useQuery(latestPointerOptions).data?.latest_snapshot_path
+  const queryClient = useQueryClient()
+  const snapshot = outcome.kind === 'ready' ? outcome.snapshot : undefined
 
   const snapshotAgeSeconds = useMemo(() => {
-    if (!snapshotQuery.data || !isSupportedSnapshot(snapshotQuery.data)) {
+    if (!snapshot) {
       return null
     }
 
-    const generatedAtMs = new Date(snapshotQuery.data.generated_at).getTime()
+    const generatedAtMs = new Date(snapshot.generated_at).getTime()
     // The age is intentionally sampled once per snapshot (and on mount), not on every render.
     // eslint-disable-next-line react-hooks/purity
     const nowMs = Date.now()
@@ -20,24 +24,22 @@ export function useHealth() {
     }
 
     return Math.max(0, Math.floor((nowMs - generatedAtMs) / 1000))
-  }, [snapshotQuery.data])
+  }, [snapshot])
 
   const sports = useMemo(() => {
-    if (!snapshotQuery.data || !isSupportedSnapshot(snapshotQuery.data)) {
+    if (!snapshot) {
       return []
     }
 
-    return Object.entries(snapshotQuery.data.sports).map(([sport, details]) => ({
+    return Object.entries(snapshot.sports).map(([sport, details]) => ({
       sport,
       status: details.status,
       updatedAt: details.updated_at,
     }))
-  }, [snapshotQuery.data])
+  }, [snapshot])
 
-  return {
-    latestQuery,
-    snapshotQuery,
-    snapshotAgeSeconds,
-    sports,
-  }
+  // The module exposes no refresh, so refresh re-reads the Latest pointer; a new path loads its snapshot.
+  const refresh = () => queryClient.refetchQueries({ queryKey: latestPointerOptions.queryKey })
+
+  return { outcome, latestSnapshotPath, refresh, snapshotAgeSeconds, sports }
 }

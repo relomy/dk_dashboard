@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import snapshotFixture from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
@@ -7,6 +7,7 @@ import Health from '../routes/Health'
 import type { Snapshot } from '../lib/types'
 
 afterEach(() => {
+  cleanup()
   vi.restoreAllMocks()
 })
 
@@ -64,4 +65,43 @@ it('shows snapshot age and per-sport status from latest+snapshot', async () => {
   expect(attention.getByText(/golf/i)).toBeInTheDocument()
   expect(attention.getByText('Stale')).toBeInTheDocument()
   expect(attention.queryByText(/cfb/i)).not.toBeInTheDocument()
+})
+
+function stubUnsupported(version: unknown) {
+  const envelope: Record<string, unknown> = { snapshot_at: '2026-10-03T20:48:31Z', generated_at: '2026-10-03T20:48:31Z', sports: {} }
+  if (version !== undefined) envelope.schema_version = version
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) =>
+      new Response(
+        JSON.stringify(
+          String(input).includes('/api/latest') ? { latest_snapshot_path: 'snapshots/old.json' } : envelope,
+        ),
+        { status: 200 },
+      ),
+    ),
+  )
+}
+
+function renderHealth() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/health']}>
+        <Routes>
+          <Route path="/health" element={<Health />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+it.each([
+  [2, 'Unsupported snapshot schema version: 2.'],
+  [undefined, 'Unsupported snapshot schema version: unknown.'],
+])('shows the shared unsupported message for schema version %s', async (version, message) => {
+  stubUnsupported(version)
+  renderHealth()
+  expect(await screen.findByText(message)).toBeInTheDocument()
+  expect(screen.queryByText(/snapshot age/i)).not.toBeInTheDocument()
 })
