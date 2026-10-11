@@ -1,4 +1,3 @@
-import { isSupportedSnapshot } from '../lib/interpretedSnapshot'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -10,6 +9,7 @@ import StatusPill from '../components/StatusPill'
 import { useProfiles } from '../context/ProfileContext'
 import { useHistorySnapshot } from '../hooks/useHistorySnapshot'
 import { useHistoryTimeline } from '../hooks/useHistoryTimeline'
+import { unsupportedSnapshotMessage } from '../hooks/useSnapshot'
 import { config } from '../lib/env'
 import { formatHistoryTimestampForUrl } from '../lib/time'
 
@@ -20,7 +20,8 @@ function History() {
   const [sportFilter, setSportFilter] = useState('all')
   const [stateFilter, setStateFilter] = useState('all')
 
-  const { timestamp, manifestPath, manifestQuery, snapshotQuery, snapshotNotFound } = useHistorySnapshot(timestampParam)
+  const { timestamp, manifestPath, manifestQuery, snapshotPath, snapshot, refetchSnapshot, snapshotNotFound } =
+    useHistorySnapshot(timestampParam)
   const timeline = useHistoryTimeline(!timestampParam)
 
   const availableSports = useMemo(() => {
@@ -217,7 +218,7 @@ function History() {
     )
   }
 
-  if (manifestQuery.isLoading || snapshotQuery.isLoading) {
+  if (manifestQuery.isLoading || (Boolean(snapshotPath) && snapshot.kind === 'loading')) {
     return (
       <DataPage>
         <p className="text-muted-foreground">Loading historical snapshot...</p>
@@ -225,12 +226,12 @@ function History() {
     )
   }
 
-  if (manifestQuery.error || snapshotQuery.error) {
+  if (manifestQuery.error || snapshot.kind === 'error') {
     const message =
       manifestQuery.error instanceof Error
         ? manifestQuery.error.message
-        : snapshotQuery.error instanceof Error
-          ? snapshotQuery.error.message
+        : snapshot.kind === 'error'
+          ? snapshot.error.message
           : 'Unable to load historical snapshot.'
 
     return (
@@ -249,7 +250,7 @@ function History() {
     )
   }
 
-  if (!snapshotQuery.data) {
+  if (snapshot.kind === 'loading') {
     return (
       <DataPage>
         <p className="text-muted-foreground">Snapshot not available.</p>
@@ -257,21 +258,21 @@ function History() {
     )
   }
 
-  if (!isSupportedSnapshot(snapshotQuery.data)) {
-    return <DataPage title="History"><p>Unsupported snapshot schema version: {String(snapshotQuery.data.schema_version ?? 'unknown')}.</p></DataPage>
+  if (snapshot.kind === 'unsupported') {
+    return <DataPage title="History"><p>{unsupportedSnapshotMessage(snapshot.version)}</p></DataPage>
   }
 
   return (
     <DataPage
       title="History"
       actions={
-        <Button type="button" variant="outline" size="sm" onClick={() => snapshotQuery.refetch()}>
+        <Button type="button" variant="outline" size="sm" onClick={() => refetchSnapshot()}>
           Refresh
         </Button>
       }
     >
       <SnapshotOverview
-        snapshot={snapshotQuery.data}
+        snapshot={snapshot.snapshot}
         vipFilterMode="all"
         activeProfileRules={activeProfile.rules}
       />

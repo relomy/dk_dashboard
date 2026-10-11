@@ -6,6 +6,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import producerManifest from '../../public/mock/manifest/2026-10-03.json'
 import historicalSnapshot from '../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
 import History from '../routes/History'
+import { unsupportedSnapshotMessage } from '../hooks/useSnapshot'
 
 vi.mock('../context/ProfileContext', () => ({
   useProfiles: () => ({ activeProfile: { id: 'p1', name: 'Me', rules: {} } }),
@@ -25,7 +26,7 @@ it('keeps an unsupported historical version distinct from a fetching error', asy
   }))
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/history/2026-10-04T18-41-34Z']}><Routes><Route path="/history/:timestamp" element={<History />} /></Routes></MemoryRouter></QueryClientProvider>)
-  expect(await screen.findByText('Unsupported snapshot schema version: 2.')).toBeInTheDocument()
+  expect(await screen.findByText(unsupportedSnapshotMessage('2'))).toBeInTheDocument()
 })
 
 async function renderHistorical(snapshot: unknown) {
