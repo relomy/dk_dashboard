@@ -1,12 +1,8 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { latestPointerOptions, useLatestSnapshot } from './useSnapshot'
+import { useLatestSnapshot } from './useSnapshot'
 
 export function useHealth() {
   const outcome = useLatestSnapshot()
-  // Health shows which path Latest names; this reads the same cached pointer the module polls.
-  const latestSnapshotPath = useQuery(latestPointerOptions).data?.latest_snapshot_path
-  const queryClient = useQueryClient()
   const snapshot = outcome.kind === 'ready' ? outcome.snapshot : undefined
 
   const snapshotAgeSeconds = useMemo(() => {
@@ -38,8 +34,5 @@ export function useHealth() {
     }))
   }, [snapshot])
 
-  // The module exposes no refresh, so refresh re-reads the Latest pointer; a new path loads its snapshot.
-  const refresh = () => queryClient.refetchQueries({ queryKey: latestPointerOptions.queryKey })
-
-  return { outcome, latestSnapshotPath, refresh, snapshotAgeSeconds, sports }
+  return { outcome, snapshotAgeSeconds, sports }
 }

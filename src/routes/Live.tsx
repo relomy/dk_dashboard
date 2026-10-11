@@ -3,7 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import CommandCenter from '../components/live/CommandCenter'
 import PageMessage from '../components/PageMessage'
 import { useRememberSport } from '../hooks/useRememberSport'
-import { unsupportedSnapshotMessage, useLatestSnapshot } from '../hooks/useSnapshot'
+import { useLatestSnapshot } from '../hooks/useSnapshot'
+import { unsupportedSnapshotMessage } from '../lib/interpretedSnapshot'
 import { buildLiveModel, type LiveNotRenderableReason } from '../lib/liveModel'
 
 function AllContestsLink({ sportKey, sportLabel }: { sportKey: string; sportLabel: string }) {

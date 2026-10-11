@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 import DataPage from '../components/DataPage'
 import StatusPill from '../components/StatusPill'
 import { useHealth } from '../hooks/useHealth'
-import { unsupportedSnapshotMessage } from '../hooks/useSnapshot'
+import { unsupportedSnapshotMessage } from '../lib/interpretedSnapshot'
 import { statusLabel, statusTone } from '../lib/sportStatus'
 
 function formatAgeValue(snapshotAgeSeconds: number | null): string {
@@ -33,7 +33,7 @@ function formatAgeValue(snapshotAgeSeconds: number | null): string {
 const headCell = 'h-8 text-xs text-muted-foreground'
 
 function Health() {
-  const { outcome, latestSnapshotPath, refresh, snapshotAgeSeconds, sports } = useHealth()
+  const { outcome, snapshotAgeSeconds, sports } = useHealth()
 
   const statusCounts = useMemo(() => {
     const counts = { ok: 0, stale: 0, error: 0 }
@@ -80,7 +80,7 @@ function Health() {
     <DataPage
       title="Health"
       actions={
-        <Button type="button" variant="outline" size="sm" onClick={() => refresh()}>
+        <Button type="button" variant="outline" size="sm" onClick={() => outcome.refresh()}>
           Refresh
         </Button>
       }
@@ -182,7 +182,7 @@ function Health() {
         </h2>
         <dl className="grid gap-x-6 gap-y-1 font-mono text-xs sm:grid-cols-[auto_minmax(0,1fr)]">
           <dt className="text-muted-foreground">Latest snapshot path</dt>
-          <dd className="break-all">{latestSnapshotPath}</dd>
+          <dd className="break-all">{outcome.latestPath}</dd>
           <dt className="text-muted-foreground">Snapshot timestamp</dt>
           <dd className="break-all">{outcome.snapshot.snapshot_at}</dd>
           <dt className="text-muted-foreground">Sports tracked</dt>

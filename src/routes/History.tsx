@@ -9,7 +9,7 @@ import StatusPill from '../components/StatusPill'
 import { useProfiles } from '../context/ProfileContext'
 import { useHistorySnapshot } from '../hooks/useHistorySnapshot'
 import { useHistoryTimeline } from '../hooks/useHistoryTimeline'
-import { unsupportedSnapshotMessage } from '../hooks/useSnapshot'
+import { unsupportedSnapshotMessage } from '../lib/interpretedSnapshot'
 import { config } from '../lib/env'
 import { formatHistoryTimestampForUrl } from '../lib/time'
 

@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom'
 import PageMessage from '../components/PageMessage'
-import { unsupportedSnapshotMessage, useLatestSnapshot } from '../hooks/useSnapshot'
+import { useLatestSnapshot } from '../hooks/useSnapshot'
+import { unsupportedSnapshotMessage } from '../lib/interpretedSnapshot'
 import { chooseLandingSport, readLastViewedSport } from '../lib/landing'
 
 /** The home page: sends the visitor to the Live view for the sport they should see first. */

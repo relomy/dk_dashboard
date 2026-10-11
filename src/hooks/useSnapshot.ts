@@ -1,9 +1,7 @@
-import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchJson } from '../lib/api'
 import { interpretSnapshot, isSupportedSnapshot, unsupportedVersion } from '../lib/interpretedSnapshot'
 import type { LatestResponse, Snapshot } from '../lib/types'
-
-export { unsupportedSnapshotMessage } from '../lib/interpretedSnapshot'
 
 /** What a caller sees of a snapshot: exactly one of these. */
 export type SnapshotOutcome =
@@ -12,8 +10,13 @@ export type SnapshotOutcome =
   | { kind: 'unsupported'; version: string }
   | { kind: 'ready'; snapshot: Snapshot }
 
+/** What the Latest reader adds to a ready snapshot: the path the pointer names, and a way to re-read the pointer. */
+export type LatestSnapshotOutcome =
+  | Exclude<SnapshotOutcome, { kind: 'ready' }>
+  | (Extract<SnapshotOutcome, { kind: 'ready' }> & { latestPath: string; refresh: () => Promise<unknown> })
+
 /** The Latest pointer refreshes on its own schedule. */
-export const latestPointerOptions = queryOptions({
+const latestPointerOptions = queryOptions({
   queryKey: ['latest'],
   queryFn: () => fetchJson<LatestResponse>('/api/latest'),
   staleTime: 60_000,
@@ -21,7 +24,7 @@ export const latestPointerOptions = queryOptions({
 })
 
 /** One snapshot path: fetched and interpreted once, shared by every page that reads it. */
-export function snapshotOptions(path: string | undefined) {
+function snapshotOptions(path: string | undefined) {
   return queryOptions({
     queryKey: ['snapshot', path],
     enabled: Boolean(path),
@@ -44,8 +47,8 @@ export interface SnapshotReadOptions {
   keepPrevious?: boolean
 }
 
-function asError(failure: unknown): Error {
-  return failure instanceof Error ? failure : new Error(String(failure))
+function errorOutcome(failure: unknown): { kind: 'error'; error: Error } {
+  return { kind: 'error', error: failure instanceof Error ? failure : new Error(String(failure)) }
 }
 
 /**
@@ -62,7 +65,7 @@ export function useSnapshotAt(
     ...(keepPrevious ? { placeholderData: keepPreviousData } : {}),
   })
   const refetch = () => query.refetch()
-  if (query.error) return { outcome: { kind: 'error', error: asError(query.error) }, refetch }
+  if (query.error) return { outcome: errorOutcome(query.error), refetch }
   if (query.data) {
     return {
       outcome: isSupportedSnapshot(query.data)
@@ -74,13 +77,20 @@ export function useSnapshotAt(
   return { outcome: { kind: 'loading' }, refetch }
 }
 
-/** The snapshot the Latest pointer names. The previous snapshot stays `ready` while the next one downloads. */
-export function useLatestSnapshot(): SnapshotOutcome {
+/**
+ * The snapshot the Latest pointer names. The previous snapshot stays `ready` while the next one downloads.
+ * A ready outcome also carries `latestPath` (what the pointer names now) and `refresh` (re-read the
+ * pointer; a new path then loads its snapshot).
+ */
+export function useLatestSnapshot(): LatestSnapshotOutcome {
+  const queryClient = useQueryClient()
   const pointer = useQuery(latestPointerOptions)
   const path = pointer.data?.latest_snapshot_path
   const { outcome } = useSnapshotAt(path, { keepPrevious: true })
 
-  if (pointer.error) return { kind: 'error', error: asError(pointer.error) }
-  if (outcome.kind === 'loading' && pointer.data && !path) return { kind: 'error', error: new Error('Snapshot not available.') }
-  return outcome
+  if (pointer.error) return errorOutcome(pointer.error)
+  if (pointer.data && !path) return errorOutcome(new Error('Snapshot not available.'))
+  if (outcome.kind !== 'ready') return outcome
+  const refresh = () => queryClient.refetchQueries({ queryKey: latestPointerOptions.queryKey })
+  return { ...outcome, latestPath: path!, refresh }
 }

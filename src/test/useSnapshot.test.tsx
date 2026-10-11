@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, renderHook, waitFor } from '@testing-library/react'
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useLatestSnapshot, useSnapshotAt } from '../hooks/useSnapshot'
@@ -64,6 +64,37 @@ describe('useLatestSnapshot', () => {
     expect(result.current).toEqual({ kind: 'loading' })
     await waitFor(() => expect(result.current.kind).toBe('ready'))
     expect(result.current).toMatchObject({ kind: 'ready', snapshot: { schema_version: 3, marker: 'a' } })
+  })
+
+  it('names the Latest snapshot path once ready', async () => {
+    fakeApi()
+    const { result } = mount()
+
+    await waitFor(() => expect(result.current.kind).toBe('ready'))
+    expect(result.current).toMatchObject({ kind: 'ready', latestPath: 'snapshots/a.json' })
+  })
+
+  it('refreshes by re-reading the Latest pointer and loading the snapshot it now names', async () => {
+    let pointerPath = 'snapshots/a.json'
+    const api = fakeApi({
+      pointer: () => json({ latest_snapshot_path: pointerPath }),
+      snapshots: {
+        'snapshots/a.json': () => json(snapshot(3, 'a')),
+        'snapshots/b.json': () => json(snapshot(3, 'b')),
+      },
+    })
+    const { result } = mount()
+    await waitFor(() => expect(result.current.kind).toBe('ready'))
+
+    pointerPath = 'snapshots/b.json'
+    await act(async () => {
+      if (result.current.kind === 'ready') await result.current.refresh()
+    })
+
+    expect(api.requests.filter((request) => request === '/api/latest')).toHaveLength(2)
+    await waitFor(() =>
+      expect(result.current).toMatchObject({ kind: 'ready', latestPath: 'snapshots/b.json', snapshot: { marker: 'b' } }),
+    )
   })
 
   it('is an error when the Latest pointer cannot be fetched', async () => {

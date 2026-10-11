@@ -6,7 +6,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import producerManifest from '../../public/mock/manifest/2026-10-03.json'
 import historicalSnapshot from '../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
 import History from '../routes/History'
-import { unsupportedSnapshotMessage } from '../hooks/useSnapshot'
+import { unsupportedSnapshotMessage } from '../lib/interpretedSnapshot'
 
 vi.mock('../context/ProfileContext', () => ({
   useProfiles: () => ({ activeProfile: { id: 'p1', name: 'Me', rules: {} } }),
