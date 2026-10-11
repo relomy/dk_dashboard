@@ -25,6 +25,7 @@ export function liveUnreadPaths(snapshot: LiveSnapshot, sport: string): string[]
   const scoped = { ...snapshot, sports: { [sport]: snapshot.sports[sport] } }
   const rawScoped = { ...original, sports: { [sport]: original.sports[sport] } }
   // The version gate reads `schema_version` before the model is built, so that field counts as read.
+  // The guard is not for unsupported input: reading `schema_version` here keeps it counted as read.
   const reads = readPaths(scoped, (feed) => (isSupportedSnapshot(feed) ? buildLiveModel(feed, sport) : null), true)
   const consumed = new Set([...reads].map((path) => provenance.origins.has(path) ? provenance.origins.get(path) : path))
   const collapse = (path: string) => path.replace(/\[\d+\]/g, '[]')
