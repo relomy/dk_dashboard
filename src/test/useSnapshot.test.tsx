@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { useLatestSnapshot } from '../hooks/useSnapshot'
+import { useLatestSnapshot, useSnapshotAt } from '../hooks/useSnapshot'
 
 // The module's interface is the seam: a fake fetch stands in for the dashboard API.
 
@@ -124,5 +124,58 @@ describe('useLatestSnapshot', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('useSnapshotAt', () => {
+  function mountAt(path: string | undefined) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+    return renderHook(() => useSnapshotAt(path), { wrapper })
+  }
+
+  it('reads a chosen path without consulting the Latest pointer', async () => {
+    const api = fakeApi({ snapshots: { 'snapshots/old.json': () => json(snapshot(3, 'old')) } })
+    const { result } = mountAt('snapshots/old.json')
+
+    expect(result.current.outcome).toEqual({ kind: 'loading' })
+    await waitFor(() => expect(result.current.outcome.kind).toBe('ready'))
+    expect(result.current.outcome).toMatchObject({ kind: 'ready', snapshot: { marker: 'old' } })
+    expect(api.requests).toEqual(['snapshots/old.json'])
+  })
+
+  it('is unsupported, carrying the version, for a chosen path with another schema version', async () => {
+    fakeApi({ snapshots: { 'snapshots/old.json': () => json(snapshot(2)) } })
+    const { result } = mountAt('snapshots/old.json')
+
+    await waitFor(() => expect(result.current.outcome.kind).toBe('unsupported'))
+    expect(result.current.outcome).toEqual({ kind: 'unsupported', version: '2' })
+  })
+
+  it('is an error when the chosen snapshot cannot be fetched', async () => {
+    fakeApi({ snapshots: { 'snapshots/old.json': () => json({}, 404) } })
+    const { result } = mountAt('snapshots/old.json')
+
+    await waitFor(() => expect(result.current.outcome.kind).toBe('error'))
+    expect(result.current.outcome).toMatchObject({ error: { message: 'Request failed (404)' } })
+  })
+
+  it('does not fetch while no path is chosen', () => {
+    const api = fakeApi()
+    const { result } = mountAt(undefined)
+
+    expect(result.current.outcome).toEqual({ kind: 'loading' })
+    expect(api.requests).toEqual([])
+  })
+
+  it('refetches the chosen path on request', async () => {
+    const api = fakeApi({ snapshots: { 'snapshots/old.json': () => json(snapshot(3, 'old')) } })
+    const { result } = mountAt('snapshots/old.json')
+    await waitFor(() => expect(result.current.outcome.kind).toBe('ready'))
+
+    await result.current.refetch()
+    expect(api.requests).toEqual(['snapshots/old.json', 'snapshots/old.json'])
   })
 })
