@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { focusManager, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -229,5 +229,81 @@ describe('useSnapshotAt', () => {
 
     await result.current.refetch()
     expect(api.requests).toEqual(['snapshots/old.json', 'snapshots/old.json'])
+  })
+
+  it('shares one fetch between Latest and History retention of the same path', async () => {
+    const api = fakeApi()
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+    const { result } = renderHook(
+      () => ({
+        latest: useSnapshotAt('snapshots/a.json', 'latest'),
+        history: useSnapshotAt('snapshots/a.json', 'history'),
+      }),
+      { wrapper },
+    )
+
+    await waitFor(() => {
+      expect(result.current.latest.outcome.kind).toBe('ready')
+      expect(result.current.history.outcome.kind).toBe('ready')
+    })
+    expect(api.requests).toEqual(['snapshots/a.json'])
+  })
+
+  describe('re-checking once stale', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+      focusManager.setFocused(undefined)
+      onlineManager.setOnline(true)
+    })
+
+    const focusEvent = () => {
+      focusManager.setFocused(false)
+      focusManager.setFocused(true)
+    }
+    const reconnectEvent = () => {
+      onlineManager.setOnline(false)
+      onlineManager.setOnline(true)
+    }
+
+    async function mountAged(retention: 'latest' | 'history') {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      const api = fakeApi()
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      )
+      const { result } = renderHook(() => useSnapshotAt('snapshots/a.json', retention), { wrapper })
+      await waitFor(() => expect(result.current.outcome.kind).toBe('ready'))
+      return api
+    }
+
+    it.each([
+      ['window focus', focusEvent],
+      ['reconnect', reconnectEvent],
+    ])('refetches History on %s once five minutes old, not before', async (_name, trigger) => {
+      const api = await mountAged('history')
+
+      await vi.advanceTimersByTimeAsync(299_000)
+      await act(async () => trigger())
+      expect(api.requests).toEqual(['snapshots/a.json'])
+
+      await vi.advanceTimersByTimeAsync(2_000)
+      await act(async () => trigger())
+      await waitFor(() => expect(api.requests).toEqual(['snapshots/a.json', 'snapshots/a.json']))
+    })
+
+    it.each([
+      ['window focus', focusEvent],
+      ['reconnect', reconnectEvent],
+    ])('never refetches Latest on %s', async (_name, trigger) => {
+      const api = await mountAged('latest')
+
+      await vi.advanceTimersByTimeAsync(3_600_000)
+      await act(async () => trigger())
+      expect(api.requests).toEqual(['snapshots/a.json'])
+    })
   })
 })
