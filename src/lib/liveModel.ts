@@ -739,9 +739,6 @@ function buildTotalOwnership(players: Player[]): LiveTotalOwnership {
   }
 }
 
-/** The only snapshot schema the dashboard reads (ADR 0002). */
-export const SUPPORTED_SCHEMA_VERSION = 3
-
 export function buildLiveModel(snapshot: unknown, sportKey: string): LiveModelResult {
   return buildInterpretedLiveModel(interpretSnapshot(snapshot), sportKey)
 }

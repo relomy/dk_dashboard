@@ -11,8 +11,23 @@ export interface UnsupportedSnapshot {
   sports?: unknown
 }
 export type InterpretedSnapshot = Snapshot | UnsupportedSnapshot
+
+/** The only snapshot schema the dashboard reads (ADR 0002). */
+export const SUPPORTED_SCHEMA_VERSION = 3
+
+/** The version gate: narrows an interpreted snapshot to the one schema the dashboard reads. */
 export function isSupportedSnapshot(snapshot: InterpretedSnapshot): snapshot is Snapshot {
-  return snapshot.schema_version === 3
+  return snapshot.schema_version === SUPPORTED_SCHEMA_VERSION
+}
+
+/** The schema version to report for an unsupported snapshot; a missing one is 'unknown'. */
+export function unsupportedVersion(snapshot: InterpretedSnapshot): string {
+  return String(snapshot.schema_version ?? 'unknown')
+}
+
+/** The one message every page shows for an unsupported snapshot. */
+export function unsupportedSnapshotMessage(version: string): string {
+  return `Unsupported snapshot schema version: ${version}.`
 }
 
 interface Provenance { raw: unknown; origins: Map<string, string | null> }
@@ -30,7 +45,7 @@ export function interpretSnapshot(raw: unknown): InterpretedSnapshot {
   if (provenance.has(raw)) return raw as InterpretedSnapshot
   const envelope = structuredClone(raw) as UnsupportedSnapshot
   const origins = new Map<string, string | null>()
-  if (envelope.schema_version !== 3) {
+  if (envelope.schema_version !== SUPPORTED_SCHEMA_VERSION) {
     provenance.set(envelope, { raw, origins })
     return envelope
   }
