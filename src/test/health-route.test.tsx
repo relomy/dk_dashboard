@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import snapshotFixture from '../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
@@ -7,6 +7,7 @@ import Health from '../routes/Health'
 import type { Snapshot } from '../lib/types'
 
 afterEach(() => {
+  cleanup()
   vi.restoreAllMocks()
 })
 
@@ -64,4 +65,67 @@ it('shows snapshot age and per-sport status from latest+snapshot', async () => {
   expect(attention.getByText(/golf/i)).toBeInTheDocument()
   expect(attention.getByText('Stale')).toBeInTheDocument()
   expect(attention.queryByText(/cfb/i)).not.toBeInTheDocument()
+})
+
+function stubUnsupported(version: unknown) {
+  const envelope: Record<string, unknown> = { snapshot_at: '2026-10-03T20:48:31Z', generated_at: '2026-10-03T20:48:31Z', sports: {} }
+  if (version !== undefined) envelope.schema_version = version
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) =>
+      new Response(
+        JSON.stringify(
+          String(input).includes('/api/latest') ? { latest_snapshot_path: 'snapshots/old.json' } : envelope,
+        ),
+        { status: 200 },
+      ),
+    ),
+  )
+}
+
+function renderHealth() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/health']}>
+        <Routes>
+          <Route path="/health" element={<Health />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+it('shows the shared unsupported message', async () => {
+  stubUnsupported(2)
+  renderHealth()
+  expect(await screen.findByText('Unsupported snapshot schema version: 2.')).toBeInTheDocument()
+  expect(screen.queryByText(/snapshot age/i)).not.toBeInTheDocument()
+})
+
+it('refreshes by re-requesting the Latest pointer, not by re-downloading an unchanged snapshot', async () => {
+  const requests: string[] = []
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      requests.push(url)
+      return new Response(
+        JSON.stringify(
+          url.includes('/api/latest') ? { latest_snapshot_path: 'snapshots/old.json' } : buildHealthFixture(),
+        ),
+        { status: 200 },
+      )
+    }),
+  )
+  renderHealth()
+  await screen.findByText(/snapshot age/i)
+  const count = (fragment: string) => requests.filter((url) => url.includes(fragment)).length
+  expect(count('/api/latest')).toBe(1)
+  expect(count('/api/snapshot')).toBe(1)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+
+  await waitFor(() => expect(count('/api/latest')).toBe(2))
+  expect(count('/api/snapshot')).toBe(1)
 })

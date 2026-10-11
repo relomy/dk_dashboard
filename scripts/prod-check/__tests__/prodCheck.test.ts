@@ -72,6 +72,15 @@ describe('runProdCheck', () => {
     expect(result.output).toMatch(/cglenn91: .*own rem 96\.04%,/)
   })
 
+  it.each([
+    { name: 'another schema version', edit: (snapshot: Snapshot) => { (snapshot as { schema_version: unknown }).schema_version = 2 }, message: 'Unsupported snapshot schema version: 2.' },
+    { name: 'no schema version', edit: (snapshot: Snapshot) => { delete (snapshot as { schema_version?: unknown }).schema_version }, message: 'Unsupported snapshot schema version: unknown.' },
+  ])('fails with the shared unsupported message for $name', ({ edit, message }) => {
+    const result = runProdCheck(['nfl', KEY], { source: source({ [KEY]: withSnapshot(edit) }), env: {} })
+
+    expect(result).toEqual({ exitCode: 1, output: message })
+  })
+
   it('fails with the violation named when an invariant breaks', () => {
     const broken = withSnapshot((snapshot) => {
       const contest = snapshot.sports.nfl.contests.find((c) => c.vip_lineups?.length)

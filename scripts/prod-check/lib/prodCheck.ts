@@ -1,8 +1,8 @@
 import { INVARIANTS, contractCasesOf } from '../../../src/lib/liveInvariants'
-import { buildLiveModel, type LiveModel, type LiveNotRenderableReason, type LiveVip, type Section } from '../../../src/lib/liveModel'
+import { buildLiveModel, type LiveModel, type LiveVip, type Section } from '../../../src/lib/liveModel'
 import { LIVE_UNREAD_ALLOWLIST, liveUnreadPaths } from '../../../src/lib/liveUnreadPaths'
 import { formatOwnership } from '../../../src/lib/playerPool'
-import { interpretSnapshot, type InterpretedSnapshot, isSupportedSnapshot } from '../../../src/lib/interpretedSnapshot'
+import { interpretSnapshot, isSupportedSnapshot, unsupportedSnapshotMessage, unsupportedVersion, type LiveSnapshot } from '../../../src/lib/interpretedSnapshot'
 import { unallowlistedPaths } from '../../../src/lib/unreadPaths'
 import { SNAPSHOT_KEY, guardProdRead, type ProdReadDeps, type SnapshotSource } from '../../lib/snapshotSource'
 
@@ -28,6 +28,7 @@ export function runProdCheck(args: string[], deps: ProdCheckDeps): ProdCheckResu
 
   const key = requestedKey ?? latestSnapshotKey(deps.source)
   const snapshot = interpretSnapshot(JSON.parse(deps.source.read(key)))
+  if (!isSupportedSnapshot(snapshot)) return { exitCode: 1, output: unsupportedSnapshotMessage(unsupportedVersion(snapshot)) }
   return checkSnapshot(snapshot, sport, key)
 }
 
@@ -40,8 +41,7 @@ function latestSnapshotKey(source: SnapshotSource): string {
   return key
 }
 
-function checkSnapshot(snapshot: InterpretedSnapshot, sport: string, key: string): ProdCheckResult {
-  if (!isSupportedSnapshot(snapshot)) return { exitCode: 1, output: `Unsupported snapshot schema version: ${String(snapshot.schema_version)}` }
+function checkSnapshot(snapshot: LiveSnapshot, sport: string, key: string): ProdCheckResult {
   const lines = [`Prod check: ${sport} | ${key} | snapshot_at ${String(snapshot.snapshot_at)}`]
   const fail = (message: string): ProdCheckResult => ({ exitCode: 1, output: [...lines, `FAIL: ${message}`].join('\n') })
 
@@ -49,7 +49,7 @@ function checkSnapshot(snapshot: InterpretedSnapshot, sport: string, key: string
     return fail(`the snapshot has no "${sport}" feed; it has: ${Object.keys(snapshot.sports ?? {}).sort().join(', ')}`)
   }
   const built = buildLiveModel(snapshot, sport)
-  if (built.kind !== 'ready') return fail(`the Live view cannot render it (${describeReason(built.reason)})`)
+  if (built.kind !== 'ready') return fail(`the Live view cannot render it (${built.reason.kind})`)
 
   const model = built.model
   const contractCase = contractCasesOf(key, snapshot).find((candidate) => candidate.sport === sport)
@@ -68,10 +68,6 @@ function checkSnapshot(snapshot: InterpretedSnapshot, sport: string, key: string
   lines.push(...capped(unallowlisted.map((path) => `  - ${path}`)))
   lines.push('', ok ? 'PASS' : 'FAIL')
   return { exitCode: ok ? 0 : 1, output: lines.join('\n') }
-}
-
-function describeReason(reason: LiveNotRenderableReason): string {
-  return reason.kind === 'unsupported-schema' ? `unsupported schema version ${String(reason.version)}` : reason.kind
 }
 
 function show(value: number | null): string {

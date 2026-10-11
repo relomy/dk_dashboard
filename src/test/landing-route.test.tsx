@@ -274,3 +274,22 @@ it('reaches the multi-contest Sport page from All contests', async () => {
 
   expect(await screen.findByRole('heading', { name: /sport: cfb/i }, APP_READY)).toBeInTheDocument()
 })
+
+it('shows the shared unsupported message on Landing instead of redirecting', async () => {
+  const snapshot = load()
+  ;(snapshot as unknown as { schema_version: number }).schema_version = 2
+  stubApi(snapshot)
+  renderApp('/')
+
+  expect(await screen.findByText('Unsupported snapshot schema version: 2.', undefined, APP_READY)).toBeInTheDocument()
+  expect(currentPath()).toBe('/')
+})
+
+it('shows the shared unsupported message on a Sport page', async () => {
+  const snapshot = load()
+  delete (snapshot as unknown as { schema_version?: number }).schema_version
+  stubApi(snapshot)
+  renderApp('/sport/mlb')
+
+  expect(await screen.findByText('Unsupported snapshot schema version: unknown.', undefined, APP_READY)).toBeInTheDocument()
+})

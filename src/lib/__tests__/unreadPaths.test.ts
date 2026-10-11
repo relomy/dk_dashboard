@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { liveUnreadPaths } from '../liveUnreadPaths'
 import type { Snapshot } from '../types'
+import { asSupportedSnapshot } from './supportedSnapshot'
 import { staleAllowlistEntries, unallowlistedPaths, unreadPaths } from '../unreadPaths'
 
 describe('unreadPaths', () => {
@@ -41,7 +42,7 @@ function syntheticSnapshot(): Snapshot {
 }
 
 describe('the Live unread-field check', () => {
-  const unread = liveUnreadPaths(syntheticSnapshot(), 'nfl')
+  const unread = liveUnreadPaths(asSupportedSnapshot(syntheticSnapshot()), 'nfl')
 
   it("names a field the Live model never reads, from the sport's own feed only", () => {
     expect(unread).toEqual(['sports.*.contests[].brand_new_figure'])
@@ -55,5 +56,11 @@ describe('the Live unread-field check', () => {
   it('names an allowlist entry that no input leaves unread', () => {
     const allowlist = { 'sports.*.contests[].brand_new_figure': 'No panel shows it yet', 'sports.*.gone': 'Removed' }
     expect(staleAllowlistEntries([unread], allowlist)).toEqual(['sports.*.gone'])
+  })
+
+  it("refuses a snapshot that did not come from the snapshot module's interpretation", () => {
+    expect(() => liveUnreadPaths(syntheticSnapshot(), 'nfl')).toThrow(
+      'liveUnreadPaths needs a snapshot interpreted by the snapshot module (interpretSnapshot); got a raw object',
+    )
   })
 })

@@ -47,13 +47,13 @@ function expectNoDeveloperDetails() {
 }
 
 describe('nothing to render', () => {
-  it('says the snapshot format is unsupported for a schema version other than 3', async () => {
+  it('shows the shared unsupported message for a schema version other than 3', async () => {
     const snapshot = load()
     snapshot.schema_version = 2
 
     await renderLive(snapshot)
 
-    expect(screen.getByText(/this snapshot uses an unsupported format \(version 2\)/i)).toBeInTheDocument()
+    expect(screen.getByText('Unsupported snapshot schema version: 2.')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
     expectNoDeveloperDetails()
   })

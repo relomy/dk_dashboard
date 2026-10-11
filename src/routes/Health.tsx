@@ -1,4 +1,3 @@
-import { isSupportedSnapshot } from '../lib/interpretedSnapshot'
 import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,6 +12,7 @@ import { cn } from '@/lib/utils'
 import DataPage from '../components/DataPage'
 import StatusPill from '../components/StatusPill'
 import { useHealth } from '../hooks/useHealth'
+import { unsupportedSnapshotMessage } from '../lib/interpretedSnapshot'
 import { statusLabel, statusTone } from '../lib/sportStatus'
 
 function formatAgeValue(snapshotAgeSeconds: number | null): string {
@@ -33,7 +33,7 @@ function formatAgeValue(snapshotAgeSeconds: number | null): string {
 const headCell = 'h-8 text-xs text-muted-foreground'
 
 function Health() {
-  const { latestQuery, snapshotQuery, snapshotAgeSeconds, sports } = useHealth()
+  const { outcome, snapshotAgeSeconds, sports } = useHealth()
 
   const statusCounts = useMemo(() => {
     const counts = { ok: 0, stale: 0, error: 0 }
@@ -50,7 +50,7 @@ function Health() {
     [sports],
   )
 
-  if (latestQuery.isLoading || snapshotQuery.isLoading) {
+  if (outcome.kind === 'loading') {
     return (
       <DataPage>
         <p className="text-muted-foreground">Loading health data...</p>
@@ -58,27 +58,20 @@ function Health() {
     )
   }
 
-  if (latestQuery.error || snapshotQuery.error) {
-    const message =
-      latestQuery.error instanceof Error
-        ? latestQuery.error.message
-        : snapshotQuery.error instanceof Error
-          ? snapshotQuery.error.message
-          : 'Unable to load health data.'
-
+  if (outcome.kind === 'error') {
     return (
       <DataPage title="Health">
-        <p className="rounded-lg bg-non-cashing-muted px-3 py-2 text-non-cashing-foreground">{message}</p>
+        <p className="rounded-lg bg-non-cashing-muted px-3 py-2 text-non-cashing-foreground">
+          {outcome.error.message || 'Unable to load health data.'}
+        </p>
       </DataPage>
     )
   }
 
-  if (snapshotQuery.data && !isSupportedSnapshot(snapshotQuery.data)) return <DataPage title="Health"><p>Unsupported snapshot schema version: {String(snapshotQuery.data.schema_version)}.</p></DataPage>
-
-  if (!snapshotQuery.data || !latestQuery.data) {
+  if (outcome.kind === 'unsupported') {
     return (
-      <DataPage>
-        <p className="text-muted-foreground">Health data unavailable.</p>
+      <DataPage title="Health">
+        <p>{unsupportedSnapshotMessage(outcome.version)}</p>
       </DataPage>
     )
   }
@@ -87,7 +80,7 @@ function Health() {
     <DataPage
       title="Health"
       actions={
-        <Button type="button" variant="outline" size="sm" onClick={() => snapshotQuery.refetch()}>
+        <Button type="button" variant="outline" size="sm" onClick={() => outcome.refresh()}>
           Refresh
         </Button>
       }
@@ -189,9 +182,9 @@ function Health() {
         </h2>
         <dl className="grid gap-x-6 gap-y-1 font-mono text-xs sm:grid-cols-[auto_minmax(0,1fr)]">
           <dt className="text-muted-foreground">Latest snapshot path</dt>
-          <dd className="break-all">{latestQuery.data.latest_snapshot_path}</dd>
+          <dd className="break-all">{outcome.latestPath}</dd>
           <dt className="text-muted-foreground">Snapshot timestamp</dt>
-          <dd className="break-all">{snapshotQuery.data.snapshot_at}</dd>
+          <dd className="break-all">{outcome.snapshot.snapshot_at}</dd>
           <dt className="text-muted-foreground">Sports tracked</dt>
           <dd>{sports.length}</dd>
         </dl>

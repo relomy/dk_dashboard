@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, matchPath, Outlet, useLocation } from 'react-router-dom'
 import { TopBarSlotContext } from '../context/TopBarSlotContext'
-import { useLatest } from '../hooks/useLatest'
+import { useLatestSnapshot } from '../hooks/useSnapshot'
 import SportTabs, { type SportTab } from './SportTabs'
 import UserMenu from './UserMenu'
 
@@ -14,9 +14,9 @@ function sportFromPath(pathname: string): string | null {
 function AppShell() {
   const [slot, setSlot] = useState<HTMLElement | null>(null)
   const { pathname } = useLocation()
-  const { snapshotQuery } = useLatest()
+  const outcome = useLatestSnapshot()
 
-  const tabs: SportTab[] = Object.entries(snapshotQuery.data?.sports ?? {}).map(([sport, data]) => ({
+  const tabs: SportTab[] = Object.entries(outcome.kind === 'ready' ? outcome.snapshot.sports : {}).map(([sport, data]) => ({
     sport,
     status: data.status,
   }))

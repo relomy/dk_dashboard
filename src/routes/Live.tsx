@@ -3,7 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import CommandCenter from '../components/live/CommandCenter'
 import PageMessage from '../components/PageMessage'
 import { useRememberSport } from '../hooks/useRememberSport'
-import { useLatest } from '../hooks/useLatest'
+import { useLatestSnapshot } from '../hooks/useSnapshot'
+import { unsupportedSnapshotMessage } from '../lib/interpretedSnapshot'
 import { buildLiveModel, type LiveNotRenderableReason } from '../lib/liveModel'
 
 function AllContestsLink({ sportKey, sportLabel }: { sportKey: string; sportLabel: string }) {
@@ -18,13 +19,6 @@ function AllContestsLink({ sportKey, sportLabel }: { sportKey: string; sportLabe
 
 function NotRenderable({ reason, sportKey, sportLabel }: { reason: LiveNotRenderableReason; sportKey: string; sportLabel: string }) {
   switch (reason.kind) {
-    case 'unsupported-schema':
-      return (
-        <p>
-          This snapshot uses an unsupported format
-          {reason.version === null ? '' : ` (version ${reason.version})`}, so it can't be shown.
-        </p>
-      )
     case 'sport-missing':
       return <p>This snapshot has no {sportLabel} data.</p>
     case 'no-primary-contest':
@@ -46,10 +40,8 @@ function NotRenderable({ reason, sportKey, sportLabel }: { reason: LiveNotRender
 
 function Live() {
   const { sport } = useParams()
-  const { latestQuery, snapshotQuery } = useLatest()
-  const snapshot = snapshotQuery.data
-  const loading = latestQuery.isLoading || snapshotQuery.isLoading
-  const error = latestQuery.error ?? snapshotQuery.error
+  const outcome = useLatestSnapshot()
+  const snapshot = outcome.kind === 'ready' ? outcome.snapshot : null
 
   const sportKey = sport?.toLowerCase()
   useRememberSport(sportKey)
@@ -65,19 +57,23 @@ function Live() {
   const sportLabel = sport.toUpperCase()
   const title = `Live: ${sportLabel}`
 
-  if (loading) {
+  if (outcome.kind === 'loading') {
     return <PageMessage>Loading live snapshot...</PageMessage>
   }
 
-  if (error instanceof Error) {
+  if (outcome.kind === 'error') {
     return (
       <PageMessage title={title} tone="error">
-        <p>{error.message}</p>
+        <p>{outcome.error.message}</p>
       </PageMessage>
     )
   }
 
-  if (!snapshot || !result) {
+  if (outcome.kind === 'unsupported') {
+    return <PageMessage title={title}>{unsupportedSnapshotMessage(outcome.version)}</PageMessage>
+  }
+
+  if (!result) {
     return <PageMessage>Snapshot not available.</PageMessage>
   }
 

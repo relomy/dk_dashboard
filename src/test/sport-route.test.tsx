@@ -127,10 +127,8 @@ it('loads latest snapshot when cache is empty', async () => {
   expect(await screen.findByRole('heading', { name: /live \(1\)/i })).toBeInTheDocument()
 })
 
-it('does not use history snapshot cache for sport route data', async () => {
+it('reads sport route data from the latest snapshot', async () => {
   const latestSnapshot = structuredClone(snapshotFixture) as unknown as Snapshot
-  const historySnapshot = structuredClone(snapshotFixture) as unknown as Snapshot
-  historySnapshot.sports = {}
 
   const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
@@ -152,7 +150,6 @@ it('does not use history snapshot cache for sport route data', async () => {
   vi.stubGlobal('fetch', fetchSpy)
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  queryClient.setQueryData(['history-snapshot', 'old-snapshot.json'], historySnapshot)
 
   render(
     <QueryClientProvider client={queryClient}>

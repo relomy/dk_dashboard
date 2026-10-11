@@ -6,6 +6,7 @@ import producerSnapshot from '../../../public/mock/snapshots/live-2026-10-03T20-
 import nflSnapshot from '../../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
 import { formatSigned } from '../format'
 import { buildLiveModel, largestTrains, type LiveModel } from '../liveModel'
+import { asSupportedSnapshot } from './supportedSnapshot'
 
 const VIP_KEY = '5067365318'
 const VIP_NAME = 'cglenn91'
@@ -34,7 +35,7 @@ function addVip(snapshot: Json, sport = 'cfb', overrides: Json = {}): Json {
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 function build(snapshot: unknown, sport = 'cfb') {
-  return buildLiveModel(snapshot, sport)
+  return buildLiveModel(asSupportedSnapshot(snapshot), sport)
 }
 
 function modelOf(snapshot: unknown, sport = 'cfb'): LiveModel {
@@ -44,21 +45,6 @@ function modelOf(snapshot: unknown, sport = 'cfb'): LiveModel {
 }
 
 describe('not renderable results', () => {
-  it('reports a snapshot whose schema version is not 3, before reading any sport', () => {
-    const snapshot = load()
-    snapshot.schema_version = 2
-    delete snapshot.sports
-
-    expect(build(snapshot)).toEqual({ kind: 'not-renderable', reason: { kind: 'unsupported-schema', version: 2 } })
-  })
-
-  it('reports a snapshot with no schema version as unsupported', () => {
-    const snapshot = load()
-    delete snapshot.schema_version
-
-    expect(build(snapshot)).toEqual({ kind: 'not-renderable', reason: { kind: 'unsupported-schema', version: null } })
-  })
-
   it('reports a sport that is not in the snapshot', () => {
     expect(build(load(), 'nba')).toEqual({ kind: 'not-renderable', reason: { kind: 'sport-missing' } })
   })
