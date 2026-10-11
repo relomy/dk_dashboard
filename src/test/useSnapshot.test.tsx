@@ -164,7 +164,7 @@ describe('useSnapshotAt', () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     )
-    return renderHook(() => useSnapshotAt(path), { wrapper })
+    return renderHook(() => useSnapshotAt(path, 'history'), { wrapper })
   }
 
   it('reads a chosen path without consulting the Latest pointer', async () => {
@@ -199,6 +199,27 @@ describe('useSnapshotAt', () => {
 
     expect(result.current.outcome).toEqual({ kind: 'loading' })
     expect(api.requests).toEqual([])
+  })
+
+  it('does not hold the previous snapshot when the chosen path changes', async () => {
+    fakeApi({
+      snapshots: {
+        'snapshots/a.json': () => json(snapshot(3, 'a')),
+        'snapshots/b.json': () => new Promise<Response>(() => {}),
+      },
+    })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+    const { result, rerender } = renderHook(({ path }) => useSnapshotAt(path, 'history'), {
+      wrapper,
+      initialProps: { path: 'snapshots/a.json' },
+    })
+    await waitFor(() => expect(result.current.outcome.kind).toBe('ready'))
+
+    rerender({ path: 'snapshots/b.json' })
+    expect(result.current.outcome).toEqual({ kind: 'loading' })
   })
 
   it('refetches the chosen path on request', async () => {

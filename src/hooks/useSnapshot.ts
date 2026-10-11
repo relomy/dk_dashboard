@@ -38,14 +38,17 @@ function snapshotOptions(path: string | undefined) {
   })
 }
 
-/** How a caller overrides the immutable-snapshot defaults of `snapshotOptions`. */
-export interface SnapshotReadOptions {
-  staleTime?: number
-  refetchOnWindowFocus?: boolean
-  refetchOnReconnect?: boolean
-  /** Keep the previous path's snapshot `ready` while the next path downloads. */
-  keepPrevious?: boolean
-}
+/**
+ * How a chosen snapshot is retained. `latest` follows the pointer: the previous snapshot stays `ready`
+ * while the next downloads. `history` is a pinned snapshot: it never holds a previous one, and is
+ * re-checked on focus and reconnect once five minutes old.
+ */
+export type SnapshotRetention = 'latest' | 'history'
+
+const retentionOptions = {
+  latest: { placeholderData: keepPreviousData },
+  history: { staleTime: 300_000, refetchOnWindowFocus: true, refetchOnReconnect: true },
+} as const
 
 function errorOutcome(failure: unknown): { kind: 'error'; error: Error } {
   return { kind: 'error', error: failure instanceof Error ? failure : new Error(String(failure)) }
@@ -54,15 +57,16 @@ function errorOutcome(failure: unknown): { kind: 'error'; error: Error } {
 /**
  * A snapshot at a chosen path: fetch, interpret and gate. Latest and History both read through this.
  * `loading` also covers "no path yet". `refetch` re-downloads the same path on request.
+ * Snapshot paths are immutable (ADR-0001), so Latest and History safely share the ['snapshot', path]
+ * cache entry despite their different staleTime.
  */
 export function useSnapshotAt(
   path: string | undefined,
-  { keepPrevious, ...overrides }: SnapshotReadOptions = {},
+  retention: SnapshotRetention,
 ): { outcome: SnapshotOutcome; refetch: () => Promise<unknown> } {
   const query = useQuery({
     ...snapshotOptions(path),
-    ...overrides,
-    ...(keepPrevious ? { placeholderData: keepPreviousData } : {}),
+    ...retentionOptions[retention],
   })
   const refetch = () => query.refetch()
   if (query.error) return { outcome: errorOutcome(query.error), refetch }
@@ -86,7 +90,7 @@ export function useLatestSnapshot(): LatestSnapshotOutcome {
   const queryClient = useQueryClient()
   const pointer = useQuery(latestPointerOptions)
   const path = pointer.data?.latest_snapshot_path
-  const { outcome } = useSnapshotAt(path, { keepPrevious: true })
+  const { outcome } = useSnapshotAt(path, 'latest')
 
   if (pointer.error) return errorOutcome(pointer.error)
   if (pointer.data && !path) return errorOutcome(new Error('Snapshot not available.'))
