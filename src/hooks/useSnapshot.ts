@@ -3,7 +3,7 @@ import { fetchJson } from '../lib/api'
 import { interpretSnapshot, isSupportedSnapshot, unsupportedVersion } from '../lib/interpretedSnapshot'
 import type { LatestResponse, Snapshot } from '../lib/types'
 
-export { isSupportedSnapshot, unsupportedSnapshotMessage } from '../lib/interpretedSnapshot'
+export { unsupportedSnapshotMessage } from '../lib/interpretedSnapshot'
 
 /** What a caller sees of a snapshot: exactly one of these. */
 export type SnapshotOutcome =

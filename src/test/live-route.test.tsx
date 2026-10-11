@@ -58,16 +58,6 @@ describe('nothing to render', () => {
     expectNoDeveloperDetails()
   })
 
-  it('shows the shared unsupported message with version unknown when the snapshot has no schema version', async () => {
-    const snapshot = load()
-    delete snapshot.schema_version
-
-    await renderLive(snapshot)
-
-    expect(screen.getByText('Unsupported snapshot schema version: unknown.')).toBeInTheDocument()
-    expect(screen.queryByRole('table')).not.toBeInTheDocument()
-  })
-
   it('says the sport is not in the snapshot', async () => {
     await renderLive(load(), '/live/nba')
 

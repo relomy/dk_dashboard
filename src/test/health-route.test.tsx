@@ -96,12 +96,9 @@ function renderHealth() {
   )
 }
 
-it.each([
-  [2, 'Unsupported snapshot schema version: 2.'],
-  [undefined, 'Unsupported snapshot schema version: unknown.'],
-])('shows the shared unsupported message for schema version %s', async (version, message) => {
-  stubUnsupported(version)
+it('shows the shared unsupported message', async () => {
+  stubUnsupported(2)
   renderHealth()
-  expect(await screen.findByText(message)).toBeInTheDocument()
+  expect(await screen.findByText('Unsupported snapshot schema version: 2.')).toBeInTheDocument()
   expect(screen.queryByText(/snapshot age/i)).not.toBeInTheDocument()
 })

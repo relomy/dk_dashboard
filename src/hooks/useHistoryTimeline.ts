@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchJson } from '../lib/api'
-import type { DayManifest, LatestResponse, ManifestSnapshotSummary } from '../lib/types'
+import type { DayManifest, ManifestSnapshotSummary } from '../lib/types'
+import { latestPointerOptions } from './useSnapshot'
 
 function sortNewestFirst(items: ManifestSnapshotSummary[]): ManifestSnapshotSummary[] {
   return [...items].sort((a, b) => b.snapshot_at.localeCompare(a.snapshot_at))
@@ -24,10 +25,8 @@ function dedupeByTimestamp(items: ManifestSnapshotSummary[]): ManifestSnapshotSu
 
 export function useHistoryTimeline(enabled: boolean) {
   const latestQuery = useQuery({
-    queryKey: ['latest'],
+    ...latestPointerOptions,
     enabled,
-    queryFn: () => fetchJson<LatestResponse>('/api/latest'),
-    staleTime: 60_000,
   })
 
   const todayManifestPath = latestQuery.data?.manifest_today_path
