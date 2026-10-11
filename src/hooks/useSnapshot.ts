@@ -15,13 +15,39 @@ export type LatestSnapshotOutcome =
   | Exclude<SnapshotOutcome, { kind: 'ready' }>
   | (Extract<SnapshotOutcome, { kind: 'ready' }> & { latestPath: string; refresh: () => Promise<unknown> })
 
-/** The Latest pointer refreshes on its own schedule. */
+/** The Latest pointer refreshes on its own schedule. Module-private: read it through `useLatestPointer`. */
 const latestPointerOptions = queryOptions({
   queryKey: ['latest'],
   queryFn: () => fetchJson<LatestResponse>('/api/latest'),
   staleTime: 60_000,
   refetchInterval: 300_000,
 })
+
+/** The pointer fields callers use. */
+export type LatestPointer = Pick<
+  LatestResponse,
+  'latest_snapshot_path' | 'snapshot_at' | 'manifest_today_path' | 'manifest_yesterday_path'
+>
+
+// Any code reading the Latest pointer must go through this hook, so its key and timing live in one place.
+export function useLatestPointer({ enabled }: { enabled: boolean }): {
+  pointer: LatestPointer | undefined
+  isLoading: boolean
+  error: Error | null
+} {
+  const query = useQuery({ ...latestPointerOptions, enabled })
+  const data = query.data
+  return {
+    pointer: data && {
+      latest_snapshot_path: data.latest_snapshot_path,
+      snapshot_at: data.snapshot_at,
+      manifest_today_path: data.manifest_today_path,
+      manifest_yesterday_path: data.manifest_yesterday_path,
+    },
+    isLoading: query.isLoading,
+    error: query.error,
+  }
+}
 
 /** One snapshot path: fetched and interpreted once, shared by every page that reads it. */
 function snapshotOptions(path: string | undefined) {
@@ -88,12 +114,12 @@ export function useSnapshotAt(
  */
 export function useLatestSnapshot(): LatestSnapshotOutcome {
   const queryClient = useQueryClient()
-  const pointer = useQuery(latestPointerOptions)
-  const path = pointer.data?.latest_snapshot_path
+  const { pointer, error } = useLatestPointer({ enabled: true })
+  const path = pointer?.latest_snapshot_path
   const { outcome } = useSnapshotAt(path, 'latest')
 
-  if (pointer.error) return errorOutcome(pointer.error)
-  if (pointer.data && !path) return errorOutcome(new Error('Snapshot not available.'))
+  if (error) return errorOutcome(error)
+  if (pointer && !path) return errorOutcome(new Error('Snapshot not available.'))
   if (outcome.kind !== 'ready') return outcome
   const refresh = () => queryClient.refetchQueries({ queryKey: latestPointerOptions.queryKey })
   return { ...outcome, latestPath: path!, refresh }

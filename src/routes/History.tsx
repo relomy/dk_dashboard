@@ -77,7 +77,7 @@ function History() {
       )
     }
 
-    if (timeline.latestQuery.isLoading || timeline.todayManifestQuery.isLoading) {
+    if (timeline.latest.isLoading || timeline.todayManifestQuery.isLoading) {
       return (
         <DataPage>
           <p className="text-muted-foreground">Loading history timeline...</p>
@@ -85,10 +85,10 @@ function History() {
       )
     }
 
-    if (timeline.latestQuery.error || timeline.todayManifestQuery.error) {
+    if (timeline.latest.error || timeline.todayManifestQuery.error) {
       const message =
-        timeline.latestQuery.error instanceof Error
-          ? timeline.latestQuery.error.message
+        timeline.latest.error instanceof Error
+          ? timeline.latest.error.message
           : timeline.todayManifestQuery.error instanceof Error
             ? timeline.todayManifestQuery.error.message
             : 'Unable to load timeline.'
@@ -110,10 +110,10 @@ function History() {
               variant="outline"
               size="sm"
               onClick={() => {
-                if (!timeline.latestQuery.data?.snapshot_at) {
+                if (!timeline.latest.snapshotAt) {
                   return
                 }
-                navigate(`/history/${formatHistoryTimestampForUrl(timeline.latestQuery.data.snapshot_at)}`)
+                navigate(`/history/${formatHistoryTimestampForUrl(timeline.latest.snapshotAt)}`)
               }}
             >
               Jump to latest
