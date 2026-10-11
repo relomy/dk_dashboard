@@ -15,7 +15,7 @@ import ContestCard from '../components/ContestCard'
 import DataPage from '../components/DataPage'
 import StatusPill from '../components/StatusPill'
 import { useProfiles } from '../context/ProfileContext'
-import { useSportSnapshot } from '../hooks/useSportSnapshot'
+import { unsupportedSnapshotMessage, useLatestSnapshot } from '../hooks/useSnapshot'
 import { contestStates, groupContestsByState } from '../lib/contestDisplay'
 import { formatPoints } from '../lib/format'
 import type { ProfileMatchRules } from '../lib/profiles'
@@ -118,7 +118,7 @@ function Sport() {
   const { sport } = useParams()
   const [vipFilterMode, setVipFilterMode] = useState<'all' | 'active'>('all')
 
-  const { snapshot, loading, error, unsupportedVersion } = useSportSnapshot()
+  const outcome = useLatestSnapshot()
 
   if (!sport) {
     return (
@@ -130,7 +130,7 @@ function Sport() {
 
   const sportKey = sport.toLowerCase()
 
-  if (loading) {
+  if (outcome.kind === 'loading') {
     return (
       <DataPage>
         <p className="text-muted-foreground">Loading sport snapshot...</p>
@@ -138,17 +138,17 @@ function Sport() {
     )
   }
 
-  if (error instanceof Error) {
+  if (outcome.kind === 'error') {
     return (
       <DataPage title={`Sport: ${sport.toUpperCase()}`}>
-        <p className="rounded-lg bg-non-cashing-muted px-3 py-2 text-non-cashing-foreground">{error.message}</p>
+        <p className="rounded-lg bg-non-cashing-muted px-3 py-2 text-non-cashing-foreground">{outcome.error.message}</p>
       </DataPage>
     )
   }
 
-  if (unsupportedVersion !== undefined) return <DataPage title={`Sport: ${sport.toUpperCase()}`}><p>Unsupported snapshot schema version: {String(unsupportedVersion)}.</p></DataPage>
+  if (outcome.kind === 'unsupported') return <DataPage title={`Sport: ${sport.toUpperCase()}`}><p>{unsupportedSnapshotMessage(outcome.version)}</p></DataPage>
 
-  const sportData = snapshot?.sports[sportKey]
+  const sportData = outcome.snapshot.sports[sportKey]
 
   if (!sportData) {
     return (
@@ -174,7 +174,7 @@ function Sport() {
       }
     >
       <div className="flex flex-col gap-1 font-mono text-xs text-muted-foreground tabular-nums">
-        <p>Snapshot at: {new Date(snapshot.snapshot_at).toLocaleString()}</p>
+        <p>Snapshot at: {new Date(outcome.snapshot.snapshot_at).toLocaleString()}</p>
         <p>Sport updated: {new Date(sportData.updated_at).toLocaleString()}</p>
       </div>
       <div className="grid w-fit min-w-36 gap-1">
