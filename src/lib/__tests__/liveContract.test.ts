@@ -3,6 +3,7 @@ import { INVARIANTS, contractCasesOf, type ContractCase } from '../liveInvariant
 import { buildLiveModel, type LiveModel } from '../liveModel'
 import { LIVE_UNREAD_ALLOWLIST, liveUnreadPaths } from '../liveUnreadPaths'
 import { staleAllowlistEntries, unallowlistedPaths } from '../unreadPaths'
+import { supported } from './supportedSnapshot'
 
 /**
  * The Live contract test (#37): build the Live model from real producer output and check
@@ -23,7 +24,7 @@ const INPUTS: Record<string, unknown> = {
 }
 
 function casesOf(): ContractCase[] {
-  return Object.entries(INPUTS).flatMap(([path, raw]) => contractCasesOf(path.split('/').pop() ?? path, raw))
+  return Object.entries(INPUTS).flatMap(([path, raw]) => contractCasesOf(path.split('/').pop() ?? path, supported(raw)))
 }
 
 const CASES = casesOf()

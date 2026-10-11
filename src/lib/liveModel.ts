@@ -2,7 +2,7 @@ import { normalizeContestState, resolveVipCashing } from './contestDisplay'
 import { LOCKED_LABEL, parseLineupSignature, type LineupSlot } from './lineup'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from './perVipKeys'
 import { buildPlayerPool, numberOrNull, readValueIcon, type PlayerPoolRow } from './playerPool'
-import { interpretSnapshot, type LiveContest as Contest, type InterpretedSnapshot, isSupportedSnapshot, type LiveSport as SportSnapshot } from './interpretedSnapshot'
+import type { LiveContest as Contest, LiveSnapshot, LiveSport as SportSnapshot } from './interpretedSnapshot'
 import type { OwnershipSummary as ContestMetricsOwnershipSummary, Threat as ContestMetricsThreat, VipLineupRow as VipLineup, VipLineupSlot as VipLineupPlayerLive } from './generated/snapshot'
 import type {
   ContestState,
@@ -11,7 +11,6 @@ import type {
 } from './types'
 
 export type LiveNotRenderableReason =
-  | { kind: 'unsupported-schema'; version: number | null }
   | { kind: 'sport-missing' }
   | { kind: 'no-primary-contest' }
   | { kind: 'primary-contest-missing' }
@@ -739,15 +738,8 @@ function buildTotalOwnership(players: Player[]): LiveTotalOwnership {
   }
 }
 
-export function buildLiveModel(snapshot: unknown, sportKey: string): LiveModelResult {
-  return buildInterpretedLiveModel(interpretSnapshot(snapshot), sportKey)
-}
-
-/** Already interpreted input, also used to trace only actual model consumption. */
-export function buildInterpretedLiveModel(snapshot: InterpretedSnapshot, sportKey: string): LiveModelResult {
-  if (!isSupportedSnapshot(snapshot)) {
-    return notRenderable({ kind: 'unsupported-schema', version: numberOrNull(snapshot.schema_version) })
-  }
+/** The Live model of one sport. Takes a supported snapshot only: the snapshot module's gate has already run. */
+export function buildLiveModel(snapshot: LiveSnapshot, sportKey: string): LiveModelResult {
   const sportData = snapshot.sports[sportKey]
   if (!sportData) {
     return notRenderable({ kind: 'sport-missing' })

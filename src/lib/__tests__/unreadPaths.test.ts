@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { liveUnreadPaths } from '../liveUnreadPaths'
 import type { Snapshot } from '../types'
+import { supported } from './supportedSnapshot'
 import { staleAllowlistEntries, unallowlistedPaths, unreadPaths } from '../unreadPaths'
 
 describe('unreadPaths', () => {
@@ -41,7 +42,7 @@ function syntheticSnapshot(): Snapshot {
 }
 
 describe('the Live unread-field check', () => {
-  const unread = liveUnreadPaths(syntheticSnapshot(), 'nfl')
+  const unread = liveUnreadPaths(supported(syntheticSnapshot()), 'nfl')
 
   it("names a field the Live model never reads, from the sport's own feed only", () => {
     expect(unread).toEqual(['sports.*.contests[].brand_new_figure'])
