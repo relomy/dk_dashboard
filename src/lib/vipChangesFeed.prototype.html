@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PROTOTYPE – VIP changes feed (data layer)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --line:#272c36; --txt:#e6e8ec; --mut:#8b93a1; --acc:#4cc38a; --warn:#f0b429; --bad:#ef5b5b; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--txt); font:15px/1.5 system-ui,sans-serif; padding:24px; max-width:1100px; margin-inline:auto }
+  h1 { font-size:20px; margin:0 0 4px } h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--mut); margin:28px 0 8px }
+  .badge { display:inline-block; background:#3a2f0b; color:var(--warn); border-radius:4px; padding:1px 8px; font-size:12px; margin-bottom:8px }
+  .q { background:var(--panel); border-left:3px solid var(--acc); padding:10px 14px; border-radius:4px; color:var(--mut) }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px }
+  button { background:var(--panel); color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:6px 12px; font:inherit; cursor:pointer; margin:0 6px 6px 0 }
+  button:hover { border-color:var(--acc) } button.on { border-color:var(--acc); color:var(--acc) } button.next { background:var(--acc); color:#08130e; border-color:var(--acc) }
+  button:disabled { opacity:.4; cursor:default }
+  table { border-collapse:collapse; width:100% } th,td { text-align:left; padding:4px 10px; border-bottom:1px solid var(--line); font-size:14px } th { color:var(--mut); font-weight:500 }
+  .feed li { list-style:none; padding:8px 12px; border-left:3px solid var(--line); background:var(--panel); margin-bottom:6px; border-radius:0 6px 6px 0 }
+  .feed { padding:0; margin:0 } .sev-high { border-left-color:var(--bad) !important } .sev-med { border-left-color:var(--warn) !important } .sev-low { border-left-color:var(--acc) !important }
+  .kind { color:var(--mut); font-size:12px; text-transform:uppercase; letter-spacing:.06em } .mut { color:var(--mut) } .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center }
+  .tabs button.on { background:var(--acc); color:#08130e }
+  select { background:var(--panel); color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:6px }
+  .steps button { display:block } .done { opacity:.45 }
+  code { background:#0b0d11; padding:1px 5px; border-radius:3px }
+</style>
+</head>
+<body>
+<span class="badge">PROTOTYPE – throwaway, in-memory, safe to delete</span>
+<h1>VIP changes feed</h1>
+<p class="q" id="question"></p>
+
+<h2>Contest timeline (the saved snapshots)</h2>
+<div class="panel" id="timeline"></div>
+
+<h2>Compare</h2>
+<div class="panel row" id="controls"></div>
+
+<h2>What changed</h2>
+<ul class="feed" id="feed"></ul>
+
+<h2>State of the "to" snapshot</h2>
+<div class="panel" id="state"></div>
+
+<h2>Free play – make something happen in the contest</h2>
+<div class="panel" id="freeplay"></div>
+
+<h2>Guided walkthroughs</h2>
+<div class="tabs" id="tabs"></div>
+<div class="panel" id="walk"></div>
+
+<script>
+/* =========================================================================
+   PURE MODULE – liftable. No DOM. Question it answers:
+   "Given two snapshots of a contest (or 'since the start'), what changed for
+   the VIPs' lineups and the contest's cash line, ranked by importance?"
+
+   Frame shape (a contest as seen at one snapshot):
+   { at, state, positionsPaid, cashLine:{type,rank,points}|null,
+     nonCashing:{users,avgPmr}|null,
+     vips:[{key,name,rank,points,pmr,distPts,distRank,payoutCents,
+            slots:[{slot,playerKey|null,name|null,live}]}] }   // playerKey null = locked
+   ========================================================================= */
+const Feed = (() => {
+  const num = v => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? null : Number(v);
+  const r2 = n => Math.round(n * 100) / 100;
+  const isCashing = (v, f) => v.distPts !== null && v.distPts !== undefined ? v.distPts >= 0
+                            : v.distRank !== null && v.distRank !== undefined ? v.distRank >= 0 : null;
+  const SEV = { high: 3, med: 2, low: 1 };
+
+  // Compare ONE pair of frames. `from` may be null = "since the start" (nothing known before).
+  function diffPair(from, to) {
+    const out = [];
+    const push = (kind, sev, text, extra = {}) => out.push({ kind, sev, text, ...extra });
+    if (!to) return out;
+    if (!from) { // baseline: no "before" -> just announce the starting position
+      to.vips.forEach(v => push('baseline', 'low', `${v.name} starts at rank ${v.rank ?? '?'} with ${v.points ?? '?'} pts`, { vip: v.key }));
+      return out;
+    }
+    if (from.state !== to.state) push('contest_state', 'high', `Contest went ${from.state} → ${to.state}`);
+
+    // ---- cash line
+    const a = from.cashLine, b = to.cashLine;
+    if (a && b) {
+      const dp = r2((b.points ?? 0) - (a.points ?? 0)), dr = (b.rank ?? 0) - (a.rank ?? 0);
+      if (dp !== 0 || dr !== 0) {
+        const mag = Math.abs(dp);
+        push('cash_line', mag >= 10 || Math.abs(dr) >= 10 ? 'high' : 'med',
+          `Cash line ${dp >= 0 ? 'rose' : 'fell'} ${Math.abs(dp)} pts (${a.points} → ${b.points})` + (dr ? `, cutoff rank ${a.rank} → ${b.rank}` : ''),
+          { delta: dp });
+      }
+    } else if (!a && b) push('cash_line', 'med', `Cash line now known: ${b.points} pts at rank ${b.rank}`);
+    if (from.nonCashing && to.nonCashing && from.nonCashing.users !== to.nonCashing.users)
+      push('non_cashing', 'low', `Entries below the line: ${from.nonCashing.users} → ${to.nonCashing.users}`);
+
+    // ---- per VIP
+    const prev = new Map(from.vips.map(v => [v.key, v]));
+    for (const v of to.vips) {
+      const p = prev.get(v.key);
+      if (!p) { push('vip_appeared', 'med', `${v.name} entered the feed at rank ${v.rank ?? '?'}`, { vip: v.key }); continue; }
+      prev.delete(v.key);
+
+      // crossed the cash line (most important thing)
+      const pc = isCashing(p), nc = isCashing(v);
+      if (pc !== null && nc !== null && pc !== nc)
+        push('cash_cross', 'high', `${v.name} ${nc ? 'moved INTO the money' : 'dropped OUT of the money'}`, { vip: v.key });
+      // payout appeared / changed
+      if ((p.payoutCents || 0) !== (v.payoutCents || 0))
+        push('payout', 'high', `${v.name} payout $${((p.payoutCents||0)/100).toFixed(2)} → $${((v.payoutCents||0)/100).toFixed(2)}`, { vip: v.key });
+
+      // rank / points / distance to cash
+      const pr = num(p.rank), nr = num(v.rank);
+      if (pr !== null && nr !== null && pr !== nr) {
+        const d = pr - nr; // positive = climbed
+        push('rank', Math.abs(d) >= 25 ? 'med' : 'low', `${v.name} ${d > 0 ? 'climbed' : 'fell'} ${Math.abs(d)} (rank ${pr} → ${nr})`, { vip: v.key });
+      }
+      const pp = num(p.points), np = num(v.points);
+      if (pp !== null && np !== null && pp !== np) push('points', 'low', `${v.name} ${np > pp ? '+' : ''}${r2(np - pp)} pts (${pp} → ${np})`, { vip: v.key });
+      if (p.distPts != null && v.distPts != null && p.distPts !== v.distPts && pc === nc)
+        push('distance', 'low', `${v.name} distance to cash ${fmt(p.distPts)} → ${fmt(v.distPts)} pts`, { vip: v.key });
+      const ppm = num(p.pmr), npm = num(v.pmr);
+      if (ppm !== null && npm !== null && ppm !== npm) push('pmr', 'low', `${v.name} minutes remaining ${ppm} → ${npm}`, { vip: v.key });
+
+      // lineup: compare slots by position index within slot name
+      const sl = lineupDiff(p.slots, v.slots);
+      sl.forEach(s => push(s.kind, s.kind === 'swap' ? 'high' : 'med', `${v.name}: ${s.text}`, { vip: v.key }));
+    }
+    for (const gone of prev.values()) push('vip_missing', 'med', `${gone.name} is no longer in the feed`, { vip: gone.key });
+    return out;
+  }
+  const fmt = n => (n > 0 ? '+' : '') + n;
+
+  // Match players within lineup. A locked slot (playerKey null) is "unknown", never a swap.
+  function lineupDiff(a, b) {
+    const out = [];
+    const known = s => s.playerKey ? s.playerKey : null;
+    const aKeys = new Set(a.map(known).filter(Boolean)), bKeys = new Set(b.map(known).filter(Boolean));
+    const aLocked = a.filter(s => !s.playerKey).length, bLocked = b.filter(s => !s.playerKey).length;
+    const removed = a.filter(s => s.playerKey && !bKeys.has(s.playerKey));
+    const added = b.filter(s => s.playerKey && !aKeys.has(s.playerKey));
+    // locked -> revealed: match a newly visible player to a slot LABEL that lost a Locked placeholder
+    const lockedBy = L => L.filter(s => !s.playerKey).reduce((m, s) => (m[s.slot] = (m[s.slot] || 0) + 1, m), {});
+    const la = lockedBy(a), lb = lockedBy(b);
+    const revealedPlayers = [], swappedIn = [...added];
+    for (const label of Object.keys(la)) {
+      let n = la[label] - (lb[label] || 0);
+      while (n-- > 0) { const i = swappedIn.findIndex(x => x.slot === label); if (i >= 0) revealedPlayers.push(swappedIn.splice(i, 1)[0]); }
+    }
+    revealedPlayers.forEach(s => out.push({ kind: 'reveal', text: `locked ${s.slot} slot revealed: ${s.name}` }));
+    // pair removals with swapped-in by slot name when possible
+    const pool = [...swappedIn];
+    removed.forEach(r => {
+      const i = pool.findIndex(x => x.slot === r.slot); const m = i >= 0 ? pool.splice(i, 1)[0] : pool.shift();
+      if (m) out.push({ kind: 'swap', text: `late swap ${r.name} → ${m.name} (${m.slot})` });
+      else out.push({ kind: 'swap', text: `${r.name} removed from lineup` });
+    });
+    pool.forEach(m => out.push({ kind: 'swap', text: `${m.name} added to lineup` }));
+    if (bLocked > aLocked) out.push({ kind: 'relock', text: `${bLocked - aLocked} slot(s) went back to Locked (unexpected)` });
+    // players who went live/finished
+    const aLive = new Map(a.filter(s => s.playerKey).map(s => [s.playerKey, s.live]));
+    // NOTE: is_live=false cannot tell "not started" from "finished", so only report false -> true.
+    b.filter(s => s.playerKey && aLive.get(s.playerKey) === false && s.live)
+      .forEach(s => out.push({ kind: 'went_live', text: `${s.name} started playing` }));
+    return out;
+  }
+
+  // MODE 'net': one comparison from -> to.  MODE 'steps': every consecutive pair inside the range.
+  function build(frames, fromIdx, toIdx, mode) {
+    // fromIdx === -1 means "since the start of the contest" (baseline = first frame, compare first->to)
+    const to = frames[toIdx];
+    if (!to) return [];
+    if (fromIdx === -1) {
+      if (mode === 'steps') return frames.slice(0, toIdx + 1).flatMap((f, i) => i === 0 ? [] : tag(diffPair(frames[i - 1], f), f.at));
+      return tag(diffPair(frames[0], to), to.at);
+    }
+    if (mode === 'steps') return frames.slice(fromIdx + 1, toIdx + 1).flatMap((f, i) => tag(diffPair(frames[fromIdx + i], f), f.at));
+    return tag(diffPair(frames[fromIdx], to), to.at);
+  }
+  const tag = (items, at) => items.map(i => ({ ...i, at }));
+  const rank = items => [...items].sort((x, y) => SEV[y.sev] - SEV[x.sev]);
+  return { build, rank, diffPair };
+})();
+
+/* =========================================================================
+   THROWAWAY PAGE – scenarios and rendering
+   ========================================================================= */
+const slot = (s, key, name, live = false) => ({ slot: s, playerKey: key, name, live });
+const LOCKED = s => ({ slot: s, playerKey: null, name: null, live: false });
+const vip = (key, name, rank, points, pmr, distPts, slots, payoutCents = 0) =>
+  ({ key, name, rank, points, pmr, distPts, distRank: null, slots, payoutCents });
+
+const nfl = {
+  allen: ['QB','nfl:allen','Josh Allen'], henry: ['RB','nfl:henry','Derrick Henry'], cook: ['RB','nfl:cook','James Cook'],
+  chase: ['WR','nfl:chase','Ja\'Marr Chase'], puka: ['WR','nfl:puka','Puka Nacua'], kelce: ['TE','nfl:kelce','Travis Kelce'], rams: ['DST','nfl:rams','Rams'],
+};
+const P = (k, live = false) => slot(nfl[k][0], nfl[k][1], nfl[k][2], live);
+
+const SCENARIOS = {
+  happy: {
+    title: 'Climbing into the money',
+    blurb: 'Two VIPs through a Sunday slate. Watch for: cash line moving up, one VIP crossing from below the line to cashing, and the lineup changes (a locked slot revealed).',
+    frames: () => [
+      { at: '12:00', state: 'live', cashLine: { type:'rank', rank:10, points:100.0 }, nonCashing: { users:12, avgPmr:600 }, vips: [
+          vip('a','EmpireMaker2',14,88.0,480,-12.0,[P('allen'),P('henry'),LOCKED('WR'),P('kelce',true)]),
+          vip('b','vip_below',22,70.5,520,-29.5,[P('allen'),P('cook'),P('chase'),P('rams',true)]) ] },
+      { at: '15:00', state: 'live', cashLine: { type:'rank', rank:10, points:118.5 }, nonCashing: { users:11, avgPmr:420 }, vips: [
+          vip('a','EmpireMaker2',9,121.0,300,2.5,[P('allen'),P('henry'),P('puka',true),P('kelce',true)]),
+          vip('b','vip_below',20,92.0,380,-26.5,[P('allen'),P('cook'),P('chase'),P('rams',true)]) ] },
+      { at: '18:00', state: 'live', cashLine: { type:'rank', rank:10, points:141.0 }, nonCashing: { users:13, avgPmr:200 }, vips: [
+          vip('a','EmpireMaker2',12,139.5,90,-1.5,[P('allen'),P('henry'),P('puka'),P('kelce')]),
+          vip('b','vip_below',8,152.0,90,11.0,[P('allen'),P('cook'),P('chase'),P('rams')]) ] },
+    ],
+    steps: [
+      ['From = Start of contest, To = 12:00 snapshot', f => ({ from: -1, to: 0 }), 'Nothing happened yet – you only get the starting positions. Is that useful or noise?'],
+      ['Compare 12:00 → 15:00', f => ({ from: 0, to: 1 }), 'EmpireMaker2 crosses into the money AND the line itself rose. The locked WR slot got revealed.'],
+      ['Compare 15:00 → 18:00', f => ({ from: 1, to: 2 }), 'The opposite: EmpireMaker2 drops out as the line outruns them, vip_below jumps in.'],
+      ['Net since start (12:00 → 18:00)', f => ({ from: 0, to: 2 }), 'Net view hides the 15:00 excursion entirely. Flip to Step-by-step to see it. Which does a user want?'],
+    ],
+  },
+  lateswap: {
+    title: 'Late swap & locked slots',
+    blurb: 'A locked slot is not a swap. Watch for: "locked slot revealed" vs a true "late swap", and a VIP that disappears from the feed.',
+    frames: () => [
+      { at: '12:00', state: 'live', cashLine: null, nonCashing: null, vips: [
+          vip('a','swapper',30,60,500,null,[P('allen'),P('henry'),LOCKED('WR'),P('kelce')]),
+          vip('b','vanisher',31,59,500,null,[P('allen'),P('cook'),P('chase'),P('rams')]) ] },
+      { at: '13:00', state: 'live', cashLine: null, nonCashing: null, vips: [
+          // swapper: Henry -> Cook (late swap) and the locked WR is revealed as Puka. vanisher gone.
+          vip('a','swapper',28,66,470,null,[P('allen'),P('cook'),P('puka'),P('kelce')]) ] },
+    ],
+    steps: [
+      ['Compare 12:00 → 13:00', f => ({ from: 0, to: 1 }), 'Expect: reveal (Puka), swap (Henry→Cook), vanisher missing. No cash-line items since the producer has no cash line yet.'],
+    ],
+  },
+  golf: {
+    title: 'Real data: golf cash line',
+    blurb: 'Taken from real snapshots of contest 196164820 (Oct 3 20:48Z → Oct 4 18:41Z). On Oct 3 the producer tracked no VIPs; on Oct 4 it tracked two. Watch for: cash line movement, and VIPs that appear mid-range.',
+    frames: () => [
+      { at: 'Oct 3 20:48Z', state: 'live', cashLine: { type:'rank', rank:49, points:415.5 }, nonCashing: null, vips: [] },
+      { at: 'Oct 4 18:41Z', state: 'live', cashLine: { type:'rank', rank:50, points:490.5 }, nonCashing: null, vips: [
+          vip('5275692818','Cubbiesftw23',null,null,null,-28.5,[]),
+          vip('5276243468','cglenn91',78,448.0,66,-42.5,[]) ] },
+    ],
+    steps: [
+      ['Compare Oct 3 → Oct 4', f => ({ from: 0, to: 1 }), 'Cash line rose 75 pts. Both VIPs "appeared" – but really the feed just began tracking them. Should the feed say that?'],
+    ],
+  },
+};
+
+let S;
+function reset(key) {
+  const sc = SCENARIOS[key];
+  S = { scenario: key, frames: sc.frames(), from: -1, to: sc.frames().length - 1, mode: 'net', stepDone: 0 };
+  if (S.from === -1 && S.to === 0) S.to = 0;
+}
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+const ACTIONS = [
+  ['Cash line rises 10 pts', f => { if (f.cashLine) { f.cashLine.points += 10; f.vips.forEach(v => { if (v.distPts != null) v.distPts -= 10; }); } }],
+  ['Cash line falls 10 pts', f => { if (f.cashLine) { f.cashLine.points -= 10; f.vips.forEach(v => { if (v.distPts != null) v.distPts += 10; }); } }],
+  ['First VIP scores +15', f => { const v = f.vips[0]; if (v) { v.points += 15; v.rank = Math.max(1, v.rank - 4); if (v.distPts != null) v.distPts += 15; } }],
+  ['First VIP late-swaps a player', f => { const v = f.vips[0]; if (v && v.slots[1]) v.slots[1] = P('chase'); }],
+  ['Reveal a locked slot', f => { f.vips.forEach(v => { const i = v.slots.findIndex(s => !s.playerKey); if (i >= 0) v.slots[i] = P('puka', true); }); }],
+  ['Add VIP "newcomer"', f => { f.vips.push(vip('n','newcomer',40,50,500,-50,[P('allen'),P('cook')])); }],
+  ['Contest goes final', f => { f.state = 'completed'; f.vips.forEach(v => { if ((v.distPts ?? -1) >= 0) v.payoutCents = 2000; }); }],
+];
+
+function $(id) { return document.getElementById(id); }
+function render() {
+  const sc = SCENARIOS[S.scenario];
+  $('question').textContent = 'Question: can one pure function take two contest snapshots (or "the start" and now) and produce a ranked, readable list of what changed for the VIPs\' lineups and the cash line? And should a range be one NET diff, or STEP-BY-STEP events?';
+  $('timeline').innerHTML = S.frames.map((f, i) =>
+    `<button class="${i===S.from?'on':''}" onclick="S.from=${i};render()">${f.at}</button>`).join('') + '<div class="mut">Click a snapshot to set it as the "from". Use the selector below for "to".</div>';
+  $('controls').innerHTML =
+    `From <select onchange="S.from=+this.value;render()"><option value="-1" ${S.from===-1?'selected':''}>Start of contest</option>${S.frames.map((f,i)=>`<option value="${i}" ${i===S.from?'selected':''}>${f.at}</option>`).join('')}</select>
+     To <select onchange="S.to=+this.value;render()">${S.frames.map((f,i)=>`<option value="${i}" ${i===S.to?'selected':''}>${f.at}</option>`).join('')}</select>
+     <span>
+       <button class="${S.mode==='net'?'on':''}" onclick="S.mode='net';render()">Net change</button>
+       <button class="${S.mode==='steps'?'on':''}" onclick="S.mode='steps';render()">Step-by-step</button>
+     </span>`;
+  const items = Feed.rank(Feed.build(S.frames, S.from, S.to, S.mode));
+  $('feed').innerHTML = items.length ? items.map(i =>
+    `<li class="sev-${i.sev}"><span class="kind">${i.kind} · ${i.at}</span><br>${i.text}</li>`).join('')
+    : '<li class="mut">Nothing changed.</li>';
+  const t = S.frames[S.to];
+  $('state').innerHTML = `<div class="mut">${t.at} · contest ${t.state} · cash line ${t.cashLine ? `${t.cashLine.points} pts (rank ${t.cashLine.rank})` : 'unknown'}</div>
+   <table><tr><th>VIP</th><th>Rank</th><th>Points</th><th>Min. left</th><th>Dist. to cash</th><th>Payout</th><th>Lineup</th></tr>
+   ${t.vips.map(v => `<tr><td>${v.name}</td><td>${v.rank ?? '–'}</td><td>${v.points ?? '–'}</td><td>${v.pmr ?? '–'}</td><td>${v.distPts ?? '–'}</td><td>${v.payoutCents ? '$'+v.payoutCents/100 : '–'}</td>
+   <td class="mut">${v.slots.map(s => s.playerKey ? s.name + (s.live ? ' ●' : '') : '🔒').join(', ') || '–'}</td></tr>`).join('') || '<tr><td colspan="7" class="mut">No VIPs tracked</td></tr>'}</table>`;
+  $('freeplay').innerHTML = ACTIONS.map((a, i) => `<button onclick="act(${i})">${a[0]}</button>`).join('') +
+    '<div class="mut">Each click saves a new snapshot after the last one, then compares from your selected "from" to it.</div>';
+  $('tabs').innerHTML = Object.entries(SCENARIOS).map(([k, s]) => `<button class="${k===S.scenario?'on':''}" onclick="reset('${k}');render()">${s.title}</button>`).join('');
+  $('walk').innerHTML = `<p>${sc.blurb}</p><div class="steps">${sc.steps.map((s, i) =>
+    `<button class="${i===S.stepDone?'next':''} ${i<S.stepDone?'done':''}" onclick="step(${i})">${i+1}. ${s[0]}<br><span class="mut">${s[2]}</span></button>`).join('')}</div>`;
+}
+function act(i) {
+  const f = clone(S.frames[S.frames.length - 1]);
+  const mins = 60 * (S.frames.length + 12); f.at = `${String(Math.floor(mins/60)%24).padStart(2,'0')}:00 +${S.frames.length}`;
+  ACTIONS[i][1](f); S.frames.push(f); S.to = S.frames.length - 1; render();
+}
+function step(i) {
+  const r = SCENARIOS[S.scenario].steps[i][1](S);
+  S.from = r.from; S.to = r.to; S.stepDone = i + 1; render();
+}
+reset('happy'); render();
+</script>
+</body>
+</html>
