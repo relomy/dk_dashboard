@@ -15,6 +15,7 @@ import Live from './routes/Live'
 import Login from './routes/Login'
 import Settings from './routes/Settings'
 import Sport from './routes/Sport'
+import { ShiftsPage } from './prototype/shifts/ShiftsUi'
 
 function RequireAuthenticatedLayout() {
   const location = useLocation()
@@ -75,6 +76,7 @@ function App() {
             <Route index element={<Landing />} />
             <Route path="/latest" element={<Navigate to="/" replace />} />
             <Route path="/live/:sport" element={<LiveRoute />} />
+            <Route path="/shifts/:sport" element={<ShiftsPage />} />
             <Route path="/history" element={<History />} />
             <Route path="/history/:timestamp" element={<History />} />
             <Route path="/sport/:sport" element={<Sport />} />

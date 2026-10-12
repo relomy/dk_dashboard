@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, matchPath, Outlet, useLocation } from 'react-router-dom'
 import { TopBarSlotContext } from '../context/TopBarSlotContext'
 import { useLatest } from '../hooks/useLatest'
+import { ShiftsProtoProvider, useShiftsProto } from '../prototype/shifts/ShiftsProtoContext'
+import { PrototypeBar, ShiftsBadge, ShiftsBanner } from '../prototype/shifts/ShiftsUi'
 import SportTabs, { type SportTab } from './SportTabs'
 import UserMenu from './UserMenu'
 
@@ -11,7 +13,8 @@ function sportFromPath(pathname: string): string | null {
   return match?.params.sport ?? null
 }
 
-function AppShell() {
+function AppShellBody() {
+  const { reloadCount } = useShiftsProto()
   const [slot, setSlot] = useState<HTMLElement | null>(null)
   const { pathname } = useLocation()
   const { snapshotQuery } = useLatest()
@@ -21,6 +24,7 @@ function AppShell() {
     status: data.status,
   }))
   const currentSport = sportFromPath(pathname)
+  const shiftsSport = currentSport ?? sportFromPath(pathname.replace('/shifts/', '/live/')) ?? tabs[0]?.sport ?? 'nba'
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -32,16 +36,27 @@ function AppShell() {
           <SportTabs tabs={tabs} currentSport={currentSport} />
           <div className="ml-auto flex shrink-0 items-center gap-3">
             <div ref={setSlot} className="flex items-center gap-3 empty:hidden" />
+            <ShiftsBadge sport={shiftsSport} />
             <UserMenu allContestsSport={currentSport ?? tabs[0]?.sport ?? null} />
           </div>
         </div>
       </header>
+      <ShiftsBanner key={reloadCount} sport={shiftsSport} />
+      <PrototypeBar onShiftsPage={pathname.startsWith('/shifts/')} />
       <TopBarSlotContext.Provider value={slot}>
         <main className="flex-1">
           <Outlet />
         </main>
       </TopBarSlotContext.Provider>
     </div>
+  )
+}
+
+function AppShell() {
+  return (
+    <ShiftsProtoProvider>
+      <AppShellBody />
+    </ShiftsProtoProvider>
   )
 }
 
