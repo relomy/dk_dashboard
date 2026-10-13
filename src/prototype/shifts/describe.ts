@@ -19,6 +19,11 @@ export function delta(pair: FromTo): number | null {
   return pair.from === null || pair.to === null ? null : pair.to - pair.from
 }
 
+/** The name a sentence uses: "You" when the Profile tracks one VIP, who is the viewer. */
+export function subject(output: ShiftsOutput, vipKey: string): string {
+  return output.vips.length === 1 ? 'You' : vipFor(output, vipKey).name
+}
+
 export const PATH_LABEL: Record<CrossingPath, string> = {
   in: 'moved into cashing',
   out: 'fell out of cashing',
@@ -40,25 +45,25 @@ export function lineMoveText(change: CashLineChange): string {
 export function oneLine(item: FeedItem, output: ShiftsOutput): string {
   switch (item.kind) {
     case 'cash-crossing': {
-      const name = vipFor(output, item.vipKey).name
+      const name = subject(output, item.vipKey)
       const cause = item.cause ? `, because the cash line moved ${lineMoveText(item.cause)}` : ''
       return `${name} ${PATH_LABEL[item.path]}${cause}`
     }
     case 'vip-move': {
-      const name = vipFor(output, item.vipKey).name
+      const name = subject(output, item.vipKey)
       const rank = delta(item.rank)
       const pts = delta(item.points)
       const bits: string[] = []
       if (rank !== null && rank !== 0) bits.push(`${rank < 0 ? 'up' : 'down'} ${Math.abs(rank)} places`)
       if (pts !== null && pts !== 0) bits.push(`${signed(pts)} pts`)
-      return `${name} ${bits.join(', ') || 'moved'}`
+      return `${name} moved ${bits.join(', ') || 'a little'}`
     }
     case 'cash-line-move':
       return `The cash line moved ${lineMoveText(item.change)}`
     case 'contest-state':
       return `The contest is ${item.to}: final standings are in`
     case 'final-standing': {
-      const name = vipFor(output, item.vipKey).name
+      const name = subject(output, item.vipKey)
       return `${name} finished ${item.cashing ? 'cashing' : 'outside the cash line'} at rank ${item.rank.to}`
     }
   }

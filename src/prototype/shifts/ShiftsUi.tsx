@@ -13,6 +13,7 @@ import {
   SCENARIO_KEYS,
   vipFor,
   type CashCrossingItem,
+  type FinalStandingItem,
   type FeedItem,
   type FromTo,
   type GameState,
@@ -216,7 +217,7 @@ export function ShiftsBadge({ sport }: { sport: string }) {
 
 /** High items not yet surfaced, each shown once, plus the single "while you were away" line after a long gap. */
 export function ShiftsBanner({ sport }: { sport: string }) {
-  const { output, surfaceMode, markSurfaced } = useShiftsProto()
+  const { output, profile, surfaceMode, markSurfaced } = useShiftsProto()
   // The banner captures what was unsurfaced when it mounted, so surfacing on render doesn't blank it mid-read.
   const [shown, setShown] = useState<FeedItem[]>(() => output.unsurfacedHigh)
   const [dismissed, setDismissed] = useState<string[]>([])
@@ -226,9 +227,9 @@ export function ShiftsBanner({ sport }: { sport: string }) {
     setShown(output.unsurfacedHigh)
     setDismissed([])
     setGapDismissed(false)
-    // Re-capture only when the scenario changes, not as items get surfaced.
+    // Re-capture only when the scenario or Profile changes, not as items get surfaced.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [output.label])
+  }, [output.label, profile])
 
   useEffect(() => {
     if (surfaceMode === 'render') markSurfaced(shown.map((item) => item.id))
@@ -277,11 +278,13 @@ export function ShiftsBanner({ sport }: { sport: string }) {
 
 /* ---------- Shifts page layouts ---------- */
 
-type Variant = 'A' | 'B' | 'C'
+type Variant = 'A' | 'B' | 'C' | 'D'
+const DEFAULT_VARIANT: Variant = 'D'
 export const VARIANTS: { key: Variant; name: string }[] = [
   { key: 'A', name: 'Flat feed' },
   { key: 'B', name: 'Grouped per VIP' },
   { key: 'C', name: 'VIP table' },
+  { key: 'D', name: 'One card per VIP, recommended' },
 ]
 
 function ItemCard({ item, output, showVip = true }: { item: FeedItem; output: ShiftsOutput; showVip?: boolean }) {
@@ -483,10 +486,103 @@ function TableFeed({ output }: { output: ShiftsOutput }) {
   )
 }
 
+/** D: one card per VIP merging their crossing and move, importance order, name dropped for a one-VIP Profile. */
+function MergedFeed({ output }: { output: ShiftsOutput }) {
+  const single = output.vips.length === 1
+  // Cards take the position of their first item, and the feed is already High first.
+  const order: string[] = []
+  for (const item of output.feed) {
+    const id = 'vipKey' in item ? item.vipKey : item.id
+    if (!order.includes(id)) order.push(id)
+  }
+  return (
+    <div className="space-y-2">
+      {order.map((id) => {
+        const items = output.feed.filter((item) => ('vipKey' in item ? item.vipKey : item.id) === id)
+        const solo = items.length === 1 ? items[0] : null
+        if (solo && !('vipKey' in solo)) return <ItemCard key={id} item={solo} output={output} />
+        return <VipCard key={id} output={output} vipKey={id} items={items} showName={!single} />
+      })}
+    </div>
+  )
+}
+
+function VipCard({
+  output,
+  vipKey,
+  items,
+  showName,
+}: {
+  output: ShiftsOutput
+  vipKey: string
+  items: FeedItem[]
+  showName: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const crossing = items.find((item): item is CashCrossingItem => item.kind === 'cash-crossing')
+  const move = items.find((item): item is VipMoveItem => item.kind === 'vip-move')
+  const final = items.find((item): item is FinalStandingItem => item.kind === 'final-standing')
+  const rank = move?.rank ?? crossing?.rank ?? final?.rank ?? null
+  const points = move?.points ?? crossing?.points ?? final?.points ?? null
+  const lineup = (move ?? crossing)?.lineup ?? []
+  const changed = lineup.filter((row) => row.pointsDelta !== 0 || row.game.from !== row.game.to || row.locked.from !== row.locked.to)
+  const high = items.some((item) => item.priority === 'high')
+  return (
+    <article className={cn('space-y-2 rounded-lg border bg-card p-3', high && 'border-non-cashing/50')}>
+      <header className="flex items-center gap-2 text-sm">
+        {crossing ? <PriorityMark item={crossing} /> : null}
+        {showName ? <VipChip output={output} vipKey={vipKey} /> : null}
+        {crossing ? (
+          <span className={cn('flex items-center gap-1.5 font-medium', !showName && 'text-base')}>
+            <Flag className={cn('size-4', crossing.cashing ? 'text-cashing' : 'text-non-cashing')} />
+            {showName ? PATH_LABEL[crossing.path] : PATH_LABEL[crossing.path].replace(/^./, (c) => c.toUpperCase())}
+          </span>
+        ) : null}
+        {final ? (
+          <span className={cn('font-medium', final.cashing ? 'text-cashing' : 'text-non-cashing')}>
+            Finished {final.cashing ? 'cashing' : 'outside the cash line'}
+          </span>
+        ) : null}
+      </header>
+      {crossing?.cause ? (
+        <p className="text-xs text-muted-foreground">
+          Cause: the cash line moved <span className="text-cash-line">{lineMoveText(crossing.cause)}</span>. Their lineup did
+          not cause this.
+        </p>
+      ) : crossing && (crossing.path === 'in-then-out' || crossing.path === 'out-then-in') ? (
+        <p className="text-xs text-muted-foreground">Crossed and crossed back before you looked; a net comparison would hide it.</p>
+      ) : null}
+      <div className="grid grid-cols-3 gap-3">
+        <Move label="Rank" pair={rank} format={rankText} lowerIsBetter places />
+        <Move label="Points" pair={points} format={formatPoints} />
+        <Move label="To cash" pair={move?.distancePoints ?? null} format={formatPoints} lowerIsBetter />
+      </div>
+      {lineup.length > 0 ? (
+        <div>
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <ChevronRight className={cn('size-3.5 transition-transform', open && 'rotate-90')} />
+            Lineup · {changed.length} of {lineup.length} changed
+          </button>
+          {open ? (
+            <div className="mt-2">
+              <LineupDiff rows={lineup} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </article>
+  )
+}
+
 export function ShiftsPage() {
   const { output, markSeen } = useShiftsProto()
   const [params] = useSearchParams()
-  const variant = (params.get('variant') ?? 'A') as Variant
+  const variant = (params.get('variant') ?? DEFAULT_VARIANT) as Variant
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 pt-4 pb-28">
       <header className="flex flex-wrap items-center gap-3">
@@ -506,6 +602,8 @@ export function ShiftsPage() {
             ? 'Nothing unseen: you were away for under 10 minutes, so the Seen mark moved on by itself.'
             : 'Nothing has moved for your VIPs since you last looked.'}
         </div>
+      ) : variant === 'D' ? (
+        <MergedFeed output={output} />
       ) : variant === 'B' ? (
         <GroupedFeed output={output} />
       ) : variant === 'C' ? (
@@ -521,9 +619,9 @@ export function ShiftsPage() {
 
 /** Floating bar: variant arrows (as the prototype skill asks), plus a scenario picker and session controls. */
 export function PrototypeBar({ onShiftsPage }: { onShiftsPage: boolean }) {
-  const { scenario, setScenario, surfaceMode, setSurfaceMode, reload, visits, output } = useShiftsProto()
+  const { scenario, setScenario, profile, setProfile, surfaceMode, setSurfaceMode, reload, visits, output } = useShiftsProto()
   const [params, setParams] = useSearchParams()
-  const current = (params.get('variant') ?? 'A') as Variant
+  const current = (params.get('variant') ?? DEFAULT_VARIANT) as Variant
   const index = Math.max(0, VARIANTS.findIndex((variant) => variant.key === current))
 
   const goto = (offset: number) => {
@@ -584,6 +682,18 @@ export function PrototypeBar({ onShiftsPage }: { onShiftsPage: boolean }) {
         ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-white/80">
+        <label className="flex items-center gap-1">
+          Profile
+          <select
+            aria-label="Profile"
+            className="rounded border border-white/20 bg-black px-1 py-0.5"
+            value={profile}
+            onChange={(event) => setProfile(event.target.value as typeof profile)}
+          >
+            <option value="me">Me (1 VIP)</option>
+            <option value="everyone">Everyone (4 VIPs)</option>
+          </select>
+        </label>
         <label className="flex items-center gap-1">
           Surfaced on
           <select

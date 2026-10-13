@@ -12,11 +12,34 @@ import {
 
 export type SurfaceMode = 'render' | 'dismiss'
 
+/** Stand-in for the Profile switch: one VIP (the viewer's own entry) or everyone the Profile tracks. */
+export type ProfileScope = 'me' | 'everyone'
+const ME_KEY = 'v-mara'
+
+/** What the module would report if the active Profile held only these VIPs. */
+function scopeOutput(out: ShiftsOutput, scope: ProfileScope): ShiftsOutput {
+  if (scope === 'everyone') return out
+  const keep = (item: FeedItem) => !('vipKey' in item) || item.vipKey === ME_KEY
+  const feed = out.feed.filter(keep)
+  return {
+    ...out,
+    vips: out.vips.filter((vip) => vip.key === ME_KEY),
+    feed,
+    unseenCount: feed.length,
+    unsurfacedHigh: out.unsurfacedHigh.filter(keep),
+    // A long gap with nothing unseen for this Profile has nothing to summarize.
+    returnedAfterGap:
+      out.returnedAfterGap && feed.length > 0 ? { ...out.returnedAfterGap, count: feed.length, top: feed[0] } : null,
+  }
+}
+
 interface ShiftsProto {
   scenario: ScenarioKey
   setScenario: (key: ScenarioKey) => void
   /** The sample output, adjusted for what this session did (marked as seen, surfaced). */
   output: ShiftsOutput
+  profile: ProfileScope
+  setProfile: (scope: ProfileScope) => void
   surfaceMode: SurfaceMode
   setSurfaceMode: (mode: SurfaceMode) => void
   /** Explicit call from the UI: these High items were shown. */
@@ -41,6 +64,7 @@ export function ShiftsProtoProvider({ children }: { children: ReactNode }) {
   const raw = params.get('scenario')
   const scenario: ScenarioKey = isScenario(raw) ? raw : 'mid-slate'
   const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>('render')
+  const [profile, setProfile] = useState<ProfileScope>('everyone')
   const [reloadCount, setReloadCount] = useState(0)
   const [visits, setVisits] = useState<string[]>([])
   // Session overrides, keyed by scenario so switching scenarios starts each one fresh.
@@ -75,16 +99,19 @@ export function ShiftsProtoProvider({ children }: { children: ReactNode }) {
   const output = useMemo<ShiftsOutput>(() => {
     const base = SCENARIOS[scenario]
     if (seen[scenario]) {
-      return { ...base, feed: [], unseenCount: 0, unsurfacedHigh: [], returnedAfterGap: null }
+      return scopeOutput({ ...base, feed: [], unseenCount: 0, unsurfacedHigh: [], returnedAfterGap: null }, profile)
     }
     const surfacedIds = new Set(surfaced[scenario] ?? [])
     const feed: FeedItem[] = base.feed.map((item) => (surfacedIds.has(item.id) ? { ...item, surfaced: true } : item))
-    return {
-      ...base,
-      feed,
-      unsurfacedHigh: feed.filter((item) => item.priority === 'high' && !item.surfaced),
-    }
-  }, [scenario, seen, surfaced])
+    return scopeOutput(
+      {
+        ...base,
+        feed,
+        unsurfacedHigh: feed.filter((item) => item.priority === 'high' && !item.surfaced),
+      },
+      profile,
+    )
+  }, [scenario, seen, surfaced, profile])
 
   const markSurfaced = useCallback(
     (ids: string[]) => {
@@ -97,8 +124,8 @@ export function ShiftsProtoProvider({ children }: { children: ReactNode }) {
   const reload = useCallback(() => setReloadCount((n) => n + 1), [])
 
   const value = useMemo<ShiftsProto>(
-    () => ({ scenario, setScenario, output, surfaceMode, setSurfaceMode, markSurfaced, markSeen, reloadCount, reload, visits }),
-    [scenario, setScenario, output, surfaceMode, markSurfaced, markSeen, reloadCount, reload, visits],
+    () => ({ scenario, setScenario, output, profile, setProfile, surfaceMode, setSurfaceMode, markSurfaced, markSeen, reloadCount, reload, visits }),
+    [scenario, setScenario, output, profile, surfaceMode, markSurfaced, markSeen, reloadCount, reload, visits],
   )
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
