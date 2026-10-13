@@ -12,18 +12,26 @@ import {
 
 export type SurfaceMode = 'render' | 'dismiss'
 
-/** Stand-in for the Profile switch: one VIP (the viewer's own entry) or everyone the Profile tracks. */
-export type ProfileScope = 'me' | 'everyone'
+/**
+ * Stand-in for the Profile switch:
+ * - `me`: a Profile whose `username` rule is the viewer's own DraftKings name, so it holds one VIP and says "You";
+ * - `other`: a one-VIP Profile with no username rule (an observer following one person), which keeps names;
+ * - `everyone`: every VIP, no username rule.
+ */
+export type ProfileScope = 'me' | 'other' | 'everyone'
 const ME_KEY = 'v-mara'
+const OTHER_KEY = 'v-bell'
 
 /** What the module would report if the active Profile held only these VIPs. */
 function scopeOutput(out: ShiftsOutput, scope: ProfileScope): ShiftsOutput {
   if (scope === 'everyone') return out
-  const keep = (item: FeedItem) => !('vipKey' in item) || item.vipKey === ME_KEY
+  const only = scope === 'me' ? ME_KEY : OTHER_KEY
+  const keep = (item: FeedItem) => !('vipKey' in item) || item.vipKey === only
   const feed = out.feed.filter(keep)
   return {
     ...out,
-    vips: out.vips.filter((vip) => vip.key === ME_KEY),
+    vips: out.vips.filter((vip) => vip.key === only),
+    youKey: scope === 'me' ? ME_KEY : null,
     feed,
     unseenCount: feed.length,
     unsurfacedHigh: out.unsurfacedHigh.filter(keep),

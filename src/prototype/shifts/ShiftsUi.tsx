@@ -486,9 +486,8 @@ function TableFeed({ output }: { output: ShiftsOutput }) {
   )
 }
 
-/** D: one card per VIP merging their crossing and move, importance order, name dropped for a one-VIP Profile. */
+/** D: one card per VIP merging their crossing and move, importance order, name dropped only for "You". */
 function MergedFeed({ output }: { output: ShiftsOutput }) {
-  const single = output.vips.length === 1
   // Cards take the position of their first item, and the feed is already High first.
   const order: string[] = []
   for (const item of output.feed) {
@@ -501,7 +500,7 @@ function MergedFeed({ output }: { output: ShiftsOutput }) {
         const items = output.feed.filter((item) => ('vipKey' in item ? item.vipKey : item.id) === id)
         const solo = items.length === 1 ? items[0] : null
         if (solo && !('vipKey' in solo)) return <ItemCard key={id} item={solo} output={output} />
-        return <VipCard key={id} output={output} vipKey={id} items={items} showName={!single} />
+        return <VipCard key={id} output={output} vipKey={id} items={items} showName={output.youKey !== id} />
       })}
     </div>
   )
@@ -690,7 +689,8 @@ export function PrototypeBar({ onShiftsPage }: { onShiftsPage: boolean }) {
             value={profile}
             onChange={(event) => setProfile(event.target.value as typeof profile)}
           >
-            <option value="me">Me (1 VIP)</option>
+            <option value="me">Me: username rule (1 VIP)</option>
+            <option value="other">One other VIP, no username rule</option>
             <option value="everyone">Everyone (4 VIPs)</option>
           </select>
         </label>

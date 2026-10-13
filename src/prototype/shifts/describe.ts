@@ -19,9 +19,9 @@ export function delta(pair: FromTo): number | null {
   return pair.from === null || pair.to === null ? null : pair.to - pair.from
 }
 
-/** The name a sentence uses: "You" when the Profile tracks one VIP, who is the viewer. */
+/** The name a sentence uses: "You" only for the VIP the active Profile's `username` rule matches. */
 export function subject(output: ShiftsOutput, vipKey: string): string {
-  return output.vips.length === 1 ? 'You' : vipFor(output, vipKey).name
+  return output.youKey === vipKey ? 'You' : vipFor(output, vipKey).name
 }
 
 export const PATH_LABEL: Record<CrossingPath, string> = {

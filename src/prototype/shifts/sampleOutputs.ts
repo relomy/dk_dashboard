@@ -132,6 +132,11 @@ export interface ShiftsOutput {
   note: string
   contest: { name: string; state: 'live' | 'completed'; sport: string }
   vips: SampleVip[]
+  /**
+   * The VIP the UI addresses as "You": the one whose display name equals the active Profile's `username` rule.
+   * Null when the Profile has no username rule or it matches nobody.
+   */
+  youKey: string | null
   feed: FeedItem[]
   unseenCount: number
   /** High items not yet shown by the banner, a subset of `feed`. */
@@ -340,6 +345,7 @@ function output(
     feed,
     contest: { name: '$100K NBA Classic', state, sport: 'nba' },
     vips: VIPS,
+    youKey: null,
     unseenCount: feed.length,
     unsurfacedHigh: feed.filter((item) => item.priority === 'high' && !item.surfaced),
     returnedAfterGap: gapBand === '30-plus' ? summarize(feed, awayMinutes) : null,
