@@ -47,7 +47,7 @@ export function ShiftsProvider({ sport, children }: { sport: string | null; chil
         if (!visitPending.current || !model || recorded.current !== model) return
         visitPending.current = false
         feed.record(model, { visit: true })
-          }, VISIT_SETTLE_MS)
+      }, VISIT_SETTLE_MS)
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
     return () => {
