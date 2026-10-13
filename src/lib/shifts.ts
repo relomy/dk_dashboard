@@ -292,6 +292,15 @@ function isStoredState(value: unknown): value is StoredState {
   )
 }
 
+/**
+ * The Seen mark as it applies to the current model: a VIP's own first appearance is that VIP's baseline, so a VIP
+ * new to the model joins the Seen mark as it is now (quietly), and a VIP gone from the model drops out of it.
+ */
+function reconcileSeen(seen: Digest, current: Digest): Digest {
+  const known = vipsByKey(seen.vips)
+  return { ...seen, vips: [...vipsByKey(current.vips).values()].map((vip) => known.get(vip.key) ?? vip) }
+}
+
 function moveOf<T>(from: T, to: T): Move<T> {
   return { from, to }
 }
@@ -586,12 +595,13 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
           write(storageKey, { ...stored, seen: digest, last: digest, log: [] })
           return
         }
+        const seen = reconcileSeen(stored.seen, digest)
         const log = appendEntries(stored.log, [...detectCompletion(stored.last, digest), ...detectCrossings(stored.last, digest)])
-        write(storageKey, { ...stored, last: digest, log })
+        write(storageKey, { ...stored, seen, last: digest, log })
         items = orderFeed([
           ...contestStateItems(log),
-          ...withCrossings(netVipShifts(stored.seen, digest, digest.at), stored.seen, digest, log, digest.at),
-          ...cashLineShift(stored.seen, digest, digest.at),
+          ...withCrossings(netVipShifts(seen, digest, digest.at), seen, digest, log, digest.at),
+          ...cashLineShift(seen, digest, digest.at),
         ])
         if (visit && gapMs >= SUMMARY_MS && items.length > 0) {
           gap = { unseenCount: items.length, topItem: items[0], minutesAway: Math.floor(gapMs / 60_000) }

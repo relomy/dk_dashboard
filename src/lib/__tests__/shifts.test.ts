@@ -1039,3 +1039,46 @@ describe('completed contest', () => {
     expectQuiet(feed)
   })
 })
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function withoutVip(name: string) {
+  return (snapshot: any) => {
+    const contest = snapshot.sports.nfl.contests[0]
+    contest.vip_lineups = contest.vip_lineups.filter((vip: any) => vip.display_name !== name)
+  }
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+describe('a VIP added or removed mid-session', () => {
+  it('baselines the VIP at its first appearance, quietly, then reports its later moves', () => {
+    const storage = memoryStorage()
+    const first = createShiftsFeed({ storage, now: () => T0 })
+    first.record(nflModel({}, withoutVip('Cubbiesftw23')), { visit: true })
+    const later = createShiftsFeed({ storage, now: () => T0 + 60_000 })
+    later.record(nflModel(), { visit: false })
+    expectQuiet(later)
+    later.record(nflModel({ Cubbiesftw23: { rank: 1000 } }), { visit: false })
+    expect(vipItems(later)).toHaveLength(1)
+    expect(vipItems(later)[0]).toMatchObject({ vipKey: KEY.cubbies, rank: { from: 1014, to: 1000 } })
+  })
+
+  it('reports a cash crossing by a VIP after it was added', () => {
+    const storage = memoryStorage()
+    createShiftsFeed({ storage, now: () => T0 }).record(nflModel({}, withoutVip('EmpireMaker2')), { visit: true })
+    const feed = createShiftsFeed({ storage, now: () => T0 + 60_000 })
+    feed.record(nflModel(), { visit: false })
+    expectQuiet(feed)
+    feed.record(nflModel({ EmpireMaker2: INSIDE }), { visit: false })
+    expect(vipItems(feed)[0]).toMatchObject({ vipKey: KEY.empire, priority: 'high', crossing: { path: 'in' } })
+  })
+
+  it('drops a removed VIP quietly and baselines it afresh when it returns', () => {
+    const { feed } = seededFeed()
+    feed.record(nflModel({}, withoutVip('EmpireMaker2')), { visit: false })
+    expectQuiet(feed)
+    feed.record(nflModel({ EmpireMaker2: { rank: 400 } }), { visit: false })
+    expectQuiet(feed)
+    feed.record(nflModel({ EmpireMaker2: { rank: 300 } }), { visit: false })
+    expect(vipItems(feed)[0]).toMatchObject({ rank: { from: 400, to: 300 } })
+  })
+})
