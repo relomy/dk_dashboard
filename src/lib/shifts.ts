@@ -8,7 +8,7 @@ import type { LiveModel } from './liveModel'
  * (and removing `generated_at` from `liveUnreadAllowlist.json`). So a contest is identified by the model header
  * (name plus start time) and `snapshotAt` stands in for the snapshot's `generated_at`.
  *
- * This slice seeds, switches and persists; it produces no shifts yet, so the feed is always empty.
+ * Net VIP moves (rank, points, distance to cash) are compared against the Seen mark on each build.
  */
 
 /** The slice of the Web Storage API the feed uses; tests pass an in-memory stub. */
@@ -88,6 +88,19 @@ export interface ShiftsFeedOptions {
 }
 
 const STORAGE_KEY_PREFIX = 'dk_dashboard_shifts_'
+
+// --- Thresholds -------------------------------------------------------------------------------------------------
+// A tuned-by-feel starting point, to be adjusted against real snapshots. A move smaller than its threshold is
+// ignored. All figures are net moves between the Seen mark and the current Live model.
+/** VIP rank, in places. */
+export const VIP_RANK_THRESHOLD = 2
+/** VIP points. */
+export const VIP_POINTS_THRESHOLD = 1.0
+/** Distance to cash, in points; a VIP shifts when either this or the rank threshold is met. */
+export const DISTANCE_TO_CASH_POINTS_THRESHOLD = 1.0
+/** Distance to cash, in ranks. */
+export const DISTANCE_TO_CASH_RANK_THRESHOLD = 2
+// ----------------------------------------------------------------------------------------------------------------
 
 interface PlayerDigest {
   key: string
@@ -169,6 +182,65 @@ function isStoredState(value: unknown): value is StoredState {
   return typeof state.contestKey === 'string' && isDigest(state.seen) && isDigest(state.last) && Array.isArray(state.log)
 }
 
+function moveOf<T>(from: T, to: T): Move<T> {
+  return { from, to }
+}
+
+/** True when both sides are known and differ by at least the threshold (rounded to absorb float noise). */
+function movedBy(move: Move<number | null>, threshold: number): boolean {
+  if (move.from === null || move.to === null) return false
+  return Math.round(Math.abs(move.to - move.from) * 1e6) >= Math.round(threshold * 1e6)
+}
+
+/**
+ * Net VIP shifts: one item per VIP present on both sides whose rank, points or distance to cash moved by at least
+ * its threshold. A VIP on one side only (added to or removed from the Profile) is that VIP's baseline: no shift.
+ */
+function netVipShifts(seen: Digest, current: Digest, detectedAt: number): VipShiftItem[] {
+  const before = new Map<string, VipDigest>()
+  for (const vip of seen.vips) if (!before.has(vip.key)) before.set(vip.key, vip)
+  const items: VipShiftItem[] = []
+  const done = new Set<string>()
+  for (const vip of current.vips) {
+    const prior = before.get(vip.key)
+    if (!prior || done.has(vip.key)) continue
+    done.add(vip.key)
+    const rank = moveOf(prior.rank, vip.rank)
+    const points = moveOf(prior.points, vip.points)
+    const distanceToCashPoints = moveOf(prior.distanceToCash.points, vip.distanceToCash.points)
+    const distanceToCashRank = moveOf(prior.distanceToCash.rank, vip.distanceToCash.rank)
+    const shifted =
+      movedBy(rank, VIP_RANK_THRESHOLD) ||
+      movedBy(points, VIP_POINTS_THRESHOLD) ||
+      movedBy(distanceToCashPoints, DISTANCE_TO_CASH_POINTS_THRESHOLD) ||
+      movedBy(distanceToCashRank, DISTANCE_TO_CASH_RANK_THRESHOLD)
+    if (!shifted) continue
+    items.push({
+      kind: 'vip',
+      id: `vip:${vip.key}:${seen.at}`,
+      priority: 'normal',
+      detectedAt,
+      vipKey: vip.key,
+      rank,
+      points,
+      distanceToCashPoints,
+      distanceToCashRank,
+    })
+  }
+  return items
+}
+
+function rankMagnitude(item: ShiftItem): number {
+  if (item.kind !== 'vip' || item.rank.from === null || item.rank.to === null) return 0
+  return Math.abs(item.rank.to - item.rank.from)
+}
+
+/** High priority first, then the largest absolute rank move. */
+function orderFeed(items: ShiftItem[]): ShiftItem[] {
+  const weight = (item: ShiftItem) => (item.priority === 'high' ? 1 : 0)
+  return [...items].sort((a, b) => weight(b) - weight(a) || rankMagnitude(b) - rankMagnitude(a))
+}
+
 function defaultStorage(): ShiftsStorage | null {
   try {
     return globalThis.localStorage ?? null
@@ -200,8 +272,11 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
     }
   }
 
+  let items: ShiftItem[] = []
+
   return {
     record(model) {
+      items = []
       try {
         const storageKey = `${STORAGE_KEY_PREFIX}${model.sport}`
         const stored = read(storageKey)
@@ -212,12 +287,14 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
           return
         }
         write(storageKey, { ...stored, last: digest })
+        items = orderFeed([...netVipShifts(stored.seen, digest, digest.at)])
       } catch {
+        items = []
         // Recording must never break the Live view.
       }
     },
-    feed: () => [],
-    unseenCount: () => 0,
+    feed: () => items,
+    unseenCount: () => items.length,
     unsurfaced: () => [],
     gap: () => null,
     markSeen() {},
