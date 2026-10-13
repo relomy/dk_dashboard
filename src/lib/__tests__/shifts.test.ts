@@ -715,3 +715,183 @@ describe('the High priority log cap', () => {
     expect(vipItems(feed)).toHaveLength(1)
   })
 })
+
+const MINUTE = 60_000
+
+/** A feed seeded at T0 whose VIP then moved at T0 + 1 min (a poll), leaving one unseen item. */
+function feedWithUnseen() {
+  const { feed, at } = seededFeed()
+  at(T0 + MINUTE)
+  feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: false })
+  return { feed, at }
+}
+
+describe('visits after a short gap', () => {
+  it('advances the Seen mark silently, leaving nothing unseen and no summary', () => {
+    const { feed, at } = feedWithUnseen()
+    at(T0 + 1 * MINUTE + 9 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
+    expectQuiet(feed)
+  })
+
+  it('measures later moves from the advanced Seen mark', () => {
+    const { feed, at } = feedWithUnseen()
+    at(T0 + 5 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
+    at(T0 + 6 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 470 } }), { visit: false })
+    expect(vipItems(feed)[0].rank).toEqual({ from: 480, to: 470 })
+  })
+
+  it('also acknowledges a cash crossing, clearing the High priority items', () => {
+    const { feed, at } = seededFeed()
+    at(T0 + MINUTE)
+    feed.record(nflModel({ EmpireMaker2: INSIDE }), { visit: false })
+    expect(feed.unsurfaced()).toHaveLength(1)
+    at(T0 + 2 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: INSIDE }), { visit: true })
+    expectQuiet(feed)
+  })
+})
+
+describe('visits after a middling gap', () => {
+  it('lets shifts accumulate as unseen, with no summary', () => {
+    const { feed, at } = feedWithUnseen()
+    at(T0 + MINUTE + 10 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 470 } }), { visit: true })
+    expect(vipItems(feed)[0].rank).toEqual({ from: 511, to: 470 })
+    expect(feed.unseenCount()).toBe(1)
+    expect(feed.gap()).toBeNull()
+  })
+
+  it('still accumulates just under the summary duration', () => {
+    const { feed, at } = feedWithUnseen()
+    at(T0 + MINUTE + 29 * MINUTE + 59_000)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
+    expect(feed.unseenCount()).toBe(1)
+    expect(feed.gap()).toBeNull()
+  })
+})
+
+describe('visits after a long gap', () => {
+  it('sets the flag with the unseen count, top item and minutes away', () => {
+    const { feed, at } = feedWithUnseen()
+    at(T0 + MINUTE + 30 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 }, Cubbiesftw23: { rank: 1100 } }), { visit: true })
+    expect(feed.gap()).toEqual({ unseenCount: 2, topItem: feed.feed()[0], minutesAway: 30 })
+    expect(feed.gap()?.topItem).toMatchObject({ vipKey: KEY.cubbies })
+    expect(feed.unseenCount()).toBe(2)
+  })
+
+  it('measures the gap from the previous build, not from the Seen mark', () => {
+    const { feed, at } = feedWithUnseen()
+    at(T0 + 3 * 60 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
+    expect(feed.gap()?.minutesAway).toBe(179)
+  })
+
+  it('leaves the flag unset when nothing is unseen', () => {
+    const { feed, at } = seededFeed()
+    at(T0 + 45 * MINUTE)
+    feed.record(nflModel(), { visit: true })
+    expectQuiet(feed)
+  })
+
+  it('does not advance the Seen mark', () => {
+    const { feed, at } = feedWithUnseen()
+    at(T0 + 40 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
+    at(T0 + 41 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: false })
+    expect(vipItems(feed)[0].rank).toEqual({ from: 511, to: 480 })
+  })
+
+  it('keeps the flag through polls and recomputes it on the next visit', () => {
+    const { feed, at } = feedWithUnseen()
+    at(T0 + 40 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
+    at(T0 + 41 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: false })
+    expect(feed.gap()).toMatchObject({ unseenCount: 1, minutesAway: 39 })
+    at(T0 + 42 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
+    expect(feed.gap()).toBeNull()
+  })
+
+  it('reads the previous build from stored state, so a fresh feed instance sees the gap', () => {
+    const storage = memoryStorage()
+    createShiftsFeed({ storage, now: () => T0 }).record(nflModel(), { visit: true })
+    const later = createShiftsFeed({ storage, now: () => T0 + 2 * 60 * MINUTE })
+    later.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
+    expect(later.gap()).toMatchObject({ unseenCount: 1, minutesAway: 120 })
+  })
+})
+
+describe('polls while the tab stays visible', () => {
+  it('never advance the Seen mark, however long the gap', () => {
+    const { feed, at } = feedWithUnseen()
+    for (const minutes of [5, 20, 60, 600]) {
+      at(T0 + minutes * MINUTE)
+      feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: false })
+      expect(feed.unseenCount()).toBe(1)
+      expect(feed.gap()).toBeNull()
+    }
+  })
+})
+
+describe('marking as seen', () => {
+  it('advances the Seen mark to now, so the feed empties and later moves measure from here', () => {
+    const { feed, at } = feedWithUnseen()
+    at(T0 + 2 * MINUTE)
+    feed.markSeen()
+    expectQuiet(feed)
+    at(T0 + 3 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 470 } }), { visit: false })
+    expect(vipItems(feed)[0].rank).toEqual({ from: 480, to: 470 })
+  })
+
+  it('clears the High priority log, but a surfaced item stays listed until then', () => {
+    const { feed } = seededFeed()
+    feed.record(nflModel({ EmpireMaker2: INSIDE }), { visit: false })
+    feed.markSurfaced([feed.feed()[0].id])
+    feed.record(nflModel({ EmpireMaker2: INSIDE }), { visit: false })
+    expect(feed.feed()).toHaveLength(1)
+    feed.markSeen()
+    feed.record(nflModel({ EmpireMaker2: INSIDE }), { visit: false })
+    expectQuiet(feed)
+  })
+
+  it('persists across feed instances', () => {
+    const storage = memoryStorage()
+    const first = createShiftsFeed({ storage, now: () => T0 })
+    first.record(nflModel(), { visit: true })
+    first.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: false })
+    first.markSeen()
+    const second = createShiftsFeed({ storage, now: () => T0 + MINUTE })
+    second.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: false })
+    expectQuiet(second)
+  })
+
+  it('clears the returned-after-a-gap flag', () => {
+    const { feed, at } = feedWithUnseen()
+    at(T0 + 40 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
+    feed.markSeen()
+    expect(feed.gap()).toBeNull()
+  })
+})
+
+describe('items left unsurfaced', () => {
+  it('are exposed again on the next load, and reading the outputs never surfaces them', () => {
+    const storage = memoryStorage()
+    const first = createShiftsFeed({ storage, now: () => T0 })
+    first.record(nflModel(), { visit: true })
+    first.record(nflModel({ EmpireMaker2: INSIDE }), { visit: false })
+    first.unsurfaced()
+    first.feed()
+    expect(first.unsurfaced()).toHaveLength(1)
+    const reloaded = createShiftsFeed({ storage, now: () => T0 + 15 * MINUTE })
+    reloaded.record(nflModel({ EmpireMaker2: INSIDE }), { visit: true })
+    expect(reloaded.unsurfaced()).toHaveLength(1)
+  })
+})

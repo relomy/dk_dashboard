@@ -158,6 +158,10 @@ export const CASH_LINE_POINTS_THRESHOLD = 1.0
 export const CASH_LINE_RANK_THRESHOLD = 2
 /** The High priority log keeps at most this many entries; the oldest are dropped first. */
 export const HIGH_LOG_CAP = 50
+/** A visit after a gap shorter than this advances the Seen mark silently, in milliseconds. */
+export const AUTO_ADVANCE_MS = 10 * 60_000
+/** A visit after a gap of at least this long sets the returned-after-a-gap flag (when something is unseen). */
+export const SUMMARY_MS = 30 * 60_000
 // ----------------------------------------------------------------------------------------------------------------
 
 interface PlayerDigest {
@@ -524,11 +528,13 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
   }
 
   let items: ShiftItem[] = []
+  let gap: ShiftsGap | null = null
   let currentKey: string | null = null
 
   return {
-    record(model) {
+    record(model, { visit }) {
       items = []
+      if (visit) gap = null
       try {
         const storageKey = `${STORAGE_KEY_PREFIX}${model.sport}`
         currentKey = storageKey
@@ -537,6 +543,13 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
         if (!stored || stored.contestKey !== digest.contestKey) {
           // First visit, another primary contest or a corrupt value: seed both digests and drop the old state.
           write(storageKey, { contestKey: digest.contestKey, seen: digest, last: digest, log: [] })
+          gap = null
+          return
+        }
+        const gapMs = Math.max(0, digest.at - stored.last.at)
+        if (visit && gapMs < AUTO_ADVANCE_MS) {
+          // A quick look away: acknowledge everything, High priority log included.
+          write(storageKey, { ...stored, seen: digest, last: digest, log: [] })
           return
         }
         const log = appendCrossings(stored.log, detectCrossings(stored.last, digest))
@@ -545,16 +558,30 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
           ...withCrossings(netVipShifts(stored.seen, digest, digest.at), stored.seen, digest, log, digest.at),
           ...cashLineShift(stored.seen, digest, digest.at),
         ])
+        if (visit && gapMs >= SUMMARY_MS && items.length > 0) {
+          gap = { unseenCount: items.length, topItem: items[0], minutesAway: Math.floor(gapMs / 60_000) }
+        }
       } catch {
         items = []
+        gap = null
         // Recording must never break the Live view.
       }
     },
     feed: () => items,
     unseenCount: () => items.length,
     unsurfaced: () => items.filter((item) => item.priority === 'high' && !item.surfaced),
-    gap: () => null,
-    markSeen() {},
+    gap: () => gap,
+    markSeen() {
+      items = []
+      gap = null
+      try {
+        const stored = currentKey ? read(currentKey) : null
+        if (!currentKey || !stored) return
+        write(currentKey, { ...stored, seen: { ...stored.last, at: now() }, log: [] })
+      } catch {
+        // Acknowledging is best effort.
+      }
+    },
     markSurfaced(ids) {
       try {
         const stored = currentKey ? read(currentKey) : null
