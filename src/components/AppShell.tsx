@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, matchPath, Outlet, useLocation } from 'react-router-dom'
+import { ShiftsProvider } from '../context/ShiftsProvider'
 import { TopBarSlotContext } from '../context/TopBarSlotContext'
 import { useLatest } from '../hooks/useLatest'
 import SportTabs, { type SportTab } from './SportTabs'
@@ -36,11 +37,13 @@ function AppShell() {
           </div>
         </div>
       </header>
-      <TopBarSlotContext.Provider value={slot}>
-        <main className="flex-1">
-          <Outlet />
-        </main>
-      </TopBarSlotContext.Provider>
+      <ShiftsProvider sport={currentSport}>
+        <TopBarSlotContext.Provider value={slot}>
+          <main className="flex-1">
+            <Outlet />
+          </main>
+        </TopBarSlotContext.Provider>
+      </ShiftsProvider>
     </div>
   )
 }

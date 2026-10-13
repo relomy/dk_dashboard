@@ -1,10 +1,10 @@
-import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import CommandCenter from '../components/live/CommandCenter'
 import PageMessage from '../components/PageMessage'
 import { useRememberSport } from '../hooks/useRememberSport'
 import { useLatest } from '../hooks/useLatest'
-import { buildLiveModel, type LiveNotRenderableReason } from '../lib/liveModel'
+import { useLiveModel } from '../hooks/useLiveModel'
+import type { LiveNotRenderableReason } from '../lib/liveModel'
 
 function AllContestsLink({ sportKey, sportLabel }: { sportKey: string; sportLabel: string }) {
   return (
@@ -53,10 +53,7 @@ function Live() {
 
   const sportKey = sport?.toLowerCase()
   useRememberSport(sportKey)
-  const result = useMemo(
-    () => (snapshot && sportKey ? buildLiveModel(snapshot, sportKey) : null),
-    [snapshot, sportKey],
-  )
+  const result = useLiveModel(snapshot, sportKey)
 
   if (!sport || !sportKey) {
     return <PageMessage>No sport selected.</PageMessage>

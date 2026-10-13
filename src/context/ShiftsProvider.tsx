@@ -1,0 +1,60 @@
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useLatest } from '../hooks/useLatest'
+import { useLiveModel } from '../hooks/useLiveModel'
+import { readLastViewedSport } from '../lib/landing'
+import type { LiveModel } from '../lib/liveModel'
+import { createShiftsFeed } from '../lib/shifts'
+import { ShiftsContext } from './ShiftsContext'
+
+/** How long a returning tab waits for a fresh build before the model it already shows counts as the visit. */
+export const VISIT_SETTLE_MS = 3000
+
+/**
+ * Owns the Shifts feed and records each Live model build for the sport being viewed (or the last-viewed sport
+ * on pages without one), once per build. The page opening and the tab returning to visible are visits; polls
+ * are not. A visit rides on the next build, since that is the data the user returns to; if none arrives within
+ * `VISIT_SETTLE_MS` the current model is recorded as the visit. Nothing here renders anything.
+ */
+export function ShiftsProvider({ sport, children }: { sport: string | null; children: ReactNode }) {
+  const [feed] = useState(() => createShiftsFeed())
+  const { snapshotQuery } = useLatest()
+  const sportKey = sport?.toLowerCase() ?? readLastViewedSport()?.toLowerCase() ?? null
+  const result = useLiveModel(snapshotQuery.data, sportKey)
+  const model = result?.kind === 'ready' ? result.model : null
+
+  const recorded = useRef<LiveModel | null>(null)
+  const current = useRef<LiveModel | null>(null)
+  const visitPending = useRef(true)
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => {
+    current.current = model
+    if (!model || recorded.current === model) return
+    recorded.current = model
+    clearTimeout(settleTimer.current)
+    const visit = visitPending.current
+    visitPending.current = false
+    feed.record(model, { visit })
+  }, [model, feed])
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return
+      visitPending.current = true
+      clearTimeout(settleTimer.current)
+      settleTimer.current = setTimeout(() => {
+        const model = current.current
+        if (!visitPending.current || !model || recorded.current !== model) return
+        visitPending.current = false
+        feed.record(model, { visit: true })
+          }, VISIT_SETTLE_MS)
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      clearTimeout(settleTimer.current)
+    }
+  }, [feed])
+
+  return <ShiftsContext.Provider value={feed}>{children}</ShiftsContext.Provider>
+}
