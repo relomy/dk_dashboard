@@ -22,15 +22,15 @@ export function ShiftsProvider({ sport, children }: { sport: string | null; chil
   const result = useLiveModel(snapshotQuery.data, sportKey)
   const model = result?.kind === 'ready' ? result.model : null
 
-  const recorded = useRef<LiveModel | null>(null)
-  const current = useRef<LiveModel | null>(null)
+  const recordedModel = useRef<LiveModel | null>(null)
+  const latestModel = useRef<LiveModel | null>(null)
   const visitPending = useRef(true)
   const settleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => {
-    current.current = model
-    if (!model || recorded.current === model) return
-    recorded.current = model
+    latestModel.current = model
+    if (!model || recordedModel.current === model) return
+    recordedModel.current = model
     clearTimeout(settleTimer.current)
     const visit = visitPending.current
     visitPending.current = false
@@ -43,10 +43,10 @@ export function ShiftsProvider({ sport, children }: { sport: string | null; chil
       visitPending.current = true
       clearTimeout(settleTimer.current)
       settleTimer.current = setTimeout(() => {
-        const model = current.current
-        if (!visitPending.current || !model || recorded.current !== model) return
+        const latest = latestModel.current
+        if (!visitPending.current || !latest || recordedModel.current !== latest) return
         visitPending.current = false
-        feed.record(model, { visit: true })
+        feed.record(latest, { visit: true })
       }, VISIT_SETTLE_MS)
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
