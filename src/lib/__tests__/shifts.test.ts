@@ -232,7 +232,7 @@ describe('net VIP shifts', () => {
     expect(vipItems(feed)).toHaveLength(1)
   })
 
-  it('measures from the Seen mark, so moves accumulate across polls and a return to baseline vanishes', () => {
+  it('measures from the Seen mark, so moves accumulate across polls and a return to the Seen mark vanishes', () => {
     const { feed } = seededFeed()
     feed.record(nflModel({ EmpireMaker2: { rank: 510 } }), { visit: false })
     expect(feed.feed()).toEqual([])
@@ -323,7 +323,7 @@ function empireModel(edit: (snapshot: any) => void = () => {}): LiveModel {
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 describe('lineup diff', () => {
-  it('lists every slot of the lineup, the scoring player first with its own points delta', () => {
+  it('lists every slot of the lineup, the scoring player first with its own points move', () => {
     const { feed } = seededFeed()
     feed.record(empireModel((snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 15.44 })), { visit: false })
     const [item] = vipItems(feed)
@@ -333,13 +333,13 @@ describe('lineup diff', () => {
       name: 'Trevor Lawrence',
       playerKey: LAWRENCE,
       points: { from: 9.44, to: 15.44 },
-      pointsDelta: 6,
+      pointsMove: 6,
       locked: { from: false, to: false },
       gameStatus: { from: 'in-progress', to: 'in-progress' },
     })
   })
 
-  it('orders changed players by absolute delta, then unchanged players, then still-hidden slots', () => {
+  it('orders changed players by absolute points move, then unchanged players, then still-hidden slots', () => {
     const { feed } = seededFeed()
     feed.record(
       empireModel((snapshot) => {
@@ -350,7 +350,7 @@ describe('lineup diff', () => {
       { visit: false },
     )
     const [item] = vipItems(feed)
-    expect(item.lineup?.map((slot) => [slot.slot, slot.pointsDelta])).toEqual([
+    expect(item.lineup?.map((slot) => [slot.slot, slot.pointsMove])).toEqual([
       ['RB', -5],
       ['QB', 1],
       ['DST', 1],
@@ -371,7 +371,7 @@ describe('lineup diff', () => {
     const [item] = vipItems(feed)
     expect(item.lineup?.[0]).toMatchObject({
       playerKey: WILSON,
-      pointsDelta: 0,
+      pointsMove: 0,
       gameStatus: { from: 'in-progress', to: 'final' },
     })
   })
@@ -393,7 +393,7 @@ describe('lineup diff', () => {
     feed.record(nflModel({}, (snapshot) => pooled(snapshot, LAWRENCE, { stats_text: '2 TD' })), { visit: true })
     feed.record(empireModel((snapshot) => pooled(snapshot, BROWN, { fantasy_points: 12 })), { visit: false })
     const unchanged = vipItems(feed)[0].lineup?.find((slot) => slot.playerKey === LAWRENCE)
-    expect(unchanged).toMatchObject({ pointsDelta: 0 })
+    expect(unchanged).toMatchObject({ pointsMove: 0 })
     expect(unchanged?.stats).toBeUndefined()
     feed.record(empireModel((snapshot) => pooled(snapshot, LAWRENCE, { stats_text: null })), { visit: false })
     expect(vipItems(feed)[0].lineup?.find((slot) => slot.playerKey === LAWRENCE)?.stats).toBeUndefined()
@@ -414,13 +414,13 @@ describe('lineup diff', () => {
       name: 'Tyler Higbee',
       playerKey: HIGBEE,
       points: { from: null, to: 4.2 },
-      pointsDelta: 4.2,
+      pointsMove: 4.2,
       locked: { from: true, to: false },
     })
     expect(item.lineup?.filter((slot) => slot.locked.to)).toHaveLength(2)
   })
 
-  it('treats a swap as no shift and no cross-player delta', () => {
+  it('treats a swap as no shift and no cross-player points move', () => {
     const { feed } = seededFeed()
     feed.record(
       empireModel((snapshot) => {
@@ -436,9 +436,9 @@ describe('lineup diff', () => {
       { visit: false },
     )
     const swappedIn = vipItems(feed)[0].lineup?.find((slot) => slot.name === 'Dontayvion Wicks')
-    expect(swappedIn).toMatchObject({ points: { from: null, to: 3.3 }, pointsDelta: null, locked: { from: false, to: false } })
+    expect(swappedIn).toMatchObject({ points: { from: null, to: 3.3 }, pointsMove: null, locked: { from: false, to: false } })
     expect(vipItems(feed)[0].lineup?.some((slot) => slot.playerKey === WASHINGTON)).toBe(false)
-    expect(vipItems(feed)[0].lineup?.every((slot) => (slot.pointsDelta ?? 0) === 0)).toBe(true)
+    expect(vipItems(feed)[0].lineup?.every((slot) => (slot.pointsMove ?? 0) === 0)).toBe(true)
   })
 
   it('lets slot position decide when a swap and a reveal share a slot label', () => {
@@ -454,12 +454,12 @@ describe('lineup diff', () => {
       { visit: false },
     )
     const lineup = vipItems(feed)[0].lineup ?? []
-    // Position 5 was locked, so it is a reveal: Washington's whole 7.5 is its delta, though he sat in position 4 before.
+    // Position 5 was locked, so it is a reveal: Washington's whole 7.5 is its move, though he sat in position 4 before.
     const revealed = lineup.find((slot) => slot.playerKey === WASHINGTON)
-    expect(revealed).toMatchObject({ locked: { from: true, to: false }, points: { from: null, to: 7.5 }, pointsDelta: 7.5 })
-    // Position 4 changed player: a swap, with no delta.
+    expect(revealed).toMatchObject({ locked: { from: true, to: false }, points: { from: null, to: 7.5 }, pointsMove: 7.5 })
+    // Position 4 changed player: a swap, with no points move.
     const swapped = lineup.find((slot) => slot.name === 'Dontayvion Wicks')
-    expect(swapped).toMatchObject({ locked: { from: false, to: false }, pointsDelta: null })
+    expect(swapped).toMatchObject({ locked: { from: false, to: false }, pointsMove: null })
     expect(lineup[0]).toBe(revealed)
   })
 
@@ -474,7 +474,7 @@ describe('lineup diff', () => {
     const items = vipItems(feed)
     expect(items.map((item) => item.vipKey).sort()).toEqual([KEY.cubbies, KEY.empire].sort())
     for (const item of items) {
-      expect(item.lineup?.find((slot) => slot.playerKey === LAWRENCE)).toMatchObject({ pointsDelta: 3 })
+      expect(item.lineup?.find((slot) => slot.playerKey === LAWRENCE)).toMatchObject({ pointsMove: 3 })
     }
   })
 
@@ -488,7 +488,7 @@ describe('lineup diff', () => {
     const { feed } = seededFeed()
     feed.record(empireModel((snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 11.44 })), { visit: false })
     feed.record(empireModel((snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 13.44 })), { visit: false })
-    expect(vipItems(feed)[0].lineup?.[0]).toMatchObject({ points: { from: 9.44, to: 13.44 }, pointsDelta: 4 })
+    expect(vipItems(feed)[0].lineup?.[0]).toMatchObject({ points: { from: 9.44, to: 13.44 }, pointsMove: 4 })
   })
 })
 
@@ -502,7 +502,7 @@ function cashLine(points: number, rank: number) {
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-// The seeded baseline has EmpireMaker2 just outside cashing (-0.3 points); the line is 31.24 points at rank 500.
+// The seeded Seen mark has EmpireMaker2 just outside cashing (-0.3 points); the line is 31.24 points at rank 500.
 const INSIDE = { distancePoints: 0.5 }
 const OUTSIDE = { distancePoints: -0.5 }
 
