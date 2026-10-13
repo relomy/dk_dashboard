@@ -312,6 +312,13 @@ function pointsMoveOf(from: number | null, to: number | null): number | null {
   return Math.round((to - from) * 1e6) / 1e6
 }
 
+/** VIPs by key; a VIP listed twice keeps its first entry. */
+function vipsByKey(vips: VipDigest[]): Map<string, VipDigest> {
+  const byKey = new Map<string, VipDigest>()
+  for (const vip of vips) if (!byKey.has(vip.key)) byKey.set(vip.key, vip)
+  return byKey
+}
+
 /** A player is the same across polls by `playerKey`, else by trimmed name; never by slot position. */
 function playerIdOf(player: PlayerDigest): string {
   return player.playerKey ? `key:${player.playerKey}` : `name:${player.name.trim()}`
@@ -374,8 +381,7 @@ function lineupDiff(before: PlayerDigest[], after: PlayerDigest[]): LineupSlotDi
  */
 function netVipShifts(seen: Digest, current: Digest, detectedAt: number): VipShiftItem[] {
   const final = current.contestState === 'completed'
-  const before = new Map<string, VipDigest>()
-  for (const vip of seen.vips) if (!before.has(vip.key)) before.set(vip.key, vip)
+  const before = vipsByKey(seen.vips)
   const items: VipShiftItem[] = []
   const done = new Set<string>()
   for (const vip of current.vips) {
@@ -438,8 +444,7 @@ type NewCrossing = Omit<CrossingEntry, 'seq' | 'id'>
 function detectCrossings(last: Digest, current: Digest): NewCrossing[] {
   // Once completed only final standings are compared, so a flip of cashing is reported there, not as a crossing.
   if (current.contestState === 'completed') return []
-  const before = new Map<string, VipDigest>()
-  for (const vip of last.vips) if (!before.has(vip.key)) before.set(vip.key, vip)
+  const before = vipsByKey(last.vips)
   const move = cashLineMoveOf(last, current)
   const cause = cashLineMoved(move) ? move : null
   const found: NewCrossing[] = []
@@ -495,8 +500,7 @@ function withCrossings(items: VipShiftItem[], seen: Digest, current: Digest, log
   const byVip = new Map<string, CrossingEntry[]>()
   for (const entry of log) if (entry.kind === 'crossing') byVip.set(entry.vipKey, [...(byVip.get(entry.vipKey) ?? []), entry])
   const result = new Map(items.map((item) => [item.vipKey, item]))
-  const priorOf = new Map<string, VipDigest>()
-  for (const vip of seen.vips) if (!priorOf.has(vip.key)) priorOf.set(vip.key, vip)
+  const priorOf = vipsByKey(seen.vips)
   for (const vip of current.vips) {
     const crossings = byVip.get(vip.key)
     const prior = priorOf.get(vip.key)
