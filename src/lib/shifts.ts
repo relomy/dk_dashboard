@@ -1,4 +1,4 @@
-import type { LiveModel } from './liveModel'
+import type { GameStatus, LiveModel } from './liveModel'
 
 /**
  * The Shifts feed: what moved for your VIPs since the Seen mark. It works only from the interpreted Live model
@@ -35,6 +35,27 @@ interface ShiftItemBase {
   surfaced?: boolean
 }
 
+/**
+ * One slot of a VIP's lineup diff. Points, game status and the `stats` line follow the player (matched by
+ * `playerKey`); `locked` follows the slot position.
+ */
+export interface LineupSlotDiff {
+  /** The slot's key in the Live model (`slot-index`). */
+  key: string
+  slot: string
+  /** The current player's name; the locked label for a still-hidden slot. */
+  name: string
+  playerKey: string | null
+  /** Raw points; `from` is null for a revealed or swapped-in player, both are null for a hidden slot. */
+  points: Move<number | null>
+  /** The player's own points move. A reveal's delta is the player's first points. Null when not comparable. */
+  pointsDelta: number | null
+  locked: Move<boolean>
+  gameStatus: Move<GameStatus | null>
+  /** Present only when the `stats` line adds information: it changed to a non-empty line. */
+  stats?: Move<string | null>
+}
+
 /** One VIP's net moves since the Seen mark. Detail fields arrive with the detection slices. */
 export interface VipShiftItem extends ShiftItemBase {
   kind: 'vip'
@@ -43,6 +64,11 @@ export interface VipShiftItem extends ShiftItemBase {
   points: Move<number | null>
   distanceToCashPoints: Move<number | null>
   distanceToCashRank: Move<number | null>
+  /**
+   * Every slot of the lineup, changed or not: changed players by absolute points delta, then unchanged
+   * players, then still-hidden slots. Omitted when the lineup cannot be compared.
+   */
+  lineup?: LineupSlotDiff[]
 }
 
 /** A cash line move or a contest state change. */
@@ -108,7 +134,7 @@ interface PlayerDigest {
   name: string
   slot: string
   points: number | null
-  gameStatus: string | null
+  gameStatus: GameStatus | null
   locked: boolean
   stats: string | null
 }
@@ -192,6 +218,72 @@ function movedBy(move: Move<number | null>, threshold: number): boolean {
   return Math.round(Math.abs(move.to - move.from) * 1e6) >= Math.round(threshold * 1e6)
 }
 
+function sameValue<T>(move: Move<T>): boolean {
+  return move.from === move.to
+}
+
+/** Rounded so that float noise in a points subtraction does not show. */
+function deltaOf(from: number | null, to: number | null): number | null {
+  if (from === null || to === null) return null
+  return Math.round((to - from) * 1e6) / 1e6
+}
+
+/** A player is the same across polls by `playerKey`, else by trimmed name; never by slot position. */
+function playerIdOf(player: PlayerDigest): string {
+  return player.playerKey ? `key:${player.playerKey}` : `name:${player.name.trim()}`
+}
+
+/**
+ * The lineup diff: one entry per slot of the current lineup. A locked slot now unlocked is a reveal, decided by
+ * slot position: no points before, the first points as its delta. Every other delta is the player's own points,
+ * matched by `playerKey`; a player who appears (a late swap) is not compared.
+ */
+function lineupDiff(before: PlayerDigest[], after: PlayerDigest[]): LineupSlotDiff[] {
+  const prior = new Map<string, PlayerDigest>()
+  for (const player of before) if (!player.locked && !prior.has(playerIdOf(player))) prior.set(playerIdOf(player), player)
+  const changed: LineupSlotDiff[] = []
+  const unchanged: LineupSlotDiff[] = []
+  const hidden: LineupSlotDiff[] = []
+  after.forEach((player, index) => {
+    const wasLocked = before[index]?.locked ?? false
+    const locked = moveOf(wasLocked, player.locked)
+    if (player.locked) {
+      hidden.push({
+        key: player.key,
+        slot: player.slot,
+        name: player.name,
+        playerKey: null,
+        points: moveOf(null, null),
+        pointsDelta: null,
+        locked,
+        gameStatus: moveOf(null, null),
+      })
+      return
+    }
+    const reveal = wasLocked
+    const match = reveal ? undefined : prior.get(playerIdOf(player))
+    const points = moveOf(match?.points ?? null, player.points)
+    const pointsDelta = reveal ? player.points : deltaOf(points.from, points.to)
+    const gameStatus = moveOf(match?.gameStatus ?? null, player.gameStatus)
+    const slot: LineupSlotDiff = {
+      key: player.key,
+      slot: player.slot,
+      name: player.name,
+      playerKey: player.playerKey,
+      points,
+      pointsDelta,
+      locked,
+      gameStatus,
+    }
+    const stats = moveOf(match?.stats ?? null, player.stats)
+    if ((match || reveal) && stats.to !== null && !sameValue(stats)) slot.stats = stats
+    const moved = (pointsDelta ?? 0) !== 0 || reveal || (match !== undefined && !sameValue(gameStatus)) || slot.stats !== undefined
+    ;(moved ? changed : unchanged).push(slot)
+  })
+  changed.sort((a, b) => Math.abs(b.pointsDelta ?? 0) - Math.abs(a.pointsDelta ?? 0))
+  return [...changed, ...unchanged, ...hidden]
+}
+
 /**
  * Net VIP shifts: one item per VIP present on both sides whose rank, points or distance to cash moved by at least
  * its threshold. A VIP on one side only (added to or removed from the Profile) is that VIP's baseline: no shift.
@@ -225,6 +317,7 @@ function netVipShifts(seen: Digest, current: Digest, detectedAt: number): VipShi
       points,
       distanceToCashPoints,
       distanceToCashRank,
+      lineup: lineupDiff(prior.players, vip.players),
     })
   }
   return items
