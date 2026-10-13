@@ -13,9 +13,10 @@ import {
   SCENARIO_KEYS,
   vipFor,
   type CashCrossingItem,
-  type Contributor,
   type FeedItem,
   type FromTo,
+  type GameState,
+  type PlayerDiff,
   type ShiftsOutput,
   type VipMoveItem,
 } from './sampleOutputs'
@@ -85,40 +86,70 @@ function PriorityMark({ item }: { item: FeedItem }) {
   )
 }
 
-function Contributors({ rows }: { rows: Contributor[] }) {
+const GAME_WORD: Record<GameState, string> = { 'pre-game': 'Pre', 'in-progress': 'Live', final: 'Final' }
+
+function GameChange({ game }: { game: PlayerDiff['game'] }) {
+  if (!game.to) return null
+  if (game.from === game.to) {
+    return (
+      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+        <GameStatusDot status={game.to} /> {GAME_WORD[game.to]}
+      </span>
+    )
+  }
   return (
-    <ul className="divide-y rounded-md border">
-      {rows.map((row) => (
-        <li key={row.playerKey} className="flex items-center gap-2 px-2.5 py-1.5 text-xs">
-          <span className="w-9 shrink-0 font-mono text-[10px] text-muted-foreground">{row.slot}</span>
-          <span className="min-w-0 flex-1">
-            <span className="flex items-center gap-1.5">
-              {row.pointsDelta === null ? <Lock className="size-3 text-muted-foreground" aria-label="Still locked" /> : null}
-              <span className={cn('truncate', row.pointsDelta === null && 'text-muted-foreground')}>
-                {row.pointsDelta === null ? 'Still hidden' : row.name}
-              </span>
-              {row.revealed ? (
-                <span className="rounded-sm bg-cash-line/15 px-1 text-[10px] font-semibold text-cash-line uppercase">Revealed</span>
-              ) : null}
-              {row.gameFinal ? (
-                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                  <GameStatusDot status="final" /> Final
+    <span className="flex items-center gap-1 text-[10px] text-foreground">
+      {game.from ? <GameStatusDot status={game.from} /> : null}
+      {game.from ? GAME_WORD[game.from] : null} →<GameStatusDot status={game.to} /> {GAME_WORD[game.to]}
+    </span>
+  )
+}
+
+/** The VIP's whole lineup, before and now: changed players first, unchanged dimmed, hidden slots last. */
+function LineupDiff({ rows }: { rows: PlayerDiff[] }) {
+  const changed = rows.filter((row) => row.pointsDelta !== 0 || row.game.from !== row.game.to || row.locked.from !== row.locked.to)
+  return (
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between text-[10px] tracking-widest text-muted-foreground uppercase">
+        <span>Lineup</span>
+        <span>
+          {changed.length} of {rows.length} changed
+        </span>
+      </div>
+      <ul className="divide-y rounded-md border">
+        {rows.map((row) => {
+          const hidden = row.locked.to
+          const same = !changed.includes(row)
+          return (
+            <li key={row.playerKey} className={cn('flex items-center gap-2 px-2.5 py-1.5 text-xs', same && 'opacity-50')}>
+              <span className="w-9 shrink-0 font-mono text-[10px] text-muted-foreground">{row.slot}</span>
+              <span className="min-w-0 flex-1">
+                <span className="flex flex-wrap items-center gap-x-1.5">
+                  {hidden ? <Lock className="size-3 text-muted-foreground" aria-label="Still locked" /> : null}
+                  <span className={cn('truncate', hidden && 'text-muted-foreground')}>{hidden ? 'Still hidden' : row.name}</span>
+                  {row.locked.from && !row.locked.to ? (
+                    <span className="rounded-sm bg-cash-line/15 px-1 text-[10px] font-semibold text-cash-line uppercase">Revealed</span>
+                  ) : null}
+                  {hidden ? null : <GameChange game={row.game} />}
                 </span>
-              ) : null}
-            </span>
-            {row.stats ? <span className="block truncate text-[11px] text-muted-foreground">{row.stats}</span> : null}
-          </span>
-          <span
-            className={cn(
-              'font-mono tabular-nums',
-              row.pointsDelta === null ? 'text-muted-foreground' : tone(row.pointsDelta, false),
-            )}
-          >
-            {row.pointsDelta === null ? '—' : signed(row.pointsDelta)}
-          </span>
-        </li>
-      ))}
-    </ul>
+                {row.stats ? <span className="block truncate text-[11px] text-muted-foreground">{row.stats}</span> : null}
+              </span>
+              <span className="hidden font-mono text-[11px] text-muted-foreground tabular-nums sm:block">
+                {hidden ? '' : `${row.points.from === null ? '—' : formatPoints(row.points.from)} → ${formatPoints(row.points.to)}`}
+              </span>
+              <span
+                className={cn(
+                  'w-14 text-right font-mono tabular-nums',
+                  row.pointsDelta === null || row.pointsDelta === 0 ? 'text-muted-foreground' : tone(row.pointsDelta, false),
+                )}
+              >
+                {row.pointsDelta === null ? '—' : row.pointsDelta === 0 ? '0.00' : signed(row.pointsDelta)}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
   )
 }
 
@@ -150,7 +181,7 @@ function MoveBody({ item }: { item: VipMoveItem }) {
         <Move label="Points" pair={item.points} format={formatPoints} />
         <Move label="To cash" pair={item.distancePoints} format={formatPoints} lowerIsBetter />
       </div>
-      {item.contributors.length > 0 ? <Contributors rows={item.contributors} /> : null}
+      {item.lineup.length > 0 ? <LineupDiff rows={item.lineup} /> : null}
     </div>
   )
 }
@@ -275,6 +306,7 @@ function ItemCard({ item, output, showVip = true }: { item: FeedItem; output: Sh
             <Move label="Rank" pair={item.rank} format={rankText} lowerIsBetter places />
             <Move label="Points" pair={item.points} format={formatPoints} />
           </div>
+          <LineupDiff rows={item.lineup} />
         </>
       ) : null}
       {item.kind === 'vip-move' ? <MoveBody item={item} /> : null}
@@ -401,8 +433,8 @@ function TableFeed({ output }: { output: ShiftsOutput }) {
               return (
                 <Fragment key={vip.key}>
                   <tr
-                    className={cn('border-t', move && 'cursor-pointer hover:bg-muted/40')}
-                    onClick={() => move && setOpen(isOpen ? null : vip.key)}
+                    className={cn('border-t', (move || crossing) && 'cursor-pointer hover:bg-muted/40')}
+                    onClick={() => (move || crossing) && setOpen(isOpen ? null : vip.key)}
                   >
                     <td className="px-3 py-2">
                       <VipChip output={output} vipKey={vip.key} />
@@ -429,7 +461,7 @@ function TableFeed({ output }: { output: ShiftsOutput }) {
                       {move?.distancePoints ? signed(delta(move.distancePoints) ?? 0) : '—'}
                     </td>
                   </tr>
-                  {isOpen && move ? (
+                  {isOpen && (move || crossing) ? (
                     <tr className="border-t bg-muted/20">
                       <td colSpan={5} className="space-y-2 px-3 py-2">
                         {crossing?.cause ? (
@@ -437,7 +469,7 @@ function TableFeed({ output }: { output: ShiftsOutput }) {
                             Cause: the cash line moved <span className="text-cash-line">{lineMoveText(crossing.cause)}</span>.
                           </p>
                         ) : null}
-                        <Contributors rows={move.contributors} />
+                        <LineupDiff rows={(move ?? crossing)!.lineup} />
                       </td>
                     </tr>
                   ) : null}

@@ -18,16 +18,23 @@ export interface CashLineChange {
   rank: FromTo
 }
 
-/** One player behind a VIP's move. `pointsDelta` is the player's own points; null for a still-hidden slot. */
-export interface Contributor {
+export type GameState = 'pre-game' | 'in-progress' | 'final'
+
+/**
+ * One player in a VIP's lineup, before (Seen mark) and now. Every slot appears, changed or not, so the UI
+ * draws a full lineup diff without comparing anything. A late swap is not reported: a slot whose player
+ * differs is simply absent.
+ */
+export interface PlayerDiff {
   playerKey: string
   name: string
   slot: string
+  /** Raw points of this player alone; null while the slot is hidden. */
+  points: FromTo
+  /** to - from, with a null `from` counting as 0; null while the slot is still hidden. */
   pointsDelta: number | null
-  /** The slot was locked at the Seen mark and is now unlocked. */
-  revealed: boolean
-  /** The player's game went final since the Seen mark. */
-  gameFinal: boolean
+  locked: { from: boolean; to: boolean }
+  game: { from: GameState | null; to: GameState | null }
   /** The new `stats` line, only when it adds information. */
   stats: string | null
 }
@@ -56,6 +63,8 @@ export interface CashCrossingItem extends ItemBase {
   cashing: boolean
   /** Set when a cash line move in the same poll caused the crossing. */
   cause: CashLineChange | null
+  /** The VIP's lineup diff, so a crossing explains itself the way a move does. */
+  lineup: PlayerDiff[]
 }
 
 export interface VipMoveItem extends ItemBase {
@@ -67,8 +76,8 @@ export interface VipMoveItem extends ItemBase {
   /** Distance to cash: points and ranks, both from/to; null when the VIP has no line to measure against. */
   distancePoints: FromTo | null
   distanceRanks: FromTo | null
-  /** Ranked by absolute points delta; reveals with no points sort last. */
-  contributors: Contributor[]
+  /** The whole lineup, changed players first by absolute points delta, then unchanged, then still-hidden slots. */
+  lineup: PlayerDiff[]
 }
 
 export interface CashLineMoveItem extends ItemBase {
@@ -140,6 +149,28 @@ const VIPS: SampleVip[] = [
   { key: 'v-orin', name: 'orin44', index: 3 },
 ]
 
+function pd(
+  playerKey: string,
+  name: string,
+  slot: string,
+  from: number | null,
+  to: number | null,
+  game: [GameState | null, GameState | null],
+  extra: { locked?: [boolean, boolean]; stats?: string } = {},
+): PlayerDiff {
+  const locked = extra.locked ?? [false, false]
+  return {
+    playerKey,
+    name,
+    slot,
+    points: { from, to },
+    pointsDelta: to === null ? null : to - (from ?? 0),
+    locked: { from: locked[0], to: locked[1] },
+    game: { from: game[0], to: game[1] },
+    stats: extra.stats ?? null,
+  }
+}
+
 const T = (minute: number) => `2026-10-12T20:${String(minute).padStart(2, '0')}:00Z`
 
 const crossingOutCaused: CashCrossingItem = {
@@ -154,6 +185,16 @@ const crossingOutCaused: CashCrossingItem = {
   points: { from: 212.0, to: 214.25 },
   cashing: false,
   cause: { points: { from: 211.5, to: 216.25 }, rank: { from: 1180, to: 1196 } },
+  lineup: [
+    pd('p-20', 'Luka Doncic', 'PG', 41.0, 42.25, ['in-progress', 'in-progress']),
+    pd('p-21', 'Anthony Edwards', 'SG', 29.0, 30.0, ['in-progress', 'in-progress']),
+    pd('p-22', 'Franz Wagner', 'SF', 26.0, 26.0, ['final', 'final']),
+    pd('p-23', 'Evan Mobley', 'PF', 24.25, 24.25, ['final', 'final']),
+    pd('p-24', 'Nikola Jokic', 'C', 47.5, 48.5, ['in-progress', 'in-progress']),
+    pd('p-25', 'Dyson Daniels', 'G', 16.0, 16.0, ['final', 'final']),
+    pd('p-26', 'Scottie Barnes', 'F', 28.25, 28.25, ['final', 'final']),
+    pd('p-27', 'Jalen Green', 'UTIL', 0, 0.0, ['pre-game', 'pre-game']),
+  ],
 }
 
 const crossingInAndOut: CashCrossingItem = {
@@ -168,6 +209,16 @@ const crossingInAndOut: CashCrossingItem = {
   points: { from: 210.0, to: 213.0 },
   cashing: false,
   cause: null,
+  lineup: [
+    pd('p-30', 'Stephen Curry', 'PG', 38.0, 36.0, ['in-progress', 'in-progress'], { stats: '3-of-11 3PT' }),
+    pd('p-31', 'Devin Booker', 'SG', 30.5, 30.5, ['final', 'final']),
+    pd('p-32', 'Jaylen Brown', 'SF', 25.0, 28.0, ['in-progress', 'in-progress']),
+    pd('p-33', 'Jabari Smith Jr.', 'PF', 21.0, 21.0, ['final', 'final']),
+    pd('p-34', 'Victor Wembanyama', 'C', 52.0, 55.25, ['in-progress', 'in-progress']),
+    pd('p-35', 'Immanuel Quickley', 'G', 18.5, 18.5, ['final', 'final']),
+    pd('p-36', 'Julius Randle', 'F', 20.0, 20.0, ['final', 'final']),
+    pd('p-37', 'Collin Sexton', 'UTIL', 5.0, 4.0, ['in-progress', 'in-progress']),
+  ],
 }
 
 const bellMove: VipMoveItem = {
@@ -181,11 +232,15 @@ const bellMove: VipMoveItem = {
   points: { from: 168.75, to: 203.5 },
   distancePoints: { from: 42.75, to: 12.75 },
   distanceRanks: { from: 1030, to: 308 },
-  contributors: [
-    { playerKey: 'p-1', name: 'Jalen Brunson', slot: 'PG', pointsDelta: 21.5, revealed: false, gameFinal: true, stats: '31 PTS, 8 AST, 4 REB' },
-    { playerKey: 'p-2', name: 'Domantas Sabonis', slot: 'C', pointsDelta: 9.25, revealed: false, gameFinal: false, stats: null },
-    { playerKey: 'p-3', name: 'Lauri Markkanen', slot: 'F', pointsDelta: 4.0, revealed: true, gameFinal: false, stats: '9 PTS, 3 REB' },
-    { playerKey: 'p-4', name: 'Locked', slot: 'UTIL', pointsDelta: null, revealed: false, gameFinal: false, stats: null },
+  lineup: [
+    pd('p-1', 'Jalen Brunson', 'PG', 12.5, 34.0, ['in-progress', 'final'], { stats: '31 PTS, 8 AST, 4 REB' }),
+    pd('p-2', 'Domantas Sabonis', 'C', 18.0, 27.25, ['in-progress', 'in-progress']),
+    pd('p-3', 'Lauri Markkanen', 'F', null, 4.0, ['pre-game', 'in-progress'], { locked: [true, false], stats: '9 PTS, 3 REB' }),
+    pd('p-7', 'Mikal Bridges', 'SF', 22.0, 22.0, ['final', 'final']),
+    pd('p-8', 'Alperen Sengun', 'PF', 30.75, 30.75, ['final', 'final']),
+    pd('p-9', 'Jrue Holiday', 'G', 8.0, 8.0, ['final', 'final']),
+    pd('p-10', 'Cade Cunningham', 'SG', 33.5, 33.5, ['final', 'final']),
+    pd('p-4', 'Locked', 'UTIL', null, null, ['pre-game', 'pre-game'], { locked: [true, true] }),
   ],
 }
 
@@ -200,9 +255,15 @@ const orinMove: VipMoveItem = {
   points: { from: 233.0, to: 237.5 },
   distancePoints: { from: -17.0, to: -8.75 },
   distanceRanks: { from: -380, to: -300 },
-  contributors: [
-    { playerKey: 'p-5', name: 'Tyrese Maxey', slot: 'SG', pointsDelta: -2.5, revealed: false, gameFinal: false, stats: null },
-    { playerKey: 'p-6', name: 'Rudy Gobert', slot: 'C', pointsDelta: 7.0, revealed: false, gameFinal: true, stats: '11 PTS, 14 REB' },
+  lineup: [
+    pd('p-6', 'Rudy Gobert', 'C', 12.0, 19.0, ['in-progress', 'final'], { stats: '11 PTS, 14 REB' }),
+    pd('p-5', 'Tyrese Maxey', 'SG', 28.5, 26.0, ['in-progress', 'in-progress']),
+    pd('p-11', 'Jalen Williams', 'SF', 31.0, 31.0, ['final', 'final']),
+    pd('p-12', 'Paolo Banchero', 'PF', 40.25, 40.25, ['final', 'final']),
+    pd('p-13', 'Derrick White', 'G', 22.0, 22.0, ['final', 'final']),
+    pd('p-14', 'Tyler Herro', 'PG', 36.75, 36.75, ['final', 'final']),
+    pd('p-15', 'Bam Adebayo', 'F', 35.0, 35.0, ['final', 'final']),
+    pd('p-16', 'Ausar Thompson', 'UTIL', 27.5, 27.5, ['final', 'final']),
   ],
 }
 
@@ -277,7 +338,7 @@ function output(
     ...rest,
     gapBand,
     feed,
-    contest: { name: '$100K NBA Showdown', state, sport: 'nba' },
+    contest: { name: '$100K NBA Classic', state, sport: 'nba' },
     vips: VIPS,
     unseenCount: feed.length,
     unsurfacedHigh: feed.filter((item) => item.priority === 'high' && !item.surfaced),
