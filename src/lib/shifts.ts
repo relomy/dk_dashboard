@@ -56,6 +56,25 @@ export interface LineupSlotDiff {
   stats?: Move<string | null>
 }
 
+/** The cash line's move in points and rank. */
+export interface CashLineMove {
+  points: Move<number | null>
+  rank: Move<number | null>
+}
+
+/**
+ * The path of a VIP's cash crossings since the Seen mark: its first and last crossing. A single direction when they
+ * agree (the VIP crossed once, or ended on the same side as its latest crossing), else `x then y`.
+ */
+export type CrossingPath = 'in' | 'out' | 'in then out' | 'out then in'
+
+/** A cash crossing carried on a VIP item. */
+export interface ItemCrossing {
+  path: CrossingPath
+  /** The cash line move in the same poll as the latest crossing, or null when the line did not move enough. */
+  cause: CashLineMove | null
+}
+
 /** One VIP's net moves since the Seen mark. Detail fields arrive with the detection slices. */
 export interface VipShiftItem extends ShiftItemBase {
   kind: 'vip'
@@ -69,14 +88,21 @@ export interface VipShiftItem extends ShiftItemBase {
    * players, then still-hidden slots. Omitted when the lineup cannot be compared.
    */
   lineup?: LineupSlotDiff[]
+  /** Present when the VIP crossed into or out of cashing since the Seen mark; the item is then High priority. */
+  crossing?: ItemCrossing
 }
 
-/** A cash line move or a contest state change. */
+/** The net cash line move since the Seen mark, reported above its threshold. */
+export interface CashLineShiftItem extends ShiftItemBase, CashLineMove {
+  kind: 'cash-line'
+}
+
+/** A contest state change. */
 export interface ContestShiftItem extends ShiftItemBase {
-  kind: 'cash-line' | 'contest-state'
+  kind: 'contest-state'
 }
 
-export type ShiftItem = VipShiftItem | ContestShiftItem
+export type ShiftItem = VipShiftItem | CashLineShiftItem | ContestShiftItem
 
 /** Set when a visit follows a long absence and something is unseen. */
 export interface ShiftsGap {
@@ -126,6 +152,12 @@ export const VIP_POINTS_THRESHOLD = 1.0
 export const DISTANCE_TO_CASH_POINTS_THRESHOLD = 1.0
 /** Distance to cash, in ranks. */
 export const DISTANCE_TO_CASH_RANK_THRESHOLD = 2
+/** The cash line, in points; the line moves when either this or the rank threshold is met. */
+export const CASH_LINE_POINTS_THRESHOLD = 1.0
+/** The cash line, in ranks. */
+export const CASH_LINE_RANK_THRESHOLD = 2
+/** The High priority log keeps at most this many entries; the oldest are dropped first. */
+export const HIGH_LOG_CAP = 50
 // ----------------------------------------------------------------------------------------------------------------
 
 interface PlayerDigest {
@@ -157,12 +189,26 @@ interface Digest {
   vips: VipDigest[]
 }
 
+/** A cash crossing in the High priority log. Later tickets add other entry kinds to this union. */
+interface CrossingEntry {
+  id: string
+  kind: 'crossing'
+  seq: number
+  vipKey: string
+  direction: 'in' | 'out'
+  at: number
+  surfaced: boolean
+  cause: CashLineMove | null
+}
+
+type LogEntry = CrossingEntry
+
 interface StoredState {
   contestKey: string
   seen: Digest
   last: Digest
-  /** The High priority log; filled by the detection slices. */
-  log: unknown[]
+  /** The High priority log, capped at `HIGH_LOG_CAP`. */
+  log: LogEntry[]
 }
 
 function contestKeyOf(model: LiveModel): string {
@@ -202,10 +248,30 @@ function isDigest(value: unknown): value is Digest {
   return typeof digest.at === 'number' && typeof digest.contestKey === 'string' && Array.isArray(digest.vips)
 }
 
+function isLogEntry(value: unknown): value is LogEntry {
+  if (typeof value !== 'object' || value === null) return false
+  const entry = value as Record<string, unknown>
+  return (
+    entry.kind === 'crossing' &&
+    typeof entry.id === 'string' &&
+    typeof entry.seq === 'number' &&
+    typeof entry.vipKey === 'string' &&
+    (entry.direction === 'in' || entry.direction === 'out') &&
+    typeof entry.at === 'number' &&
+    typeof entry.surfaced === 'boolean'
+  )
+}
+
 function isStoredState(value: unknown): value is StoredState {
   if (typeof value !== 'object' || value === null) return false
   const state = value as Record<string, unknown>
-  return typeof state.contestKey === 'string' && isDigest(state.seen) && isDigest(state.last) && Array.isArray(state.log)
+  return (
+    typeof state.contestKey === 'string' &&
+    isDigest(state.seen) &&
+    isDigest(state.last) &&
+    Array.isArray(state.log) &&
+    state.log.every(isLogEntry)
+  )
 }
 
 function moveOf<T>(from: T, to: T): Move<T> {
@@ -309,7 +375,7 @@ function netVipShifts(seen: Digest, current: Digest, detectedAt: number): VipShi
     if (!shifted) continue
     items.push({
       kind: 'vip',
-      id: `vip:${vip.key}:${seen.at}`,
+      id: itemIdOf(vip.key, seen),
       priority: 'normal',
       detectedAt,
       vipKey: vip.key,
@@ -321,6 +387,98 @@ function netVipShifts(seen: Digest, current: Digest, detectedAt: number): VipShi
     })
   }
   return items
+}
+
+/** True when either figure of the cash line moved by at least its threshold. */
+function cashLineMoved(move: CashLineMove): boolean {
+  return movedBy(move.points, CASH_LINE_POINTS_THRESHOLD) || movedBy(move.rank, CASH_LINE_RANK_THRESHOLD)
+}
+
+function cashLineMoveOf(from: Digest, to: Digest): CashLineMove {
+  return { points: moveOf(from.cashLine.points, to.cashLine.points), rank: moveOf(from.cashLine.rank, to.cashLine.rank) }
+}
+
+/** The net cash line move since the Seen mark, or none below its threshold. */
+function cashLineShift(seen: Digest, current: Digest, detectedAt: number): CashLineShiftItem[] {
+  const move = cashLineMoveOf(seen, current)
+  if (!cashLineMoved(move)) return []
+  return [{ kind: 'cash-line', id: `cash-line:${seen.at}`, priority: 'normal', detectedAt, ...move }]
+}
+
+type NewCrossing = Omit<CrossingEntry, 'seq' | 'id'>
+
+/**
+ * Cash crossings between two consecutive builds, for VIPs present on both sides. A cash line move in the same poll
+ * is carried as the cause.
+ */
+function detectCrossings(last: Digest, current: Digest): NewCrossing[] {
+  const before = new Map<string, VipDigest>()
+  for (const vip of last.vips) if (!before.has(vip.key)) before.set(vip.key, vip)
+  const move = cashLineMoveOf(last, current)
+  const cause = cashLineMoved(move) ? move : null
+  const found: NewCrossing[] = []
+  const done = new Set<string>()
+  for (const vip of current.vips) {
+    const prior = before.get(vip.key)
+    if (!prior || done.has(vip.key)) continue
+    done.add(vip.key)
+    if (prior.cashing === vip.cashing) continue
+    found.push({ kind: 'crossing', vipKey: vip.key, direction: vip.cashing ? 'in' : 'out', at: current.at, surfaced: false, cause })
+  }
+  return found
+}
+
+function appendCrossings(log: LogEntry[], found: NewCrossing[]): LogEntry[] {
+  let seq = log.reduce((max, entry) => Math.max(max, entry.seq), 0)
+  const added = found.map((entry): LogEntry => {
+    seq += 1
+    return { ...entry, seq, id: `crossing:${entry.vipKey}:${seq}` }
+  })
+  return [...log, ...added].slice(-HIGH_LOG_CAP)
+}
+
+function itemIdOf(vipKey: string, seen: Digest): string {
+  return `vip:${vipKey}:${seen.at}`
+}
+
+/**
+ * Folds the log's crossings into the VIP items: a crossing makes the VIP's item High with its path, and creates the
+ * item (from the Seen mark's rank and points) when the net moves alone would not have. A VIP missing from the Seen
+ * mark or the current model gets none.
+ */
+function withCrossings(items: VipShiftItem[], seen: Digest, current: Digest, log: LogEntry[], detectedAt: number): VipShiftItem[] {
+  const byVip = new Map<string, CrossingEntry[]>()
+  for (const entry of log) byVip.set(entry.vipKey, [...(byVip.get(entry.vipKey) ?? []), entry])
+  const result = new Map(items.map((item) => [item.vipKey, item]))
+  const priorOf = new Map<string, VipDigest>()
+  for (const vip of seen.vips) if (!priorOf.has(vip.key)) priorOf.set(vip.key, vip)
+  for (const vip of current.vips) {
+    const crossings = byVip.get(vip.key)
+    const prior = priorOf.get(vip.key)
+    if (!crossings || !prior) continue
+    const first = crossings[0].direction
+    const latest = crossings[crossings.length - 1]
+    const path: CrossingPath = first === latest.direction ? first : first === 'in' ? 'in then out' : 'out then in'
+    const base: VipShiftItem = result.get(vip.key) ?? {
+      kind: 'vip',
+      id: itemIdOf(vip.key, seen),
+      priority: 'normal',
+      detectedAt,
+      vipKey: vip.key,
+      rank: moveOf(prior.rank, vip.rank),
+      points: moveOf(prior.points, vip.points),
+      distanceToCashPoints: moveOf(prior.distanceToCash.points, vip.distanceToCash.points),
+      distanceToCashRank: moveOf(prior.distanceToCash.rank, vip.distanceToCash.rank),
+      lineup: lineupDiff(prior.players, vip.players),
+    }
+    result.set(vip.key, {
+      ...base,
+      priority: 'high',
+      surfaced: crossings.every((entry) => entry.surfaced),
+      crossing: { path, cause: latest.cause },
+    })
+  }
+  return [...result.values()]
 }
 
 function rankMagnitude(item: ShiftItem): number {
@@ -366,12 +524,14 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
   }
 
   let items: ShiftItem[] = []
+  let currentKey: string | null = null
 
   return {
     record(model) {
       items = []
       try {
         const storageKey = `${STORAGE_KEY_PREFIX}${model.sport}`
+        currentKey = storageKey
         const stored = read(storageKey)
         const digest = digestOf(model, now())
         if (!stored || stored.contestKey !== digest.contestKey) {
@@ -379,8 +539,12 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
           write(storageKey, { contestKey: digest.contestKey, seen: digest, last: digest, log: [] })
           return
         }
-        write(storageKey, { ...stored, last: digest })
-        items = orderFeed([...netVipShifts(stored.seen, digest, digest.at)])
+        const log = appendCrossings(stored.log, detectCrossings(stored.last, digest))
+        write(storageKey, { ...stored, last: digest, log })
+        items = orderFeed([
+          ...withCrossings(netVipShifts(stored.seen, digest, digest.at), stored.seen, digest, log, digest.at),
+          ...cashLineShift(stored.seen, digest, digest.at),
+        ])
       } catch {
         items = []
         // Recording must never break the Live view.
@@ -388,9 +552,21 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
     },
     feed: () => items,
     unseenCount: () => items.length,
-    unsurfaced: () => [],
+    unsurfaced: () => items.filter((item) => item.priority === 'high' && !item.surfaced),
     gap: () => null,
     markSeen() {},
-    markSurfaced() {},
+    markSurfaced(ids) {
+      try {
+        const stored = currentKey ? read(currentKey) : null
+        if (!currentKey || !stored) return
+        const vipKeys = new Set(items.flatMap((item) => (item.kind === 'vip' && ids.includes(item.id) ? [item.vipKey] : [])))
+        if (vipKeys.size === 0) return
+        const log = stored.log.map((entry) => (vipKeys.has(entry.vipKey) ? { ...entry, surfaced: true } : entry))
+        write(currentKey, { ...stored, log })
+        items = items.map((item) => (item.kind === 'vip' && vipKeys.has(item.vipKey) ? { ...item, surfaced: true } : item))
+      } catch {
+        // Surfacing is best effort; the item simply shows again.
+      }
+    },
   }
 }
