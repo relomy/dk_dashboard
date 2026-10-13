@@ -965,13 +965,14 @@ describe('completed contest', () => {
     expect(vipItems(feed)).toHaveLength(1)
     expect(item).toMatchObject({
       vipKey: KEY.empire,
-      priority: 'normal',
+      // Entering the money in the completing poll is still a crossing.
+      priority: 'high',
+      crossing: { path: 'in' },
       rank: { from: 511, to: 480 },
       points: { from: 30.939999, to: 33.5 },
       finishedCashing: true,
     })
     expect(item.lineup).toBeUndefined()
-    expect(item.crossing).toBeUndefined()
   })
 
   it('reports a VIP whose final standing moved by any amount, with whether each finished cashing', () => {
@@ -998,16 +999,17 @@ describe('completed contest', () => {
     expect(vipItems(feed)).toEqual([])
   })
 
-  it('suppresses cash crossings once completed: cashing is reported only as the final standing', () => {
+  it('logs a cash flip in the completing poll as a High crossing, then suppresses later flips', () => {
     const { feed } = seededFeed()
-    // The flip happens in the very poll that completes the contest, and again afterwards.
-    feed.record(nflModel({ EmpireMaker2: INSIDE }, completed), { visit: false })
-    feed.record(nflModel({ EmpireMaker2: OUTSIDE }, completed), { visit: false })
     feed.record(nflModel({ EmpireMaker2: INSIDE }, completed), { visit: false })
     expect(feed.feed().map((item) => item.kind)).toEqual(['contest-state', 'vip'])
-    expect(feed.unsurfaced().map((item) => item.kind)).toEqual(['contest-state'])
-    expect(vipItems(feed)[0]).toMatchObject({ priority: 'normal', finishedCashing: true })
-    expect(vipItems(feed)[0].crossing).toBeUndefined()
+    expect(vipItems(feed)[0]).toMatchObject({ priority: 'high', crossing: { path: 'in' }, finishedCashing: true })
+    // From the next poll on only the final standing is compared, so these flips add no crossing.
+    feed.record(nflModel({ EmpireMaker2: OUTSIDE }, completed), { visit: false })
+    feed.record(nflModel({ EmpireMaker2: INSIDE }, completed), { visit: false })
+    expect(vipItems(feed)).toHaveLength(1)
+    expect(vipItems(feed)[0].crossing).toEqual(expect.objectContaining({ path: 'in' }))
+    expect(feed.unsurfaced().map((item) => item.kind)).toEqual(['contest-state', 'vip'])
   })
 
   it('keeps a crossing made before completion as a High final item without a lineup', () => {

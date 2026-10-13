@@ -451,8 +451,9 @@ type NewCrossing = Omit<CrossingEntry, 'seq' | 'id'>
  * is carried as the cause.
  */
 function detectCrossings(last: Digest, current: Digest): NewCrossing[] {
-  // Once completed only final standings are compared, so a flip of cashing is reported there, not as a crossing.
-  if (current.contestState === 'completed') return []
+  // A flip in the poll that completes the contest still counts; from the next poll on only final standings are
+  // compared, so a flip of cashing is reported there, not as a crossing.
+  if (last.contestState === 'completed') return []
   const before = vipsByKey(last.vips)
   const move = cashLineMoveOf(last, current)
   const cause = cashLineMoved(move) ? move : null
