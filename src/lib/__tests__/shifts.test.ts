@@ -895,3 +895,147 @@ describe('items left unsurfaced', () => {
     expect(reloaded.unsurfaced()).toHaveLength(1)
   })
 })
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function completed(snapshot: any) {
+  snapshot.sports.nfl.contests[0].state = 'completed'
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+function contestItems(feed: ReturnType<typeof createShiftsFeed>) {
+  return feed.feed().filter((item) => item.kind === 'contest-state')
+}
+
+describe('completed contest', () => {
+  it('reports the change to completed once as a High contest-level item', () => {
+    const { feed, at } = seededFeed()
+    at(T0 + 60_000)
+    feed.record(nflModel({}, completed), { visit: false })
+    expect(contestItems(feed)).toHaveLength(1)
+    expect(contestItems(feed)[0]).toMatchObject({
+      kind: 'contest-state',
+      priority: 'high',
+      detectedAt: T0 + 60_000,
+      state: { from: 'live', to: 'completed' },
+      surfaced: false,
+    })
+    expect(feed.unsurfaced()).toEqual(contestItems(feed))
+    expect(feed.unseenCount()).toBe(1)
+    feed.record(nflModel({}, completed), { visit: false })
+    feed.record(nflModel({}, completed), { visit: false })
+    expect(contestItems(feed)).toHaveLength(1)
+  })
+
+  it('lists the state change ahead of VIP items and keeps it across feed instances', () => {
+    const storage = memoryStorage()
+    createShiftsFeed({ storage, now: () => T0 }).record(nflModel(), { visit: true })
+    const feed = createShiftsFeed({ storage, now: () => T0 + 60_000 })
+    feed.record(nflModel({ EmpireMaker2: { rank: 400 } }, completed), { visit: false })
+    expect(feed.feed().map((item) => item.kind)).toEqual(['contest-state', 'vip'])
+    const next = createShiftsFeed({ storage, now: () => T0 + 120_000 })
+    next.record(nflModel({ EmpireMaker2: { rank: 400 } }, completed), { visit: false })
+    expect(contestItems(next)).toHaveLength(1)
+  })
+
+  it('stays surfaced once markSurfaced is called, and is still listed', () => {
+    const storage = memoryStorage()
+    const first = createShiftsFeed({ storage, now: () => T0 })
+    first.record(nflModel(), { visit: true })
+    first.record(nflModel({}, completed), { visit: false })
+    first.markSurfaced([contestItems(first)[0].id])
+    expect(first.unsurfaced()).toEqual([])
+    expect(contestItems(first)[0].surfaced).toBe(true)
+    const second = createShiftsFeed({ storage, now: () => T0 + 60_000 })
+    second.record(nflModel({}, completed), { visit: false })
+    expect(second.unsurfaced()).toEqual([])
+    expect(contestItems(second)[0].surfaced).toBe(true)
+  })
+
+  it('compares only final rank, points and cashing, with no lineup and no player-level detail', () => {
+    const { feed } = seededFeed()
+    feed.record(
+      nflModel({ EmpireMaker2: { rank: 480, pts: 33.5, distancePoints: 1.2 } }, (snapshot) => {
+        completed(snapshot)
+        pooled(snapshot, LAWRENCE, { fantasy_points: 15.44, game_status: 'Final' })
+        lineupOf(snapshot, 'EmpireMaker2')[6] = { slot: 'TE', player_key: HIGBEE, player_name: 'Tyler Higbee', is_live: true }
+      }),
+      { visit: false },
+    )
+    const [item] = vipItems(feed)
+    expect(vipItems(feed)).toHaveLength(1)
+    expect(item).toMatchObject({
+      vipKey: KEY.empire,
+      priority: 'normal',
+      rank: { from: 511, to: 480 },
+      points: { from: 30.939999, to: 33.5 },
+      finishedCashing: true,
+    })
+    expect(item.lineup).toBeUndefined()
+    expect(item.crossing).toBeUndefined()
+  })
+
+  it('reports a VIP whose final standing moved by any amount, with whether each finished cashing', () => {
+    const { feed } = seededFeed()
+    feed.record(nflModel({ EmpireMaker2: { rank: 510 }, Cubbiesftw23: { pts: 40 } }, completed), { visit: false })
+    expect(vipItems(feed).map((item) => [item.vipKey, item.finishedCashing]).sort()).toEqual(
+      [
+        [KEY.empire, false],
+        [KEY.cubbies, false],
+      ].sort(),
+    )
+  })
+
+  it('reports a VIP whose only final change is finishing in the money', () => {
+    const { feed } = seededFeed()
+    feed.record(nflModel({ EmpireMaker2: { distancePoints: 0.4 } }, completed), { visit: false })
+    expect(vipItems(feed)).toHaveLength(1)
+    expect(vipItems(feed)[0]).toMatchObject({ finishedCashing: true, rank: { from: 511, to: 511 } })
+  })
+
+  it('produces no item for a VIP whose final standing is unchanged', () => {
+    const { feed } = seededFeed()
+    feed.record(nflModel({}, completed), { visit: false })
+    expect(vipItems(feed)).toEqual([])
+  })
+
+  it('suppresses cash crossings once completed: cashing is reported only as the final standing', () => {
+    const { feed } = seededFeed()
+    // The flip happens in the very poll that completes the contest, and again afterwards.
+    feed.record(nflModel({ EmpireMaker2: INSIDE }, completed), { visit: false })
+    feed.record(nflModel({ EmpireMaker2: OUTSIDE }, completed), { visit: false })
+    feed.record(nflModel({ EmpireMaker2: INSIDE }, completed), { visit: false })
+    expect(feed.feed().map((item) => item.kind)).toEqual(['contest-state', 'vip'])
+    expect(feed.unsurfaced().map((item) => item.kind)).toEqual(['contest-state'])
+    expect(vipItems(feed)[0]).toMatchObject({ priority: 'normal', finishedCashing: true })
+    expect(vipItems(feed)[0].crossing).toBeUndefined()
+  })
+
+  it('keeps a crossing made before completion as a High final item without a lineup', () => {
+    const { feed } = seededFeed()
+    feed.record(nflModel({ EmpireMaker2: INSIDE }), { visit: false })
+    feed.record(nflModel({ EmpireMaker2: INSIDE }, completed), { visit: false })
+    expect(feed.feed().map((item) => item.kind)).toEqual(['contest-state', 'vip'])
+    expect(vipItems(feed)[0]).toMatchObject({ priority: 'high', crossing: { path: 'in' }, finishedCashing: true })
+    expect(vipItems(feed)[0].lineup).toBeUndefined()
+    expect(feed.unsurfaced()).toHaveLength(2)
+  })
+
+  it('is cleared by marking as seen, even after it was surfaced, and does not return', () => {
+    const { feed } = seededFeed()
+    feed.record(nflModel({ EmpireMaker2: { rank: 400 } }, completed), { visit: false })
+    feed.markSurfaced([contestItems(feed)[0].id])
+    expect(contestItems(feed)).toHaveLength(1)
+    feed.markSeen()
+    expectQuiet(feed)
+    feed.record(nflModel({ EmpireMaker2: { rank: 400 } }, completed), { visit: false })
+    expectQuiet(feed)
+  })
+
+  it('reports nothing for a contest first seen as completed', () => {
+    const feed = feedOver(memoryStorage())
+    feed.record(nflModel({}, completed), { visit: true })
+    expectQuiet(feed)
+    feed.record(nflModel({}, completed), { visit: false })
+    expectQuiet(feed)
+  })
+})
