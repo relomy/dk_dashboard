@@ -30,7 +30,7 @@ The dashboard checks itself against the producer's published contract, at PR tim
 We rejected:
 
 - **Scheduled prod monitoring as the primary defence.** It finds a bug after it has shipped, from a snapshot
-  that may not exercise the case. Prod is still read on demand (`npm run prod:check`), never on a schedule. *(Superseded in part by [ADR-0006](0006-prod-check-runs-in-github-actions-on-demand.md): the prod check now also runs in CI, on demand.)*
+  that may not exercise the case. Prod is still read on demand (`npm run prod:check`), never on a schedule. *([ADR-0006](0006-prod-check-runs-in-github-actions-on-demand.md) supersedes the "never in CI" wording for the prod check: it now also runs in CI, on demand.)*
 - **Running dashboard tests in producer CI.** The producer owns the contract; a consumer bug or flaky test
   should never block a producer merge, and it would couple the repositories' release cycles.
 - **Hand-maintained types.** That is how the shape drifted in the first place.

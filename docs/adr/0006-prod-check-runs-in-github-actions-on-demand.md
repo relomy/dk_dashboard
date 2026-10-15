@@ -33,4 +33,5 @@ We rejected:
 
 Prod data enters CI only when it caught something. The check no longer needs an operator's laptop, but it needs
 the two repository secrets; a run without them fails naming them. Automatic triggering is deferred until manual
-use shows a need. This supersedes ADR-0005's "never on a schedule" and "never in CI" wording for the prod check.
+use shows a need. This supersedes the "never in CI" wording for the prod check that ADR-0005 and the verification docs carried;
+"never on a schedule" still holds.

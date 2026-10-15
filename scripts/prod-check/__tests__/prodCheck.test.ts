@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { SnapshotSource } from '../../lib/snapshotSource'
 import type { Snapshot } from '../../../src/lib/types'
-import { runProdCheck } from '../lib/prodCheck'
+import { describeFailure, runProdCheck } from '../lib/prodCheck'
 
 const KEY = 'snapshots/live-2026-10-04T18-41-34Z.json'
 const FIXTURE = readFileSync(`public/mock/${KEY}`, 'utf8')
@@ -62,10 +62,10 @@ describe('runProdCheck', () => {
     expect(result.output).not.toContain('{')
   })
 
-  it('reads "latest" and "all" as the defaults, so the workflow can pass its inputs straight through', () => {
+  it('reads "latest", "all" and a blank input as the defaults, so the workflow can pass its inputs straight through', () => {
     const snapshots = source({ 'latest.json': JSON.stringify({ latest_snapshot_path: KEY }), [KEY]: FIXTURE })
 
-    const result = runProdCheck(['all', 'latest'], { source: snapshots, env: {} })
+    const result = runProdCheck(['', 'all', 'latest'], { source: snapshots, env: {} })
 
     expect(snapshots.reads).toEqual(['latest.json', KEY])
     expect(result.output).toMatch(/^## golf$/m)
@@ -148,7 +148,7 @@ describe('runProdCheck', () => {
 
     expect(result.exitCode).toBe(0)
     expect(result.outcome).toBe('pass')
-    expect(result.output).toContain('No sport was checked')
+    expect(result.output).toContain('No sport was checked, so there is nothing to fail')
     expect(result.output).toContain('PASS')
   })
 
@@ -184,5 +184,21 @@ describe('runProdCheck', () => {
     expect(() => runProdCheck(['nfl', 'manifest/2026-10-04.json'], { source: source({}), env: {} })).toThrow(
       'snapshots/live-<timestamp>.json',
     )
+  })
+})
+
+describe('describeFailure', () => {
+  it('keeps the operator-facing line of a setup error and drops the rest, which may echo what was read', () => {
+    const error = new Error('Unexpected token in snapshot\n{"secret":"value"}')
+
+    expect(describeFailure(error)).toBe('prod:check failed: Unexpected token in snapshot')
+  })
+
+  it('caps a long first line', () => {
+    expect(describeFailure(new Error('x'.repeat(500))).length).toBeLessThan(260)
+  })
+
+  it('describes a thrown non-error', () => {
+    expect(describeFailure('boom')).toBe('prod:check failed: boom')
   })
 })

@@ -33,7 +33,7 @@ export function guardProdRead({ task, key, usage }: ProdRead, deps: ProdReadDeps
     throw new Error(usage ? `${message}\n${usage}` : message)
   }
   if (deps.env.CI) {
-    if (!deps.env.CLOUDFLARE_API_TOKEN || !deps.env.CLOUDFLARE_ACCOUNT_ID) {
+    if (CI_SECRETS.some((name) => !deps.env[name])) {
       throw new Error(`${task} reads prod R2 in CI with the repository secrets ${CI_SECRETS.join(' and ')}; set both.`)
     }
     return

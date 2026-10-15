@@ -33,7 +33,9 @@ jobs:
         run: npm ci
 
       # The check logic lives in `npm run prod:check`; this step only publishes its report and passes on its exit code.
+      # The script also sets this step's `outcome` output (`steps.check.outputs.outcome`), for later steps to branch on.
       - name: Run the prod check
+        id: check
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
