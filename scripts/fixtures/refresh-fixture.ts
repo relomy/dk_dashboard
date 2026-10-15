@@ -1,5 +1,5 @@
 // Refreshes a committed producer fixture from a prod snapshot key.
-// Reads R2 read-only with the operator's Cloudflare login; never runs in CI.
+// Reads R2 read-only with the operator's Cloudflare login (in CI, the Cloudflare token and account ID).
 // Usage: npm run fixture:refresh -- snapshots/live-2026-10-04T18-41-34Z.json
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'

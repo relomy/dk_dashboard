@@ -1,6 +1,6 @@
-// Runs the Live contract (shared invariants + unread-field detector) against a prod snapshot.
-// Reads R2 read-only with the operator's Cloudflare login; never runs in CI.
-// Usage: npm run prod:check -- <sport> [snapshots/live-<timestamp>.json]   (default: the latest snapshot)
+// Runs the Live contract (shared invariants + unread-field detector) against the sports of a prod snapshot.
+// Reads R2 read-only with the operator's Cloudflare login, or in CI the Cloudflare token and account ID.
+// Usage: npm run prod:check -- [<sport>...] [snapshots/live-<timestamp>.json]   (default: every sport, the latest snapshot)
 import { r2Source } from '../lib/r2Source'
 import { runProdCheck } from './lib/prodCheck'
 

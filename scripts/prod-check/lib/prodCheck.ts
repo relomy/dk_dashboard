@@ -3,32 +3,37 @@ import { buildLiveModel, type LiveModel, type LiveNotRenderableReason, type Live
 import { LIVE_UNREAD_ALLOWLIST, liveUnreadPaths } from '../../../src/lib/liveUnreadPaths'
 import { formatOwnership } from '../../../src/lib/playerPool'
 import { interpretSnapshot, type InterpretedSnapshot, isSupportedSnapshot } from '../../../src/lib/interpretedSnapshot'
+import type { Snapshot } from '../../../src/lib/types'
 import { unallowlistedPaths } from '../../../src/lib/unreadPaths'
 import { SNAPSHOT_KEY, guardProdRead, type ProdReadDeps, type SnapshotSource } from '../../lib/snapshotSource'
 
 export type ProdCheckDeps = ProdReadDeps
 
+export type ProdCheckOutcome = 'pass' | 'dashboard'
+
 export interface ProdCheckResult {
   exitCode: 0 | 1
+  outcome: ProdCheckOutcome
   output: string
 }
 
-const USAGE = 'Usage: npm run prod:check -- <sport> [snapshots/live-<timestamp>.json]'
+const USAGE = 'Usage: npm run prod:check -- [all | <sport>...] [latest | snapshots/live-<timestamp>.json]'
 const MAX_LISTED = 10
 
 /**
- * Runs the Live contract (the shared invariants and the unread-field detector) against one sport of
- * a prod snapshot and reports the result compactly. Setup problems throw; contract failures come back
- * as a report with exit code 1. Never prints the raw snapshot.
+ * Runs the Live contract (the shared invariants and the unread-field detector) against the sports of
+ * a prod snapshot (every sport unless some are named) and reports the result compactly. Setup problems
+ * throw; contract failures come back as a report with exit code 1. Never prints the raw snapshot.
  */
 export function runProdCheck(args: string[], deps: ProdCheckDeps): ProdCheckResult {
-  const [sport, requestedKey] = args
-  if (!sport) throw new Error(USAGE)
+  // "latest" and "all" spell the defaults out, so the workflow can pass its inputs straight through.
+  const requestedKey = args.find((arg) => arg.startsWith('snapshots/') || arg.endsWith('.json'))
+  const requestedSports = args.filter((arg) => arg !== requestedKey && arg !== 'latest' && arg !== 'all')
   guardProdRead({ task: 'The prod check', key: requestedKey, usage: USAGE }, deps)
 
   const key = requestedKey ?? latestSnapshotKey(deps.source)
   const snapshot = interpretSnapshot(JSON.parse(deps.source.read(key)))
-  return checkSnapshot(snapshot, sport, key)
+  return checkSnapshot(snapshot, requestedSports, key)
 }
 
 function latestSnapshotKey(source: SnapshotSource): string {
@@ -40,16 +45,41 @@ function latestSnapshotKey(source: SnapshotSource): string {
   return key
 }
 
-function checkSnapshot(snapshot: InterpretedSnapshot, sport: string, key: string): ProdCheckResult {
-  if (!isSupportedSnapshot(snapshot)) return { exitCode: 1, output: `Unsupported snapshot schema version: ${String(snapshot.schema_version)}` }
-  const lines = [`Prod check: ${sport} | ${key} | snapshot_at ${String(snapshot.snapshot_at)}`]
-  const fail = (message: string): ProdCheckResult => ({ exitCode: 1, output: [...lines, `FAIL: ${message}`].join('\n') })
+function checkSnapshot(snapshot: InterpretedSnapshot, requestedSports: string[], key: string): ProdCheckResult {
+  if (!isSupportedSnapshot(snapshot)) {
+    return { exitCode: 1, outcome: 'dashboard', output: `Unsupported snapshot schema version: ${String(snapshot.schema_version)}` }
+  }
+  const sports = requestedSports.length > 0 ? requestedSports : Object.keys(snapshot.sports ?? {}).sort()
+  const lines = [`Prod check: ${key} | snapshot_at ${String(snapshot.snapshot_at)}`]
+  const skipped: string[] = []
+  let checkedCount = 0
+  let ok = true
+  for (const sport of sports) {
+    const checked = checkSport(snapshot, sport, key)
+    if (checked.kind === 'skipped') {
+      skipped.push(`skipped ${sport}: ${checked.reason}`)
+      continue
+    }
+    checkedCount += 1
+    ok &&= checked.ok
+    lines.push('', `## ${sport}`, ...checked.lines)
+  }
+  if (skipped.length > 0) lines.push('', ...skipped.map((line) => `  ${line}`))
+  if (checkedCount === 0) lines.push('', 'No sport was checked: nothing in the snapshot is live yet, so there is nothing to fail.')
+  lines.push('', ok ? 'PASS' : 'FAIL')
+  return { exitCode: ok ? 0 : 1, outcome: ok ? 'pass' : 'dashboard', output: lines.join('\n') }
+}
+
+type SportCheck = { kind: 'checked'; ok: boolean; lines: string[] } | { kind: 'skipped'; reason: string }
+
+function checkSport(snapshot: Snapshot, sport: string, key: string): SportCheck {
+  const fail = (message: string): SportCheck => ({ kind: 'checked', ok: false, lines: [`FAIL: ${message}`] })
 
   if (!snapshot.sports?.[sport]) {
-    return fail(`the snapshot has no "${sport}" feed; it has: ${Object.keys(snapshot.sports ?? {}).sort().join(', ')}`)
+    return { kind: 'skipped', reason: `not in the snapshot (it has ${Object.keys(snapshot.sports ?? {}).sort().join(', ')})` }
   }
   const built = buildLiveModel(snapshot, sport)
-  if (built.kind !== 'ready') return fail(`the Live view cannot render it (${describeReason(built.reason)})`)
+  if (built.kind !== 'ready') return { kind: 'skipped', reason: `the Live view cannot render it (${describeReason(built.reason)})` }
 
   const model = built.model
   const contractCase = contractCasesOf(key, snapshot).find((candidate) => candidate.sport === sport)
@@ -60,14 +90,13 @@ function checkSnapshot(snapshot: InterpretedSnapshot, sport: string, key: string
   const unallowlisted = unallowlistedPaths(unread, LIVE_UNREAD_ALLOWLIST)
   const ok = failures.every(({ violations }) => violations.length === 0) && unallowlisted.length === 0
 
-  lines.push(`Contest: ${model.contest.name} | field ${show(model.fieldSize)} | cash line ${show(model.cashLine.points)} pts, rank ${show(model.cashLine.rank)}`)
+  const lines = [`Contest: ${model.contest.name} | field ${show(model.fieldSize)} | cash line ${show(model.cashLine.points)} pts, rank ${show(model.cashLine.rank)}`]
   lines.push('', 'Sections', ...sectionLines(model))
   lines.push('', `VIP cards (${model.vips.length})`, ...vipLines(model))
   lines.push('', 'Invariants', ...failures.flatMap(invariantLines))
   lines.push('', `Unread paths: ${unallowlisted.length} unallowlisted, ${unread.length - unallowlisted.length} allowlisted`)
   lines.push(...capped(unallowlisted.map((path) => `  - ${path}`)))
-  lines.push('', ok ? 'PASS' : 'FAIL')
-  return { exitCode: ok ? 0 : 1, output: lines.join('\n') }
+  return { kind: 'checked', ok, lines }
 }
 
 function describeReason(reason: LiveNotRenderableReason): string {
