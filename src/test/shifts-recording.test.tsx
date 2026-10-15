@@ -47,6 +47,7 @@ vi.mock('../lib/liveModel', async (importOriginal) => {
 const store = new Map<string, string>()
 let pointer: string
 let served: Record<string, unknown>
+let role: 'owner' | 'friend'
 
 function stubApi() {
   vi.stubGlobal(
@@ -55,7 +56,7 @@ function stubApi() {
       const url = String(input)
       if (url.includes('/api/auth/me')) {
         return new Response(
-          JSON.stringify({ user: { id: 'u1', username: 'dana', role: 'friend', must_change_password: false } }),
+          JSON.stringify({ user: { id: 'u1', username: 'dana', role, must_change_password: false } }),
           { status: 200 },
         )
       }
@@ -127,6 +128,7 @@ beforeEach(() => {
   calls.records.length = 0
   calls.builds.length = 0
   store.clear()
+  role = 'owner'
   pointer = 'snapshots/first.json'
   served = { 'snapshots/first.json': load() }
   vi.stubGlobal('localStorage', {
@@ -281,6 +283,33 @@ describe('useShiftsFeed', () => {
   it('gives pages under the shell the feed', async () => {
     renderShell('/settings')
 
-    expect(await screen.findByTestId('feed-probe')).toHaveTextContent('feed:0')
+    await vi.waitFor(() => expect(screen.getByTestId('feed-probe')).toHaveTextContent('feed:0'))
+  })
+})
+
+describe('the owner-only gate', () => {
+  it('records nothing, builds nothing and writes no Shifts state for a friend', async () => {
+    role = 'friend'
+    renderShell('/settings')
+    await screen.findByTestId('feed-probe')
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    })
+    expect(calls.records).toHaveLength(0)
+    expect(calls.builds).toHaveLength(0)
+    expect([...store.keys()].filter((key) => key.startsWith('dk_dashboard_shifts_'))).toEqual([])
+  })
+
+  it('gives a friend no feed', async () => {
+    role = 'friend'
+    renderShell('/sport/nfl')
+    expect((await screen.findByTestId('feed-probe')).textContent).toBe('no-feed')
+  })
+
+  it('still renders the Live view for a friend', async () => {
+    role = 'friend'
+    renderShell('/live/nfl')
+    await vi.waitFor(() => expect(calls.builds.length).toBeGreaterThan(0))
+    expect(calls.records).toHaveLength(0)
   })
 })
