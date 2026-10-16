@@ -5,6 +5,10 @@
  */
 
 export type GeneratedAt = string;
+export type Path = string;
+export type Rule = string;
+export type PresenceWarnings = PresenceWarning[];
+export type ProducerCommit = string | null;
 export type SchemaVersion = 3;
 export type SnapshotAt = string;
 /**
@@ -167,9 +171,18 @@ export type UpdatedAt2 = string;
  */
 export interface SnapshotEnvelope {
   generated_at: GeneratedAt;
+  presence_warnings: PresenceWarnings;
+  producer_commit: ProducerCommit;
   schema_version: SchemaVersion;
   snapshot_at: SnapshotAt;
   sports: Sports;
+}
+/**
+ * A presence rule the snapshot broke: the field left blank and the rule that expected it filled.
+ */
+export interface PresenceWarning {
+  path: Path;
+  rule: Rule;
 }
 export interface Sports {
   [k: string]: SportPayload;
