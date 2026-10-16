@@ -53,10 +53,13 @@ describe('refreshFixture', () => {
     expect(snapshots.reads).toEqual([])
   })
 
-  it('refuses to run in CI', () => {
+  it('names the missing R2 secrets in CI and reads nothing', () => {
+    const snapshots = source()
+
     expect(() =>
-      refreshFixture(KEY, { source: source(), writeFixture: () => undefined, env: { CI: 'true' } }),
-    ).toThrow('never runs in CI')
+      refreshFixture(KEY, { source: snapshots, writeFixture: () => undefined, env: { CI: 'true' } }),
+    ).toThrow(/R2_ACCESS_KEY_ID.*R2_SECRET_ACCESS_KEY.*CLOUDFLARE_ACCOUNT_ID/)
+    expect(snapshots.reads).toEqual([])
   })
 
   it('rejects a key that is not a live snapshot', () => {

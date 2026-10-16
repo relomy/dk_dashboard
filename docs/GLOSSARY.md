@@ -226,8 +226,8 @@ underway.
 
 **Live contract**:
 The checks that the Live view reads real producer snapshots correctly: its
-invariants and its unread paths, run by the contract test on captured fixtures
-and by the prod check on a prod snapshot.
+invariants and its unread paths, run by the contract test on prod fixtures and
+goldens, and by the prod check on a prod snapshot.
 
 **Invariant**:
 A hand-written rule about what the Live view shows for a snapshot, such as
@@ -239,3 +239,20 @@ A field the snapshot emits that the Live model never reads.
 **Allowlist**:
 The reviewed list of unread paths the Live view leaves unread on purpose, each
 with its reason. Any other unread path fails the Live contract.
+
+**Presence rule**:
+An expectation that a snapshot field is filled, always or in a given game state.
+_Avoid_: required field, null check
+
+**Prod fixture**:
+A real prod snapshot committed to this repository, trimmed only by dropping array
+elements.
+_Avoid_: captured fixture, producer fixture, mock
+
+**Golden**:
+A snapshot the producer designed and publishes with its contract.
+_Avoid_: golden envelope, sample
+
+**Prod check**:
+A one-off run of the Live contract against a snapshot read straight from prod.
+_Avoid_: production check

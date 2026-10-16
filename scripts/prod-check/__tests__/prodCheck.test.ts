@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { SnapshotSource } from '../../lib/snapshotSource'
 import type { Snapshot } from '../../../src/lib/types'
-import { runProdCheck } from '../lib/prodCheck'
+import { describeFailure, runProdCheck } from '../lib/prodCheck'
 
 const KEY = 'snapshots/live-2026-10-04T18-41-34Z.json'
 const FIXTURE = readFileSync(`public/mock/${KEY}`, 'utf8')
@@ -50,6 +50,28 @@ describe('runProdCheck', () => {
     expect(result.output).not.toContain('{')
   })
 
+  it('checks every sport in the snapshot when none is named, each under its own heading', () => {
+    const result = runProdCheck([KEY], { source: source({ [KEY]: FIXTURE }), env: {} })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.outcome).toBe('pass')
+    expect(result.output).toMatch(/^## golf$/m)
+    expect(result.output).toMatch(/^## nfl$/m)
+    expect(result.output).toContain('cglenn91')
+    expect(result.output.split('\n').length).toBeLessThan(120)
+    expect(result.output).not.toContain('{')
+  })
+
+  it('reads "latest", "all" and a blank input as the defaults, so the workflow can pass its inputs straight through', () => {
+    const snapshots = source({ 'latest.json': JSON.stringify({ latest_snapshot_path: KEY }), [KEY]: FIXTURE })
+
+    const result = runProdCheck(['', 'all', 'latest'], { source: snapshots, env: {} })
+
+    expect(snapshots.reads).toEqual(['latest.json', KEY])
+    expect(result.output).toMatch(/^## golf$/m)
+    expect(result.output).toMatch(/^## nfl$/m)
+  })
+
   it('checks the snapshot named by the key instead of the latest', () => {
     const snapshots = source({ [KEY]: FIXTURE })
 
@@ -82,6 +104,7 @@ describe('runProdCheck', () => {
     const result = runProdCheck(['nfl', KEY], { source: source({ [KEY]: broken }), env: {} })
 
     expect(result.exitCode).toBe(1)
+    expect(result.outcome).toBe('dashboard')
     expect(result.output).toContain('FAIL')
     expect(result.output).toContain('every VIP card has a numeric rank, points and PMR')
     expect(result.output).toContain('VIP cglenn91: rank is null')
@@ -95,15 +118,38 @@ describe('runProdCheck', () => {
     const result = runProdCheck(['nfl', KEY], { source: source({ [KEY]: extra }), env: {} })
 
     expect(result.exitCode).toBe(1)
+    expect(result.outcome).toBe('dashboard')
     expect(result.output).toContain('sports.*.players[].brand_new_field')
   })
 
-  it('fails when the sport is not in the snapshot, naming the sports it has', () => {
+  it('skips a named sport the snapshot lacks, naming the sports it has, and passes when others were checked', () => {
+    const result = runProdCheck(['nfl', 'hockey', KEY], { source: source({ [KEY]: FIXTURE }), env: {} })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.outcome).toBe('pass')
+    expect(result.output).toMatch(/^## nfl$/m)
+    expect(result.output).toMatch(/skipped hockey: not in the snapshot \(it has golf, nfl\)/)
+  })
+
+  it('skips a sport the Live view cannot render, with the reason', () => {
+    const unrenderable = withSnapshot((snapshot) => {
+      snapshot.sports.golf.primary_contest = null
+    })
+
+    const result = runProdCheck([KEY], { source: source({ [KEY]: unrenderable }), env: {} })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.output).toMatch(/^## nfl$/m)
+    expect(result.output).toMatch(/skipped golf: the Live view cannot render it \(no-primary-contest\)/)
+  })
+
+  it('passes with a note when no sport could be checked', () => {
     const result = runProdCheck(['hockey', KEY], { source: source({ [KEY]: FIXTURE }), env: {} })
 
-    expect(result.exitCode).toBe(1)
-    expect(result.output).toContain('hockey')
-    expect(result.output).toContain('golf, nfl')
+    expect(result.exitCode).toBe(0)
+    expect(result.outcome).toBe('pass')
+    expect(result.output).toContain('No sport was checked, so there is nothing to fail')
+    expect(result.output).toContain('PASS')
   })
 
   it('prints the exact login command and reads nothing when the Cloudflare login is missing', () => {
@@ -113,14 +159,55 @@ describe('runProdCheck', () => {
     expect(snapshots.reads).toEqual([])
   })
 
-  it('refuses to run in CI', () => {
-    expect(() => runProdCheck(['nfl'], { source: source({}), env: { CI: 'true' } })).toThrow('never runs in CI')
+  it('runs in CI on the R2 access key and account ID, without asking wrangler who is logged in', () => {
+    const snapshots = source({ [KEY]: FIXTURE }, false)
+    const env = { CI: 'true', R2_ACCESS_KEY_ID: 'id', R2_SECRET_ACCESS_KEY: 'secret', CLOUDFLARE_ACCOUNT_ID: 'account' }
+
+    const result = runProdCheck([KEY], { source: snapshots, env })
+
+    expect(result.exitCode).toBe(0)
   })
 
-  it('rejects a missing sport and a key that is not a live snapshot', () => {
-    expect(() => runProdCheck([], { source: source({}), env: {} })).toThrow('Usage')
+  it.each([
+    ['all', { CI: 'true' }],
+    ['the access key ID', { CI: 'true', R2_SECRET_ACCESS_KEY: 'secret', CLOUDFLARE_ACCOUNT_ID: 'account' }],
+    ['the secret access key', { CI: 'true', R2_ACCESS_KEY_ID: 'id', CLOUDFLARE_ACCOUNT_ID: 'account' }],
+    ['the account ID', { CI: 'true', R2_ACCESS_KEY_ID: 'id', R2_SECRET_ACCESS_KEY: 'secret' }],
+  ])('names all three secrets and reads nothing in CI when %s is missing', (_missing, env) => {
+    const snapshots = source({ [KEY]: FIXTURE })
+
+    expect(() => runProdCheck([KEY], { source: snapshots, env })).toThrow(
+      /R2_ACCESS_KEY_ID.*R2_SECRET_ACCESS_KEY.*CLOUDFLARE_ACCOUNT_ID/,
+    )
+    expect(snapshots.reads).toEqual([])
+  })
+
+  it('reads with the R2 credentials outside CI too, without needing a wrangler login', () => {
+    const snapshots = source({ [KEY]: FIXTURE }, false)
+    const env = { R2_ACCESS_KEY_ID: 'id', R2_SECRET_ACCESS_KEY: 'secret', CLOUDFLARE_ACCOUNT_ID: 'account' }
+
+    expect(runProdCheck([KEY], { source: snapshots, env }).exitCode).toBe(0)
+  })
+
+  it('rejects a key that is not a live snapshot', () => {
     expect(() => runProdCheck(['nfl', 'manifest/2026-10-04.json'], { source: source({}), env: {} })).toThrow(
       'snapshots/live-<timestamp>.json',
     )
+  })
+})
+
+describe('describeFailure', () => {
+  it('keeps the operator-facing line of a setup error and drops the rest, which may echo what was read', () => {
+    const error = new Error('Unexpected token in snapshot\n{"secret":"value"}')
+
+    expect(describeFailure(error)).toBe('prod:check failed: Unexpected token in snapshot')
+  })
+
+  it('caps a long first line', () => {
+    expect(describeFailure(new Error('x'.repeat(500))).length).toBeLessThan(260)
+  })
+
+  it('describes a thrown non-error', () => {
+    expect(describeFailure('boom')).toBe('prod:check failed: boom')
   })
 })

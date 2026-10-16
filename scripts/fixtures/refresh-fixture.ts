@@ -1,10 +1,10 @@
 // Refreshes a committed producer fixture from a prod snapshot key.
-// Reads R2 read-only with the operator's Cloudflare login; never runs in CI.
+// Reads R2 read-only with the operator's Cloudflare login (or, with the R2 access key and account ID in the environment, its S3 API).
 // Usage: npm run fixture:refresh -- snapshots/live-2026-10-04T18-41-34Z.json
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-import { r2Source } from '../lib/r2Source'
+import { selectSource } from '../lib/selectSource'
 import { refreshFixture } from './lib/refreshFixture'
 
 function main(): void {
@@ -14,7 +14,7 @@ function main(): void {
   }
 
   const result = refreshFixture(key, {
-    source: r2Source,
+    source: selectSource(process.env),
     writeFixture: (fixturePath, text) => {
       mkdirSync(path.dirname(fixturePath), { recursive: true })
       writeFileSync(fixturePath, text)

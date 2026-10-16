@@ -1,0 +1,54 @@
+name: Prod Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: 'Snapshot key (snapshots/live-<timestamp>.json), or latest'
+        default: latest
+      sports:
+        description: 'Space-separated sports to check, or all'
+        default: all
+
+permissions:
+  contents: read
+
+jobs:
+  prod-check:
+    name: Prod check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The check logic lives in `npm run prod:check`; this step only publishes its report and passes on its exit code.
+      # The script also sets this step's `outcome` output (`steps.check.outputs.outcome`), for later steps to branch on.
+      - name: Run the prod check
+        id: check
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SNAPSHOT: ${{ inputs.snapshot }}
+          SPORTS: ${{ inputs.sports }}
+        run: |
+          set +e
+          # Word splitting is intended: SPORTS holds several sports.
+          # shellcheck disable=SC2086
+          npm run --silent prod:check -- $SPORTS "$SNAPSHOT" > report.txt 2> errors.txt
+          status=$?
+          { echo '```text'; cat report.txt errors.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          cat report.txt
+          cat errors.txt >&2
+          exit "$status"
