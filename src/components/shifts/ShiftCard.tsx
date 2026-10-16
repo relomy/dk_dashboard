@@ -1,9 +1,20 @@
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowDown, ArrowUp } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Lock } from 'lucide-react'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { formatPoints, formatRank, formatSigned } from '../../lib/format'
-import type { CashLineMove, CashLineShiftItem, ContestShiftItem, CrossingPath, Move, VipShiftItem } from '../../lib/shifts'
+import { DASH, formatPoints, formatRank, formatSigned } from '../../lib/format'
+import type { GameStatus } from '../../lib/liveModel'
+import type {
+  CashLineMove,
+  CashLineShiftItem,
+  ContestShiftItem,
+  CrossingPath,
+  LineupSlotDiff,
+  Move,
+  VipShiftItem,
+} from '../../lib/shifts'
 import type { ReactNode } from 'react'
 
 const PATH_TEXT: Record<CrossingPath, string> = {
@@ -68,6 +79,95 @@ function MoveRow({
   )
 }
 
+/**
+ * Whether a slot's player moved: own points, locked state, or game status. A player with no earlier game status
+ * (a late swap) is not compared, and a `stats` change alone does not count.
+ */
+function isChanged(slot: LineupSlotDiff): boolean {
+  return (
+    (slot.pointsMove ?? 0) !== 0 ||
+    slot.locked.from !== slot.locked.to ||
+    (slot.gameStatus.from !== null && slot.gameStatus.from !== slot.gameStatus.to)
+  )
+}
+
+const GAME_WORD: Record<GameStatus, string> = { 'pre-game': 'Pre', 'in-progress': 'Live', final: 'Final' }
+
+/** A player's game status: both statuses when it changed (`Live → Final`), one when it held. */
+function gameStatusText(status: Move<GameStatus | null>): string | null {
+  if (status.to === null) return null
+  if (status.from !== null && status.from !== status.to) return `${GAME_WORD[status.from]} → ${GAME_WORD[status.to]}`
+  return GAME_WORD[status.to]
+}
+
+/** A player's own points move: a signed figure, `0.00` when it held, a dash when it cannot be compared. */
+function deltaText(move: number | null): string {
+  if (move === null) return DASH
+  return move === 0 ? formatPoints(0) : formatSigned(move)
+}
+
+/** Rising points are good, falling are bad, as for the VIP's own points; a held or unknown move reads neutral. */
+function deltaTone(move: number | null): string {
+  if (move === null || move === 0) return 'text-muted-foreground'
+  return move > 0 ? 'text-cashing' : 'text-non-cashing'
+}
+
+/** The VIP's whole lineup diff behind a collapsed row. Rows keep the order the feed gives them. */
+function LineupDiff({ lineup }: { lineup: LineupSlotDiff[] }) {
+  const [open, setOpen] = useState(false)
+  const changed = lineup.filter(isChanged).length
+  const Chevron = open ? ChevronDown : ChevronRight
+  return (
+    <div className="pt-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="w-full justify-start text-muted-foreground"
+      >
+        <Chevron aria-hidden />
+        Lineup · {changed} of {lineup.length} changed
+      </Button>
+      {open ? (
+        <ul className="mt-1 divide-y divide-border">
+          {lineup.map((slot) => {
+            const hidden = slot.locked.to
+            return (
+              <li key={slot.key} className={cn('flex items-center gap-2 py-1.5', !isChanged(slot) && 'opacity-50')}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2">
+                    {hidden ? <Lock role="img" aria-label="Still locked" className="size-3 text-muted-foreground" /> : null}
+                    <span className={cn('truncate', hidden && 'text-muted-foreground')}>{hidden ? 'Still hidden' : slot.name}</span>
+                    {slot.locked.from && !slot.locked.to ? (
+                      <Badge variant="outline" className="border-cash-line text-cash-line">
+                        Revealed
+                      </Badge>
+                    ) : null}
+                    {hidden ? null : <span className="text-xs text-muted-foreground">{gameStatusText(slot.gameStatus)}</span>}
+                  </div>
+                  {slot.stats?.to ? <p className="truncate text-[11px] text-muted-foreground">{slot.stats.to}</p> : null}
+                </div>
+                {hidden ? null : (
+                  <span className="hidden font-mono text-xs text-muted-foreground tabular-nums sm:block">
+                    {slot.points.from === null ? DASH : formatPoints(slot.points.from)} → {formatPoints(slot.points.to)}
+                  </span>
+                )}
+                {hidden ? null : (
+                  <span className={cn('w-14 shrink-0 text-right font-mono text-xs tabular-nums', deltaTone(slot.pointsMove))}>
+                    {deltaText(slot.pointsMove)}
+                  </span>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
+    </div>
+  )
+}
+
 function ShiftCardFrame({ title, high, children }: { title: string; high: boolean; children: ReactNode }) {
   return (
     <article>
@@ -107,6 +207,7 @@ export function VipShiftCard({ item, name }: { item: VipShiftItem; name: string 
       {item.finishedCashing === undefined ? (
         <MoveRow label="To cash" move={item.distanceToCashPoints} format={formatSigned} />
       ) : null}
+      {item.lineup && item.lineup.length > 0 ? <LineupDiff lineup={item.lineup} /> : null}
     </ShiftCardFrame>
   )
 }
