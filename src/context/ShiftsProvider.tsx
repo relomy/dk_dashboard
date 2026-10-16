@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useLatest } from '../hooks/useLatest'
 import { useLiveModel } from '../hooks/useLiveModel'
-import { readLastViewedSport } from '../lib/landing'
 import type { LiveModel } from '../lib/liveModel'
 import { createShiftsFeed } from '../lib/shifts'
 import { ShiftsContext } from './ShiftsContext'
@@ -11,8 +10,9 @@ import { ShiftsContext } from './ShiftsContext'
 export const VISIT_SETTLE_MS = 3000
 
 /**
- * The Shifts feed is owner-only while it has no UI: for anyone else this renders the children untouched, with no
- * feed, no model build and no storage access, so nothing about it is observable.
+ * The Shifts feed is owner-only: for anyone else this renders the children untouched, with no feed, no model
+ * build and no storage access, so nothing about it is observable. `sport` is the sport the feed follows: the one
+ * on screen, else the last-viewed one, as the app shell resolves it.
  */
 export function ShiftsProvider({ sport, children }: { sport: string | null; children: ReactNode }) {
   const { user } = useAuth()
@@ -21,15 +21,14 @@ export function ShiftsProvider({ sport, children }: { sport: string | null; chil
 }
 
 /**
- * Owns the Shifts feed and records each Live model build for the sport being viewed (or the last-viewed sport
- * on pages without one), once per build. The page opening and the tab returning to visible are visits; polls
+ * Owns the Shifts feed and records each Live model build for `sport`, once per build. The page opening and the tab returning to visible are visits; polls
  * are not. A visit rides on the next build, since that is the data the user returns to; if none arrives within
  * `VISIT_SETTLE_MS` the current model is recorded as the visit. Nothing here renders anything.
  */
 function OwnerShiftsProvider({ sport, children }: { sport: string | null; children: ReactNode }) {
   const [feed] = useState(() => createShiftsFeed())
   const { snapshotQuery } = useLatest()
-  const sportKey = sport?.toLowerCase() ?? readLastViewedSport()?.toLowerCase() ?? null
+  const sportKey = sport?.toLowerCase() ?? null
   const result = useLiveModel(snapshotQuery.data, sportKey)
   const model = result?.kind === 'ready' ? result.model : null
 
