@@ -103,6 +103,8 @@ jobs:
             echo "envelopes and fails on a broken invariant or an unread field, and the schema drift test fails if the"
             echo "generated types no longer match the schema. Review the \`contract/\` and \`src/lib/generated/\` diff"
             echo "for what changed."
+            echo
+            echo "After deploying the new producer, run the **Prod Check** workflow to verify it against prod."
           } > body.md
           number=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
           if [ -z "$number" ]; then

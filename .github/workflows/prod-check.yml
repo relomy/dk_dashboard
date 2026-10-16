@@ -9,6 +9,9 @@ on:
       sports:
         description: 'Space-separated sports to check, or all'
         default: all
+      pr:
+        description: 'PR number to check with its own code and comment the report on, or empty'
+        default: ''
 
 permissions:
   contents: write
@@ -21,8 +24,21 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Validate the PR number
+        if: ${{ inputs.pr != '' }}
+        env:
+          PR: ${{ inputs.pr }}
+        run: |
+          if ! [[ "$PR" =~ ^[0-9]+$ ]]; then
+            echo "pr must be a pull request number, got '$PR'" >&2
+            exit 1
+          fi
+
+      # With `pr`, the run uses that PR's head, so the report reflects the branch's code, not the default branch's.
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.pr != '' && format('refs/pull/{0}/head', inputs.pr) || '' }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -54,12 +70,31 @@ jobs:
           cat errors.txt >&2
           exit "$status"
 
+      # The comment holds the compact report only, which never prints the raw snapshot. It is posted on a pass and on a
+      # failure alike, so the PR shows the verdict either way.
+      - name: Comment the report on the PR
+        if: ${{ always() && inputs.pr != '' && steps.check.conclusion != 'skipped' && steps.check.conclusion != 'cancelled' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "Prod check for this PR's head ([run]($RUN_URL))."
+            echo
+            echo '```text'
+            cat report.txt errors.txt
+            echo '```'
+          } > comment.md
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body-file comment.md
+
       # Only the outcome decides: `dashboard` (an invariant failed, or an unread path isn't allowlisted) captures the
       # checked snapshot as a prod fixture and opens a draft PR with the report. `pass`, or a setup error that set no
-      # outcome, opens nothing. The PR is red by design: the operator fixes the dashboard on it, or closes it if the
-      # cause is a producer bug. Prod snapshots age out of R2 after 30 days; this is how a failing case survives.
+      # outcome, opens nothing. A run with `pr` only comments: its checkout is the PR's code, not a base to branch from.
+      # The PR is red by design: the operator fixes the dashboard on it, or closes it if the cause is a producer bug.
+      # Prod snapshots age out of R2 after 30 days; this is how a failing case survives.
       - name: Capture the failing snapshot as a prod fixture
-        if: ${{ always() && steps.check.outputs.outcome == 'dashboard' }}
+        if: ${{ always() && inputs.pr == '' && steps.check.outputs.outcome == 'dashboard' }}
         env:
           GH_TOKEN: ${{ github.token }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
