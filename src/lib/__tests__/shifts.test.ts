@@ -852,6 +852,18 @@ describe('visits after a long gap', () => {
     expect(feed.gap()).toBeNull()
   })
 
+  it('drops the flag when the feed moves to another sport, since it described the first', () => {
+    let clock = T0
+    const feed = createShiftsFeed({ storage: memoryStorage(), now: () => clock })
+    feed.record(modelOf('cfb'), { visit: true })
+    feed.record(nflModel(), { visit: true })
+    clock = T0 + 40 * MINUTE
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
+    expect(feed.gap()).not.toBeNull()
+    feed.record(modelOf('cfb'), { visit: false })
+    expect(feed.gap()).toBeNull()
+  })
+
   it('reads the previous build from stored state, so a fresh feed instance sees the gap', () => {
     const storage = memoryStorage()
     createShiftsFeed({ storage, now: () => T0 }).record(nflModel(), { visit: true })
