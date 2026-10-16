@@ -1,5 +1,7 @@
 {
   "generated_at": "Snapshot age, shown by the app shell and Health, not the Live view",
+  "presence_warnings": "Producer diagnostics: presence rules the snapshot broke. The prod check reports them; the Live view does not show them",
+  "producer_commit": "Provenance: which producer commit built the snapshot. The prod check shows and checks it; the Live view does not",
   "sports.*.contests[].completed_at": "When the producer first saw the contest completed. The Live view ages a Final contest from its start time and does not show when it completed; the landing page will order completed contests by it (#69)",
   "sports.*.contests[].contest_id": "Contest selection matches configured contest_key; contest_id is the last fallback",
   "sports.*.contests[].contest_type": "Contest metadata the Sport view's contest card shows; the Live view does not",
