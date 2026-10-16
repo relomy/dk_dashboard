@@ -38,6 +38,8 @@
   "sports.*.contests[].standings[].remaining_salary": "No Live panel shows salary remaining yet",
   "sports.*.contests[].vip_lineups[].players_live[].is_live": "A lineup player's game status comes from the matched pool player's game_status; is_live repeats whether that player is active",
   "sports.*.contests[].vip_lineups[].players_live[].salary": "Lineup cards show no salary",
+  "sports.*.players[].rt_projection": "Read for VIP lineup players, through their matching pool player; the NBA goldens have no VIP, so nothing reads it there",
+  "sports.*.players[].stats_text": "Read for VIP lineup players, through their matching pool player; the NBA goldens have no VIP, so nothing reads it there",
   "sports.*.primary_contest.contest_id": "Contest selection matches configured contest_key; contest_id is the last fallback",
   "sports.*.primary_contest.selected_at": "Producer bookkeeping on how the primary contest was picked; nothing to show",
   "sports.*.primary_contest.selection_reason.criteria.contest_id": "Producer bookkeeping on how the primary contest was picked; nothing to show",
