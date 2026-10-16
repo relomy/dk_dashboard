@@ -11,7 +11,8 @@ on:
         default: all
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
   prod-check:
@@ -33,7 +34,7 @@ jobs:
         run: npm ci
 
       # The check logic lives in `npm run prod:check`; this step only publishes its report and passes on its exit code.
-      # The script also sets this step's `outcome` output (`steps.check.outputs.outcome`), for later steps to branch on.
+      # The script also sets this step's `outcome` and `snapshot` outputs, for later steps to branch on.
       - name: Run the prod check
         id: check
         env:
@@ -52,3 +53,51 @@ jobs:
           cat report.txt
           cat errors.txt >&2
           exit "$status"
+
+      # Only the outcome decides: `dashboard` (an invariant failed, or an unread path isn't allowlisted) captures the
+      # checked snapshot as a prod fixture and opens a draft PR with the report. `pass`, or a setup error that set no
+      # outcome, opens nothing. The PR is red by design: the operator fixes the dashboard on it, or closes it if the
+      # cause is a producer bug. Prod snapshots age out of R2 after 30 days; this is how a failing case survives.
+      - name: Capture the failing snapshot as a prod fixture
+        if: ${{ always() && steps.check.outputs.outcome == 'dashboard' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SNAPSHOT_KEY: ${{ steps.check.outputs.snapshot }}
+          # The branch the run was dispatched from: normally the default branch, or a scratch branch for a trial run.
+          BASE_BRANCH: ${{ github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          npm run --silent fixture:refresh -- "$SNAPSHOT_KEY"
+          name=$(basename "$SNAPSHOT_KEY" .json)
+          branch="prod-fixture/$name"
+          title="test(contract): capture $name as a prod fixture"
+          {
+            echo "The [Prod Check run]($RUN_URL) failed the Live contract on \`$SNAPSHOT_KEY\`. This draft adds the trimmed"
+            echo "snapshot to \`contract/prod-fixtures/\`, so the contract suite fails on it until the dashboard is fixed."
+            echo
+            echo "Fix the dashboard on this branch, or close the PR if the report shows a producer bug."
+            echo "Record the producer commit in \`public/mock/PRODUCER_FIXTURE.md\`."
+            echo
+            echo '```text'
+            cat report.txt errors.txt
+            echo '```'
+          } > body.md
+          # A re-run on a snapshot that is already captured never overwrites the operator's work on the draft.
+          if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
+            echo "$branch already exists; leaving that draft as it is."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add contract/prod-fixtures
+          if git diff --cached --quiet; then
+            echo "$SNAPSHOT_KEY is already a prod fixture on $BASE_BRANCH; nothing to capture."
+            exit 0
+          fi
+          git commit -m "$title"
+          git push origin "$branch"
+          gh pr create --draft --base "$BASE_BRANCH" --head "$branch" --title "$title" --body-file body.md

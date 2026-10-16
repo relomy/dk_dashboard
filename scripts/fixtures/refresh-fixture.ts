@@ -1,4 +1,4 @@
-// Refreshes a committed producer fixture from a prod snapshot key.
+// Refreshes a committed prod fixture (contract/prod-fixtures/) from a prod snapshot key.
 // Reads R2 read-only with the operator's Cloudflare login (or, with the R2 access key and account ID in the environment, its S3 API).
 // Usage: npm run fixture:refresh -- snapshots/live-2026-10-04T18-41-34Z.json
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -24,7 +24,7 @@ function main(): void {
 
   console.log(`Wrote ${result.fixturePath}`)
   console.log('Record the snapshot key, producer commit, pull date and these counts in')
-  console.log('public/mock/PRODUCER_FIXTURE.md:')
+  console.log('public/mock/PRODUCER_FIXTURE.md (a capture from the Prod Check workflow is recorded in its draft PR instead):')
   console.log('')
   console.log('| Array | Rows |')
   console.log('| --- | --- |')

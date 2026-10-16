@@ -14,6 +14,8 @@ export type ProdCheckOutcome = 'pass' | 'dashboard'
 export interface ProdCheckResult {
   exitCode: 0 | 1
   outcome: ProdCheckOutcome
+  /** The snapshot that was checked (what `latest` resolved to), for the workflow to capture on a failure. */
+  key: string
   output: string
 }
 
@@ -60,7 +62,7 @@ function latestSnapshotKey(source: SnapshotSource): string {
 
 function checkSnapshot(snapshot: InterpretedSnapshot, requestedSports: string[], key: string): ProdCheckResult {
   if (!isSupportedSnapshot(snapshot)) {
-    return { exitCode: 1, outcome: 'dashboard', output: `Unsupported snapshot schema version: ${String(snapshot.schema_version)}` }
+    return { exitCode: 1, outcome: 'dashboard', key, output: `Unsupported snapshot schema version: ${String(snapshot.schema_version)}` }
   }
   const sports = requestedSports.length > 0 ? requestedSports : sportsIn(snapshot)
   const lines = [`Prod check: ${key} | snapshot_at ${String(snapshot.snapshot_at)}`]
@@ -80,7 +82,7 @@ function checkSnapshot(snapshot: InterpretedSnapshot, requestedSports: string[],
   if (skipped.length > 0) lines.push('', ...skipped.map((line) => `  ${line}`))
   if (checkedCount === 0) lines.push('', 'No sport was checked, so there is nothing to fail.')
   lines.push('', ok ? 'PASS' : 'FAIL')
-  return { exitCode: ok ? 0 : 1, outcome: ok ? 'pass' : 'dashboard', output: lines.join('\n') }
+  return { exitCode: ok ? 0 : 1, outcome: ok ? 'pass' : 'dashboard', key, output: lines.join('\n') }
 }
 
 type SportCheck = { kind: 'checked'; ok: boolean; lines: string[] } | { kind: 'skipped'; reason: string }
