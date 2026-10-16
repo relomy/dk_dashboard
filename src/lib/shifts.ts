@@ -137,6 +137,8 @@ export interface ShiftsFeed {
   markSeen(): void
   /** Marks High items as shown; the items stay in the feed until `markSeen`. */
   markSurfaced(ids: string[]): void
+  /** Calls `listener` after the feed changes; returns the function that stops it. */
+  subscribe(listener: () => void): () => void
 }
 
 export interface ShiftsFeedOptions {
@@ -575,8 +577,10 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
   let items: ShiftItem[] = []
   let gap: ShiftsGap | null = null
   let currentKey: string | null = null
+  const listeners = new Set<() => void>()
+  const notify = () => listeners.forEach((listener) => listener())
 
-  return {
+  const feed: ShiftsFeed = {
     record(model, { visit }) {
       items = []
       if (visit) gap = null
@@ -646,6 +650,25 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
       } catch {
         // Surfacing is best effort; the item simply shows again.
       }
+    },
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => void listeners.delete(listener)
+    },
+  }
+  return {
+    ...feed,
+    record(model, options) {
+      feed.record(model, options)
+      notify()
+    },
+    markSeen() {
+      feed.markSeen()
+      notify()
+    },
+    markSurfaced(ids) {
+      feed.markSurfaced(ids)
+      notify()
     },
   }
 }

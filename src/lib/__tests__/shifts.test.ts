@@ -1084,3 +1084,40 @@ describe('a VIP added or removed mid-session', () => {
     expect(vipItems(feed)[0]).toMatchObject({ rank: { from: 400, to: 300 } })
   })
 })
+
+describe('subscribing to the feed', () => {
+  it('notifies a subscriber after a build is recorded, with the feed already updated', () => {
+    const { feed } = seededFeed()
+    const seenCounts: number[] = []
+    feed.subscribe(() => seenCounts.push(feed.unseenCount()))
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: false })
+    expect(seenCounts).toEqual([1])
+  })
+
+  it('notifies a subscriber after the feed is marked seen, with the feed already empty', () => {
+    const { feed } = seededFeed()
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: false })
+    const seenCounts: number[] = []
+    feed.subscribe(() => seenCounts.push(feed.unseenCount()))
+    feed.markSeen()
+    expect(seenCounts).toEqual([0])
+  })
+
+  it('notifies a subscriber after items are marked surfaced, with the items already surfaced', () => {
+    const { feed } = seededFeed()
+    feed.record(nflModel({ EmpireMaker2: INSIDE }), { visit: false })
+    const unsurfaced: number[] = []
+    feed.subscribe(() => unsurfaced.push(feed.unsurfaced().length))
+    feed.markSurfaced([feed.feed()[0].id])
+    expect(unsurfaced).toEqual([0])
+  })
+
+  it('stops notifying once unsubscribed', () => {
+    const { feed } = seededFeed()
+    let calls = 0
+    const unsubscribe = feed.subscribe(() => calls++)
+    unsubscribe()
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: false })
+    expect(calls).toBe(0)
+  })
+})
