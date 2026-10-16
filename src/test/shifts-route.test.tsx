@@ -292,4 +292,20 @@ describe('the Shifts page', () => {
     const card = (await screen.findAllByRole('article'))[0]
     expect(within(card).queryByText(/the cash line moved \./i)).toBeNull()
   })
+
+  it('points the arrow up for an improvement, so a rank that falls to a better place shows an up arrow', async () => {
+    await renderShifts(stubFeed([vipItem('empire', { rank: { from: 600, to: 580 } }), vipItem('tuck', { rank: { from: 580, to: 600 } })]))
+    const [better, worse] = await screen.findAllByRole('article')
+    const arrow = (card: HTMLElement) => within(within(card).getByRole('group', { name: 'Rank' })).getByRole('img')
+    expect(arrow(better).getAttribute('data-direction')).toBe('up')
+    expect(arrow(worse).getAttribute('data-direction')).toBe('down')
+  })
+
+  it('points a neutral cash line arrow by the way the figure moved', async () => {
+    const line: CashLineShiftItem = { id: 'cl', kind: 'cash-line', priority: 'normal', detectedAt: 0, points: { from: 400, to: 405 }, rank: { from: 520, to: 500 } }
+    await renderShifts(stubFeed([line]))
+    const card = (await screen.findAllByRole('article'))[0]
+    expect(within(within(card).getByRole('group', { name: 'Points' })).getByRole('img').getAttribute('data-direction')).toBe('up')
+    expect(within(within(card).getByRole('group', { name: 'Rank' })).getByRole('img').getAttribute('data-direction')).toBe('down')
+  })
 })

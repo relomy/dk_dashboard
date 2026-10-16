@@ -51,7 +51,9 @@ function MoveRow({
   const { from, to } = move
   const change = from === null || to === null ? 0 : to - from
   const improved = lowerIsBetter ? change < 0 : change > 0
-  const Arrow = change > 0 ? ArrowUp : ArrowDown
+  // The arrow points up for an improvement (a rank that falls climbs the board); a neutral figure follows its value.
+  const up = neutral ? change > 0 : improved
+  const Arrow = up ? ArrowUp : ArrowDown
   return (
     <div role="group" aria-label={label} className="flex items-baseline justify-between gap-2">
       <span className="text-muted-foreground">{label}</span>
@@ -59,7 +61,7 @@ function MoveRow({
         {format(from)} → {format(to)}
         {places && change !== 0 ? <span className="text-xs">({Math.abs(change)} places)</span> : null}
         {change !== 0 ? (
-          <Arrow role="img" aria-label={neutral ? (change > 0 ? 'Up' : 'Down') : improved ? 'Improved' : 'Worsened'} className="size-3" />
+          <Arrow role="img" data-direction={up ? 'up' : 'down'} aria-label={neutral ? (change > 0 ? 'Up' : 'Down') : improved ? 'Improved' : 'Worsened'} className="size-3" />
         ) : null}
       </span>
     </div>
