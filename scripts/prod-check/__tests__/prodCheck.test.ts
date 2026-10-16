@@ -68,6 +68,8 @@ describe('runProdCheck', () => {
     const result = runProdCheck(['', 'all', 'latest'], { source: snapshots, env: {} })
 
     expect(snapshots.reads).toEqual(['latest.json', KEY])
+    // The key `latest` resolved to, so the workflow can capture exactly the snapshot that was checked.
+    expect(result.key).toBe(KEY)
     expect(result.output).toMatch(/^## golf$/m)
     expect(result.output).toMatch(/^## nfl$/m)
   })
@@ -78,6 +80,7 @@ describe('runProdCheck', () => {
     const result = runProdCheck(['nfl', KEY], { source: snapshots, env: {} })
 
     expect(snapshots.reads).toEqual([KEY])
+    expect(result.key).toBe(KEY)
     expect(result.exitCode).toBe(0)
   })
 

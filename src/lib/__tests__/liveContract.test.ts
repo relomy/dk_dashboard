@@ -9,7 +9,8 @@ import { staleAllowlistEntries, unallowlistedPaths } from '../unreadPaths'
  * hand-written invariants on what the Live view would show.
  *
  * - Add an input: add a glob below. Every captured prod fixture in `public/mock/snapshots/`
- *   (provenance in public/mock/PRODUCER_FIXTURE.md) and every producer golden envelope in
+ *   (provenance in public/mock/PRODUCER_FIXTURE.md), every snapshot a failing prod check captured in
+ *   `contract/prod-fixtures/snapshots/` (same provenance file), and every producer golden envelope in
  *   `contract/goldens/` (synced at the pin in contract/producer-pin.json, `npm run contract:sync`)
  *   is already an input.
  * - Add an invariant: add an entry to INVARIANTS in src/lib/liveInvariants.ts (shared with the prod check).
@@ -17,8 +18,10 @@ import { staleAllowlistEntries, unallowlistedPaths } from '../unreadPaths'
  *   src/lib/liveUnreadAllowlist.json (the unread-field detector, src/lib/unreadPaths.ts).
  */
 const GOLDENS: Record<string, unknown> = import.meta.glob('../../../contract/goldens/*.json', { eager: true, import: 'default' })
+const PROD_FIXTURES: Record<string, unknown> = import.meta.glob('../../../contract/prod-fixtures/snapshots/*.json', { eager: true, import: 'default' })
 const INPUTS: Record<string, unknown> = {
   ...import.meta.glob('../../../public/mock/snapshots/*.json', { eager: true, import: 'default' }),
+  ...PROD_FIXTURES,
   ...GOLDENS,
 }
 
@@ -38,6 +41,13 @@ it('runs on every producer golden envelope', () => {
   const inputs = new Set(CASES.map(({ input }) => input))
   for (const golden of goldens) {
     expect(inputs, golden).toContain(golden)
+  }
+})
+
+it('runs on every prod fixture from a failing prod check', () => {
+  const inputs = new Set(CASES.map(({ input }) => input))
+  for (const path of Object.keys(PROD_FIXTURES)) {
+    expect(inputs, path).toContain(path.split('/').pop())
   }
 })
 

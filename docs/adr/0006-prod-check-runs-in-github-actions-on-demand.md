@@ -22,7 +22,7 @@ with the account ID as repository secrets.
 - **No check logic in the YAML.** The workflow runs `npm run prod:check`, publishes its report to the job
   summary and exits with its exit code.
 - **Commits only what caught something.** A passing run commits nothing. A run that fails the Live contract
-  is meant to leave a prod fixture of the failing snapshot (a later change); one that fails only on the
+  leaves a draft PR adding the failing snapshot as a prod fixture (in `contract/prod-fixtures/`, outside the site build); one that fails only on the
   producer's presence warnings is meant to leave an issue for a producer fix.
 
 We rejected:

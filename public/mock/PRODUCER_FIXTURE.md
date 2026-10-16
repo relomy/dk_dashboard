@@ -17,9 +17,24 @@ npm run fixture:refresh -- snapshots/live-<timestamp>.json
 ```
 
 The command reads the key from R2 read-only (`wrangler r2 object get --remote`) with the operator's
-Cloudflare login, applies the trimming rules below, and writes `public/mock/<key>`. When the login is
-missing it prints the command to run (`npx wrangler login`). It refuses to run in CI. Record the
-snapshot key, producer commit, pull date and the row counts it prints in a section below.
+Cloudflare login (or, in CI, the R2 access key and account ID), applies the trimming rules below, and
+writes `contract/prod-fixtures/<key>`. When the login is missing it prints the command to run
+(`npx wrangler login`). Record the snapshot key, producer commit, pull date and the row counts it prints
+in a section below.
+
+## Prod fixtures from a failing prod check
+
+`contract/prod-fixtures/snapshots/` holds the snapshots the **Prod Check** workflow captured. It sits
+outside `public/`, so the site build never ships it, and the mock bundle and route tests don't read it.
+The contract suite reads every file in it as an input (`src/lib/__tests__/liveContract.test.ts`), with
+the files above and the goldens.
+
+When a dispatched run ends with outcome `dashboard` (an invariant fails, or an unread path isn't
+allowlisted), the workflow runs the fixture refresh for the checked snapshot and opens a draft PR that adds the trimmed
+snapshot, with the report in the PR body. The draft is red by design: fix the dashboard on it, or close it
+if the cause is a producer bug. A passing run opens nothing. The trimming rules below apply unchanged. The
+PR body is the provenance for such a capture; record the producer commit in a section here when you
+merge it. The files above are hand-picked and stay in `public/mock/snapshots/`.
 
 ## Trimming rules
 
@@ -107,3 +122,6 @@ bundle that points at it:
 | --- | --- | --- | --- |
 | `contests[0].standings` | 229 → 35 | 114 → 29 | 151 → 35 |
 | `players` | 867 → 34 | 124 → 26 | 359 → 27 |
+
+The draft PR is opened with the workflow's `GITHUB_TOKEN`, so the repository setting "Allow GitHub Actions to
+create and approve pull requests" must be on, and GitHub runs no CI on it until the first push to its branch.

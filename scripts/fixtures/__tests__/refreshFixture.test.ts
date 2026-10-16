@@ -29,7 +29,7 @@ function source(overrides: Partial<SnapshotSource> = {}): SnapshotSource & { rea
 }
 
 describe('refreshFixture', () => {
-  it('writes the trimmed snapshot to the fixture path named by its key', () => {
+  it('writes the trimmed snapshot under the prod fixtures folder, outside the site build, at the path named by its key', () => {
     const writes = new Map<string, string>()
     const snapshots = source()
 
@@ -40,8 +40,8 @@ describe('refreshFixture', () => {
     })
 
     expect(snapshots.reads).toEqual([KEY])
-    expect(result.fixturePath).toBe(`public/mock/${KEY}`)
-    expect(writes.get(`public/mock/${KEY}`)).toBe(SNAPSHOT)
+    expect(result.fixturePath).toBe(`contract/prod-fixtures/${KEY}`)
+    expect(writes.get(`contract/prod-fixtures/${KEY}`)).toBe(SNAPSHOT)
   })
 
   it('prints the exact login command and reads nothing when the Cloudflare login is missing', () => {
