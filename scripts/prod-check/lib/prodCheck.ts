@@ -14,7 +14,8 @@ export interface ProdCheckDeps extends ProdReadDeps {
   commitOrder?: CommitOrderCheck
 }
 
-export type ProdCheckOutcome = 'pass' | 'dashboard'
+/** `producer`: only presence warnings failed. `dashboard`: an invariant failed or an unread path isn't allowlisted; it wins over `producer`. */
+export type ProdCheckOutcome = 'pass' | 'producer' | 'dashboard'
 
 export interface ProdCheckResult {
   exitCode: 0 | 1
@@ -117,8 +118,11 @@ function checkSnapshot(snapshot: InterpretedSnapshot, requestedSports: string[],
   }
   if (skipped.length > 0) lines.push('', ...skipped.map((line) => `  ${line}`))
   if (checkedCount === 0) lines.push('', 'No sport was checked, so there is nothing to fail.')
-  lines.push('', ok ? 'PASS' : 'FAIL')
-  return { exitCode: ok ? 0 : 1, outcome: ok ? 'pass' : 'dashboard', key, output: lines.join('\n') }
+  const warnings = presenceWarningsOf(snapshot)
+  lines.push('', ...presenceWarningLines(warnings))
+  const outcome: ProdCheckOutcome = !ok ? 'dashboard' : warnings.length > 0 ? 'producer' : 'pass'
+  lines.push('', outcome === 'pass' ? 'PASS' : 'FAIL')
+  return { exitCode: outcome === 'pass' ? 0 : 1, outcome, key, output: lines.join('\n') }
 }
 
 type SportCheck = { kind: 'checked'; ok: boolean; lines: string[] } | { kind: 'skipped'; reason: string }
@@ -137,7 +141,7 @@ function checkSport(snapshot: Snapshot, sport: string, key: string): SportCheck 
   if (!contractCase) return fail(`no contract case for ${sport}`)
 
   const failures = Object.entries(INVARIANTS).map(([name, invariant]) => ({ name, violations: invariant(model, contractCase) }))
-  const unread = liveUnreadPaths(snapshot, sport)
+  const unread = liveUnreadPaths(snapshot, sport).filter((path) => !reportedByTheCheck(path))
   const unallowlisted = unallowlistedPaths(unread, LIVE_UNREAD_ALLOWLIST)
   const ok = failures.every(({ violations }) => violations.length === 0) && unallowlisted.length === 0
 
@@ -154,6 +158,31 @@ function checkSport(snapshot: Snapshot, sport: string, key: string): SportCheck 
 function producerCommitOf(snapshot: Snapshot): string | null {
   const stamp = (snapshot as { producer_commit?: unknown }).producer_commit
   return typeof stamp === 'string' && COMMIT_SHA.test(stamp) ? stamp : null
+}
+
+/** The check shows each warning's path and rule itself, so those two are read, not unread; the empty list stays allowlisted, and any other field on a warning still has to be. */
+function reportedByTheCheck(path: string): boolean {
+  return path === 'presence_warnings[].path' || path === 'presence_warnings[].rule'
+}
+
+interface PresenceWarning {
+  path: string
+  rule: string
+}
+
+/** The presence warnings the snapshot records; none for an older snapshot without the field. Entries of an unexpected shape are ignored. */
+function presenceWarningsOf(snapshot: Snapshot): PresenceWarning[] {
+  const recorded = (snapshot as { presence_warnings?: unknown }).presence_warnings
+  if (!Array.isArray(recorded)) return []
+  return recorded.filter(
+    (entry): entry is PresenceWarning =>
+      typeof entry === 'object' && entry !== null && typeof (entry as PresenceWarning).path === 'string' && typeof (entry as PresenceWarning).rule === 'string',
+  )
+}
+
+function presenceWarningLines(warnings: PresenceWarning[]): string[] {
+  if (warnings.length === 0) return ['Presence warnings: none']
+  return [`Presence warnings (${warnings.length})`, ...warnings.map(({ path, rule }) => `  - ${path}: ${rule}`)]
 }
 
 function shortCommit(commit: string | null): string {

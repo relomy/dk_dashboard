@@ -19,6 +19,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
   prod-check:
@@ -143,3 +144,52 @@ jobs:
           git commit -m "$title"
           git push origin "$branch"
           gh pr create --draft --base "$BASE_BRANCH" --head "$branch" --title "$title" --body-file body.md
+
+      # Outcome `producer` (only presence warnings failed) commits nothing: a snapshot showing a producer bug would fail every
+      # dashboard PR forever. It uploads the trimmed snapshot as a run artifact and opens an issue for the operator, who moves or
+      # copies it to dk_results: this workflow's token can't open issues there.
+      - name: Trim the snapshot for the producer issue
+        if: ${{ always() && inputs.pr == '' && steps.check.outputs.outcome == 'producer' }}
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SNAPSHOT_KEY: ${{ steps.check.outputs.snapshot }}
+        run: npm run --silent fixture:refresh -- "$SNAPSHOT_KEY"
+
+      - name: Upload the trimmed snapshot
+        id: upload
+        if: ${{ always() && inputs.pr == '' && steps.check.outputs.outcome == 'producer' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: trimmed-snapshot
+          path: contract/prod-fixtures/${{ steps.check.outputs.snapshot }}
+          if-no-files-found: error
+
+      - name: Open an issue for a producer fix
+        if: ${{ always() && inputs.pr == '' && steps.check.outputs.outcome == 'producer' && steps.upload.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SNAPSHOT_KEY: ${{ steps.check.outputs.snapshot }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          name=$(basename "$SNAPSHOT_KEY" .json)
+          title="Producer: presence warnings in $name"
+          # A re-run on the same snapshot never opens a second issue.
+          open=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json title --jq "[.[] | select(.title == \"$title\")] | length")
+          if [ "$open" != "0" ]; then
+            echo "An issue titled '$title' is already open; leaving it as it is."
+            exit 0
+          fi
+          {
+            echo "The [Prod Check run]($RUN_URL) found only presence warnings on \`$SNAPSHOT_KEY\`: the Live contract holds, so the dashboard needs no fix."
+            echo "The producer left a field blank that a presence rule expects filled. The [trimmed snapshot]($ARTIFACT_URL) is attached to the run."
+            echo
+            echo "Fix this in dk_results. This workflow's token can't open issues there, so move or copy this issue."
+            echo
+            echo '```text'
+            cat report.txt errors.txt
+            echo '```'
+          } > issue.md
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label needs-triage --body-file issue.md
