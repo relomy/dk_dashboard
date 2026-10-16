@@ -74,7 +74,7 @@ function expectProducerCommit(snapshot: Snapshot, expected: string, commitOrder:
     throw new Error(`The snapshot has no producer commit (older snapshots do not), so it cannot be checked against ${expected}.`)
   }
   if (!commitOrder(actual, expected)) {
-    throw new Error(`The snapshot's producer commit ${actual} is not ${expected} or a later commit, so the producer hasn't run since the deploy; retry later.`)
+    throw new Error(`The snapshot's producer commit ${actual} is not ${expected} or a descendant of it, so the producer hasn't run since the deploy; retry later.`)
   }
 }
 

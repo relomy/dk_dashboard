@@ -257,7 +257,7 @@ describe('runProdCheck --expect-commit', () => {
         commitOrder: order.isSameOrDescendant,
       }),
     ).toThrow(
-      `The snapshot's producer commit ${SHA} is not ${EXPECTED} or a later commit, so the producer hasn't run since the deploy; retry later.`,
+      `The snapshot's producer commit ${SHA} is not ${EXPECTED} or a descendant of it, so the producer hasn't run since the deploy; retry later.`,
     )
   })
 

@@ -67,7 +67,10 @@ jobs:
           set +e
           # Word splitting is intended: SPORTS holds several sports.
           # shellcheck disable=SC2086
-          npm run --silent prod:check -- $SPORTS "$SNAPSHOT" --expect-commit "$EXPECT_COMMIT" > report.txt 2> errors.txt
+          # The flag is passed only when asked for, so a `pr` run on a branch that predates it still works.
+          expect=()
+          if [ -n "$EXPECT_COMMIT" ]; then expect=(--expect-commit "$EXPECT_COMMIT"); fi
+          npm run --silent prod:check -- $SPORTS "$SNAPSHOT" "${expect[@]}" > report.txt 2> errors.txt
           status=$?
           { echo '```text'; cat report.txt errors.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           cat report.txt
