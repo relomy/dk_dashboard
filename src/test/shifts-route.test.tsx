@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ProfileContext } from '../context/ProfileContext'
 import { ShiftsContext } from '../context/ShiftsContext'
-import type { CashLineShiftItem, ContestShiftItem, ShiftItem, ShiftsFeed, VipShiftItem } from '../lib/shifts'
+import type { CashLineMove, CashLineShiftItem, ContestShiftItem, ShiftItem, ShiftsFeed, VipShiftItem } from '../lib/shifts'
 import Shifts from '../routes/Shifts'
 import { load } from './liveHarness'
 
@@ -51,7 +51,7 @@ function stubFeed(initial: ShiftItem[], flags: { autoAdvanced?: boolean } = {}) 
   return feed
 }
 
-function stubApi() {
+function stubApi(snapshotStatus = 200) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -68,13 +68,16 @@ function stubApi() {
           { status: 200 },
         )
       }
+      if (snapshotStatus !== 200) {
+        return new Response(JSON.stringify({ error: { code: 'boom', message: 'Snapshot failed to load' } }), { status: snapshotStatus })
+      }
       return new Response(JSON.stringify(load()), { status: 200 })
     }),
   )
 }
 
-async function renderShifts(feed: ShiftsFeed, username?: string) {
-  stubApi()
+async function renderShifts(feed: ShiftsFeed, username?: string, snapshotStatus = 200) {
+  stubApi(snapshotStatus)
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const profile = { id: 'me', name: 'Me', rules: username ? { username } : {} }
   render(
@@ -100,7 +103,7 @@ async function renderShifts(feed: ShiftsFeed, username?: string) {
       </MemoryRouter>
     </QueryClientProvider>,
   )
-  await screen.findByRole('heading', { name: /shifts/i })
+  if (snapshotStatus === 200) await screen.findByRole('heading', { name: /shifts/i })
 }
 
 afterEach(() => {
@@ -275,5 +278,18 @@ describe('the Shifts page', () => {
   it('notes that the Seen mark moved on by itself after a quick visit', async () => {
     await renderShifts(stubFeed([], { autoAdvanced: true }))
     expect(await screen.findByText(/seen mark moved on by itself/i)).toBeTruthy()
+  })
+
+  it('shows the load error instead of loading forever when the snapshot fails', async () => {
+    await renderShifts(stubFeed([]), undefined, 500)
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(screen.queryByText(/loading shifts/i)).toBeNull()
+  })
+
+  it('words a crossing cause that moved neither points nor places without an empty sentence', async () => {
+    const still: CashLineMove = { points: { from: 400, to: 400 }, rank: { from: 500, to: 500 } }
+    await renderShifts(stubFeed([vipItem('empire', { priority: 'high', crossing: { path: 'in', cause: still } })]))
+    const card = (await screen.findAllByRole('article'))[0]
+    expect(within(card).queryByText(/the cash line moved \./i)).toBeNull()
   })
 })

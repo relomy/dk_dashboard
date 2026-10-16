@@ -59,6 +59,13 @@ function Shifts() {
   const { snapshotQuery } = useLatest()
   const result = useLiveModel(snapshotQuery.data, sport?.toLowerCase())
 
+  if (snapshotQuery.error instanceof Error && !snapshotQuery.data) {
+    return (
+      <PageMessage tone="error">
+        <p>{snapshotQuery.error.message}</p>
+      </PageMessage>
+    )
+  }
   if (!feed) return <PageMessage>Shifts are not available.</PageMessage>
   if (!result) return <PageMessage>Loading shifts...</PageMessage>
   if (result.kind === 'not-renderable') return <PageMessage>There is nothing to follow live for this sport.</PageMessage>

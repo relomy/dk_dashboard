@@ -93,7 +93,7 @@ export function VipShiftCard({ item, name }: { item: VipShiftItem; name: string 
       {item.crossing ? (
         <>
           <p>{PATH_TEXT[item.crossing.path]}</p>
-          {item.crossing.cause ? (
+          {item.crossing.cause && lineMoveText(item.crossing.cause) ? (
             <p className="text-muted-foreground">
               The cash line moved {lineMoveText(item.crossing.cause)}. Their lineup did not cause this.
             </p>
