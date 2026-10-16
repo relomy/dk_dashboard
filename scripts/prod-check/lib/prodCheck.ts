@@ -173,8 +173,9 @@ interface PresenceWarning {
 /** The presence warnings the snapshot records; none for an older snapshot without the field. Entries of an unexpected shape are ignored. */
 function presenceWarningsOf(snapshot: Snapshot): PresenceWarning[] {
   const recorded = (snapshot as { presence_warnings?: unknown }).presence_warnings
-  if (!Array.isArray(recorded)) return []
-  return recorded.filter(
+  // TRIAL ONLY (#100): a synthetic warning, so the producer path of the workflow runs. Never merge.
+  if (!Array.isArray(recorded)) return [{ path: 'trial.synthetic', rule: 'trial warning for the #100 workflow run' }]
+  return [{ path: 'trial.synthetic', rule: 'trial warning for the #100 workflow run' }, ...recorded].filter(
     (entry): entry is PresenceWarning =>
       typeof entry === 'object' && entry !== null && typeof (entry as PresenceWarning).path === 'string' && typeof (entry as PresenceWarning).rule === 'string',
   )
