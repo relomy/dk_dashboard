@@ -160,9 +160,9 @@ function producerCommitOf(snapshot: Snapshot): string | null {
   return typeof stamp === 'string' && COMMIT_SHA.test(stamp) ? stamp : null
 }
 
-/** The check shows presence warnings itself, so the entries of a non-empty list are read, not unread; the empty list stays allowlisted. */
+/** The check shows each warning's path and rule itself, so those two are read, not unread; the empty list stays allowlisted, and any other field on a warning still has to be. */
 function reportedByTheCheck(path: string): boolean {
-  return path.startsWith('presence_warnings[]')
+  return path === 'presence_warnings[].path' || path === 'presence_warnings[].rule'
 }
 
 interface PresenceWarning {
@@ -182,7 +182,7 @@ function presenceWarningsOf(snapshot: Snapshot): PresenceWarning[] {
 
 function presenceWarningLines(warnings: PresenceWarning[]): string[] {
   if (warnings.length === 0) return ['Presence warnings: none']
-  return [`Presence warnings (${warnings.length})`, ...capped(warnings.map(({ path, rule }) => `  - ${path}: ${rule}`))]
+  return [`Presence warnings (${warnings.length})`, ...warnings.map(({ path, rule }) => `  - ${path}: ${rule}`)]
 }
 
 function shortCommit(commit: string | null): string {

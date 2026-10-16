@@ -163,7 +163,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: trimmed-snapshot
-          path: contract/prod-fixtures/snapshots
+          path: contract/prod-fixtures/${{ steps.check.outputs.snapshot }}
           if-no-files-found: error
 
       - name: Open an issue for a producer fix

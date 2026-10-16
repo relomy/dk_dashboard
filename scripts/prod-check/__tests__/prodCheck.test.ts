@@ -274,15 +274,22 @@ describe('runProdCheck presence warnings', () => {
     expect(result.output).toContain('Presence warnings (2)')
   })
 
-  it('lists at most ten warnings and counts the rest', () => {
+  it('lists every warning, however many', () => {
     const many = Array.from({ length: 12 }, (_, i) => ({ path: `sports.nfl.players[${i}].stats_text`, rule: 'an in-progress player has stats' }))
 
     const result = runProdCheck(['nfl', KEY], { source: source({ [KEY]: withPresenceWarnings(many) }), env: {} })
 
     expect(result.output).toContain('Presence warnings (12)')
-    expect(result.output).toContain('sports.nfl.players[9].stats_text')
-    expect(result.output).not.toContain('sports.nfl.players[10].stats_text')
-    expect(result.output).toContain('... and 2 more')
+    expect(result.output).toContain('sports.nfl.players[11].stats_text')
+  })
+
+  it('still fails as a dashboard problem on a field of a warning the Live view does not know', () => {
+    const odd = withPresenceWarnings([{ ...WARNINGS[0], severity: 'high' }])
+
+    const result = runProdCheck(['nfl', KEY], { source: source({ [KEY]: odd }), env: {} })
+
+    expect(result.outcome).toBe('dashboard')
+    expect(result.output).toContain('presence_warnings[].severity')
   })
 
   it('treats a snapshot without the field (an older producer) as having none', () => {
