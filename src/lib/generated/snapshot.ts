@@ -7,6 +7,10 @@
 export type GeneratedAt = string;
 export type SchemaVersion = 3;
 export type SnapshotAt = string;
+/**
+ * ISO-8601 UTC timestamp (YYYY-MM-DDTHH:MM:SSZ, the snapshot_at format) of when the producer first observed the contest completed.
+ */
+export type CompletedAt = string;
 export type ContestId = string;
 export type ContestKey = string;
 export type ContestType = string;
@@ -184,6 +188,7 @@ export interface SportPayload {
  * One DraftKings contest with its standings, VIP lineups and metrics.
  */
 export interface Contest {
+  completed_at?: CompletedAt;
   contest_id: ContestId;
   contest_key: ContestKey;
   contest_type: ContestType;
