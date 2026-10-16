@@ -256,3 +256,30 @@ _Avoid_: golden envelope, sample
 **Prod check**:
 A one-off run of the Live contract against a snapshot read straight from prod.
 _Avoid_: production check
+
+### Shifts
+
+**VIP shift**:
+One reported difference in a VIP's standing or lineup since the Seen mark: a move
+in rank, points or distance to cash, a player's points, a slot reveal, or a
+player's game going final. Each has a High or Normal priority.
+_Avoid_: change, event, delta, alert
+
+**Cash crossing**:
+A VIP entering or leaving cashing. The only VIP shift with High priority.
+_Avoid_: bubble burst
+
+**Cash line move**:
+The cash line itself moving, in points or rank, between two moments. Can be the
+cause of a cash crossing: a VIP can leave cashing because the line rose, not
+because their lineup did badly.
+
+**Seen mark**:
+The point in time the Shifts feed measures from: the primary contest as you last
+acknowledged it. Everything newer is unseen.
+_Avoid_: baseline
+
+**Shifts feed**:
+The list of everything that moved for your VIPs since the Seen mark, most
+important first: VIP shifts, cash line moves, and a contest's state changing.
+_Avoid_: changes feed, activity feed, notifications
