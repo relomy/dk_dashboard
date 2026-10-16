@@ -104,6 +104,7 @@ function renderShell(path: string, element = <Live />) {
               <Route element={<AppShell />}>
                 <Route path="/live/:sport" element={element} />
                 <Route path="/sport/:sport" element={<FeedProbe />} />
+                <Route path="/shifts/:sport" element={<FeedProbe />} />
                 <Route path="/settings" element={<FeedProbe />} />
               </Route>
             </Routes>
@@ -202,6 +203,16 @@ describe('recording Live builds in the shell', () => {
 
     expect(calls.records[0]).toMatchObject({ sport: 'nfl', visit: true })
     expect(calls.builds).toEqual(['nfl'])
+  })
+})
+
+describe('recording on the Shifts page', () => {
+  it('records the sport the page shows, not the last-viewed one', async () => {
+    store.set('dk_dashboard_last_sport', 'golf')
+    renderShell('/shifts/nfl')
+    await recorded(1)
+
+    expect(calls.records[0]).toMatchObject({ sport: 'nfl', visit: true })
   })
 })
 

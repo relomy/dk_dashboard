@@ -6,9 +6,10 @@ import { useLatest } from '../hooks/useLatest'
 import SportTabs, { type SportTab } from './SportTabs'
 import UserMenu from './UserMenu'
 
-/** The sport a /live/:sport or /sport/:sport page is showing, if any. */
+/** The sport a /live/:sport, /sport/:sport or /shifts/:sport page is showing, if any. */
 function sportFromPath(pathname: string): string | null {
-  const match = matchPath('/live/:sport', pathname) ?? matchPath('/sport/:sport', pathname)
+  const match =
+    matchPath('/live/:sport', pathname) ?? matchPath('/sport/:sport', pathname) ?? matchPath('/shifts/:sport', pathname)
   return match?.params.sport ?? null
 }
 
