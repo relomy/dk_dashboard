@@ -1,5 +1,6 @@
 {
   "generated_at": "Snapshot age, shown by the app shell and Health, not the Live view",
+  "sports.*.contests[].completed_at": "When the producer first saw the contest completed. The Live view ages a Final contest from its start time and does not show when it completed; the landing page will order completed contests by it (#69)",
   "sports.*.contests[].contest_id": "Contest selection matches configured contest_key; contest_id is the last fallback",
   "sports.*.contests[].contest_type": "Contest metadata the Sport view's contest card shows; the Live view does not",
   "sports.*.contests[].currency": "Prize money is shown by the Sport view's contest card; the Live view shows no money",
