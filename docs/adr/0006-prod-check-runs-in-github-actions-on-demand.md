@@ -11,11 +11,14 @@ captured early in October 2026.
 
 ## Decision
 
-The prod check runs in a manually dispatched GitHub Actions workflow (`prod-check.yml`) with a Cloudflare API
-token that can only read the `dk-dashboard-data` bucket, stored with the account ID as repository secrets.
+The prod check runs in a manually dispatched GitHub Actions workflow (`prod-check.yml`) with an R2 access key
+that can only read the `dk-dashboard-data` bucket (an R2 token with Object Read only, scoped to that bucket), stored
+with the account ID as repository secrets.
 
 - **On demand.** The operator dispatches it from the GitHub app or website; nothing triggers it automatically.
-- **Read-only.** The R2 source still runs only `whoami` (locally) and `object get`.
+- **Read-only.** CI reads through R2's S3-compatible API (`GET` only, signed by `curl --aws-sigv4`), and the wrangler
+  source still runs only `whoami` and `object get`. CI does not use wrangler: a bucket-scoped R2 token is refused
+  by the REST endpoint wrangler calls (`403`, code 10000), and the only token it accepts reads every R2 bucket in the account.
 - **No check logic in the YAML.** The workflow runs `npm run prod:check`, publishes its report to the job
   summary and exits with its exit code.
 - **Commits only what caught something.** A passing run commits nothing. A run that fails the Live contract

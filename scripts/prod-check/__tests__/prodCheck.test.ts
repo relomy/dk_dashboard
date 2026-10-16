@@ -159,10 +159,9 @@ describe('runProdCheck', () => {
     expect(snapshots.reads).toEqual([])
   })
 
-  it('runs in CI on the Cloudflare token and account ID, without asking wrangler who is logged in', () => {
-    // A read-only R2 token may not be allowed to run `wrangler whoami`, so CI never asks.
+  it('runs in CI on the R2 access key and account ID, without asking wrangler who is logged in', () => {
     const snapshots = source({ [KEY]: FIXTURE }, false)
-    const env = { CI: 'true', CLOUDFLARE_API_TOKEN: 'token', CLOUDFLARE_ACCOUNT_ID: 'account' }
+    const env = { CI: 'true', R2_ACCESS_KEY_ID: 'id', R2_SECRET_ACCESS_KEY: 'secret', CLOUDFLARE_ACCOUNT_ID: 'account' }
 
     const result = runProdCheck([KEY], { source: snapshots, env })
 
@@ -170,14 +169,24 @@ describe('runProdCheck', () => {
   })
 
   it.each([
-    ['both', { CI: 'true' }],
-    ['the token', { CI: 'true', CLOUDFLARE_ACCOUNT_ID: 'account' }],
-    ['the account ID', { CI: 'true', CLOUDFLARE_API_TOKEN: 'token' }],
-  ])('names both secrets and reads nothing in CI when %s is missing', (_missing, env) => {
+    ['all', { CI: 'true' }],
+    ['the access key ID', { CI: 'true', R2_SECRET_ACCESS_KEY: 'secret', CLOUDFLARE_ACCOUNT_ID: 'account' }],
+    ['the secret access key', { CI: 'true', R2_ACCESS_KEY_ID: 'id', CLOUDFLARE_ACCOUNT_ID: 'account' }],
+    ['the account ID', { CI: 'true', R2_ACCESS_KEY_ID: 'id', R2_SECRET_ACCESS_KEY: 'secret' }],
+  ])('names all three secrets and reads nothing in CI when %s is missing', (_missing, env) => {
     const snapshots = source({ [KEY]: FIXTURE })
 
-    expect(() => runProdCheck([KEY], { source: snapshots, env })).toThrow(/CLOUDFLARE_API_TOKEN.*CLOUDFLARE_ACCOUNT_ID/)
+    expect(() => runProdCheck([KEY], { source: snapshots, env })).toThrow(
+      /R2_ACCESS_KEY_ID.*R2_SECRET_ACCESS_KEY.*CLOUDFLARE_ACCOUNT_ID/,
+    )
     expect(snapshots.reads).toEqual([])
+  })
+
+  it('reads with the R2 credentials outside CI too, without needing a wrangler login', () => {
+    const snapshots = source({ [KEY]: FIXTURE }, false)
+    const env = { R2_ACCESS_KEY_ID: 'id', R2_SECRET_ACCESS_KEY: 'secret', CLOUDFLARE_ACCOUNT_ID: 'account' }
+
+    expect(runProdCheck([KEY], { source: snapshots, env }).exitCode).toBe(0)
   })
 
   it('rejects a key that is not a live snapshot', () => {

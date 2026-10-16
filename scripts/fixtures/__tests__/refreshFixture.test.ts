@@ -53,12 +53,12 @@ describe('refreshFixture', () => {
     expect(snapshots.reads).toEqual([])
   })
 
-  it('names the missing Cloudflare secrets in CI and reads nothing', () => {
+  it('names the missing R2 secrets in CI and reads nothing', () => {
     const snapshots = source()
 
     expect(() =>
       refreshFixture(KEY, { source: snapshots, writeFixture: () => undefined, env: { CI: 'true' } }),
-    ).toThrow(/CLOUDFLARE_API_TOKEN.*CLOUDFLARE_ACCOUNT_ID/)
+    ).toThrow(/R2_ACCESS_KEY_ID.*R2_SECRET_ACCESS_KEY.*CLOUDFLARE_ACCOUNT_ID/)
     expect(snapshots.reads).toEqual([])
   })
 
