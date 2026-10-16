@@ -179,6 +179,7 @@ export const INVARIANTS: Record<string, Invariant> = {
   'a VIP rostering a swing player is marked HAVE for it': rosteredSwingPlayersAreHave,
   'every pool player a VIP rosters lists that VIP': poolPlayersListTheirVips,
   'locked VIP slots render as locked, with no pool lookup': lockedSlotsRenderLocked,
+  'SCRATCH TRIAL: deliberately broken invariant (#98), never merge': () => ['deliberately broken to trial the prod fixture capture'],
 }
 
 /** The contract cases of one snapshot, named by its fixture file or snapshot key: one per sport it carries. */
