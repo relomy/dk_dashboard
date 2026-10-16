@@ -9,6 +9,9 @@ on:
       sports:
         description: 'Space-separated sports to check, or all'
         default: all
+      expect_commit:
+        description: 'Full SHA of the producer commit the snapshot must be built from (or a later one), or empty'
+        default: ''
       pr:
         description: 'PR number to check with its own code and comment the report on, or empty'
         default: ''
@@ -59,11 +62,15 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           SNAPSHOT: ${{ inputs.snapshot }}
           SPORTS: ${{ inputs.sports }}
+          EXPECT_COMMIT: ${{ inputs.expect_commit }}
         run: |
           set +e
           # Word splitting is intended: SPORTS holds several sports.
           # shellcheck disable=SC2086
-          npm run --silent prod:check -- $SPORTS "$SNAPSHOT" > report.txt 2> errors.txt
+          # The flag is passed only when asked for, so a `pr` run on a branch that predates it still works.
+          expect=()
+          if [ -n "$EXPECT_COMMIT" ]; then expect=(--expect-commit "$EXPECT_COMMIT"); fi
+          npm run --silent prod:check -- $SPORTS "$SNAPSHOT" "${expect[@]}" > report.txt 2> errors.txt
           status=$?
           { echo '```text'; cat report.txt errors.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           cat report.txt

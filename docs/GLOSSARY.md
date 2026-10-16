@@ -257,6 +257,10 @@ _Avoid_: golden envelope, sample
 A one-off run of the Live contract against a snapshot read straight from prod.
 _Avoid_: production check
 
+**Producer commit**:
+The producer commit that built a snapshot, when the snapshot records one.
+_Avoid_: producer version, build ID
+
 ### Shifts
 
 **VIP shift**:
