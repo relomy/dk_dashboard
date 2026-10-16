@@ -754,6 +754,40 @@ describe('visits after a short gap', () => {
   })
 })
 
+describe('the Seen mark moving on by itself', () => {
+  it('is reported after a visit that auto-advanced it, and stays through polls', () => {
+    const { feed, at } = feedWithUnseen()
+    at(T0 + 5 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
+    expect(feed.autoAdvanced()).toBe(true)
+    at(T0 + 10 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: false })
+    expect(feed.autoAdvanced()).toBe(true)
+  })
+
+  it('is not reported on the first build or after a visit that left shifts accumulating', () => {
+    const { feed, at } = seededFeed()
+    expect(feed.autoAdvanced()).toBe(false)
+    at(T0 + 20 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
+    expect(feed.autoAdvanced()).toBe(false)
+  })
+
+  it('is cleared by marking as seen and by the next visit', () => {
+    const { feed, at } = feedWithUnseen()
+    at(T0 + 5 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
+    feed.markSeen()
+    expect(feed.autoAdvanced()).toBe(false)
+    at(T0 + 10 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
+    expect(feed.autoAdvanced()).toBe(true)
+    at(T0 + 50 * MINUTE)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
+    expect(feed.autoAdvanced()).toBe(false)
+  })
+})
+
 describe('visits after a middling gap', () => {
   it('lets shifts accumulate as unseen, with no summary', () => {
     const { feed, at } = feedWithUnseen()

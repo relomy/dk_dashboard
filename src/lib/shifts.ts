@@ -133,6 +133,8 @@ export interface ShiftsFeed {
   unsurfaced(): ShiftItem[]
   /** The returned-after-a-gap data, or null. */
   gap(): ShiftsGap | null
+  /** True after a quick visit moved the Seen mark on by itself; cleared by the next visit or by `markSeen`. */
+  autoAdvanced(): boolean
   /** Advances the Seen mark to now and clears the High priority log. */
   markSeen(): void
   /** Marks High items as shown; the items stay in the feed until `markSeen`. */
@@ -576,6 +578,7 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
 
   let items: ShiftItem[] = []
   let gap: ShiftsGap | null = null
+  let autoAdvanced = false
   let currentKey: string | null = null
   const listeners = new Set<() => void>()
   const notify = () => listeners.forEach((listener) => listener())
@@ -583,7 +586,10 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
   const feed: ShiftsFeed = {
     record(model, { visit }) {
       items = []
-      if (visit) gap = null
+      if (visit) {
+        gap = null
+        autoAdvanced = false
+      }
       try {
         const storageKey = `${STORAGE_KEY_PREFIX}${model.sport}`
         currentKey = storageKey
@@ -593,12 +599,14 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
           // First visit, another primary contest or a corrupt value: seed both digests and drop the old state.
           write(storageKey, { contestKey: digest.contestKey, seen: digest, last: digest, log: [] })
           gap = null
+          autoAdvanced = false
           return
         }
         const gapMs = Math.max(0, digest.at - stored.last.at)
         if (visit && gapMs < AUTO_ADVANCE_MS) {
           // A quick look away: acknowledge everything, High priority log included.
           write(storageKey, { ...stored, seen: digest, last: digest, log: [] })
+          autoAdvanced = true
           return
         }
         const seen = reconcileSeen(stored.seen, digest)
@@ -622,9 +630,11 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
     unseenCount: () => items.length,
     unsurfaced: () => items.filter((item) => item.priority === 'high' && !item.surfaced),
     gap: () => gap,
+    autoAdvanced: () => autoAdvanced,
     markSeen() {
       items = []
       gap = null
+      autoAdvanced = false
       try {
         const stored = currentKey ? read(currentKey) : null
         if (!currentKey || !stored) return
