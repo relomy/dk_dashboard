@@ -244,6 +244,12 @@ with its reason. Any other unread path fails the Live contract.
 An expectation that a snapshot field is filled, always or in a given game state.
 _Avoid_: required field, null check
 
+**Presence warning**:
+A presence rule a published snapshot broke, recorded in the snapshot itself. The prod
+check reports each with its path and rule; a run that fails only on these is a
+producer problem, not a dashboard one.
+_Avoid_: validation error
+
 **Prod fixture**:
 A real prod snapshot committed to this repository, trimmed only by dropping array
 elements.

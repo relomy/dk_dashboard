@@ -207,6 +207,92 @@ function withProducerCommit(value: unknown): string {
   })
 }
 
+const WARNINGS = [
+  { path: 'sports.nfl.contests[0].standings[3].payout_cents', rule: 'a cashing standings row has a payout' },
+  { path: 'sports.nfl.players[7].stats_text', rule: 'an in-progress player has stats' },
+]
+
+function withPresenceWarnings(warnings: unknown, edit: (snapshot: Snapshot) => void = () => {}): string {
+  return withSnapshot((snapshot) => {
+    ;(snapshot as unknown as Record<string, unknown>).presence_warnings = warnings
+    edit(snapshot)
+  })
+}
+
+describe('runProdCheck presence warnings', () => {
+  it('passes and lists none when the snapshot recorded no presence warnings', () => {
+    const result = runProdCheck(['nfl', KEY], { source: source({ [KEY]: withPresenceWarnings([]) }), env: {} })
+
+    expect(result.exitCode).toBe(0)
+    expect(result.outcome).toBe('pass')
+    expect(result.output).toContain('Presence warnings: none')
+  })
+
+  it('reports each warning with its path and rule, and gives the run the producer outcome when they are the only failure', () => {
+    const result = runProdCheck(['nfl', KEY], { source: source({ [KEY]: withPresenceWarnings(WARNINGS) }), env: {} })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.outcome).toBe('producer')
+    expect(result.output).toContain('Presence warnings (2)')
+    expect(result.output).toContain('  - sports.nfl.contests[0].standings[3].payout_cents: a cashing standings row has a payout')
+    expect(result.output).toContain('  - sports.nfl.players[7].stats_text: an in-progress player has stats')
+    expect(result.output).toContain('FAIL')
+    expect(result.output).not.toContain('{')
+  })
+
+  it('lists the warnings even when only one sport is named', () => {
+    const result = runProdCheck(['golf', KEY], { source: source({ [KEY]: withPresenceWarnings(WARNINGS) }), env: {} })
+
+    expect(result.outcome).toBe('producer')
+    expect(result.output).toContain('Presence warnings (2)')
+  })
+
+  it('gives the dashboard outcome precedence when an invariant fails alongside presence warnings, and still lists them', () => {
+    const broken = withPresenceWarnings(WARNINGS, (snapshot) => {
+      const contest = snapshot.sports.nfl.contests.find((c) => c.vip_lineups?.length)
+      contest.vip_lineups[0].rank = 'n/a'
+      contest.standings = []
+    })
+
+    const result = runProdCheck(['nfl', KEY], { source: source({ [KEY]: broken }), env: {} })
+
+    expect(result.exitCode).toBe(1)
+    expect(result.outcome).toBe('dashboard')
+    expect(result.output).toContain('VIP cglenn91: rank is null')
+    expect(result.output).toContain('Presence warnings (2)')
+  })
+
+  it('gives the dashboard outcome precedence when an unread path is not allowlisted alongside presence warnings', () => {
+    const extra = withPresenceWarnings(WARNINGS, (snapshot) => {
+      snapshot.sports.nfl.players[0].brand_new_field = 7
+    })
+
+    const result = runProdCheck(['nfl', KEY], { source: source({ [KEY]: extra }), env: {} })
+
+    expect(result.outcome).toBe('dashboard')
+    expect(result.output).toContain('sports.*.players[].brand_new_field')
+    expect(result.output).toContain('Presence warnings (2)')
+  })
+
+  it('lists at most ten warnings and counts the rest', () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({ path: `sports.nfl.players[${i}].stats_text`, rule: 'an in-progress player has stats' }))
+
+    const result = runProdCheck(['nfl', KEY], { source: source({ [KEY]: withPresenceWarnings(many) }), env: {} })
+
+    expect(result.output).toContain('Presence warnings (12)')
+    expect(result.output).toContain('sports.nfl.players[9].stats_text')
+    expect(result.output).not.toContain('sports.nfl.players[10].stats_text')
+    expect(result.output).toContain('... and 2 more')
+  })
+
+  it('treats a snapshot without the field (an older producer) as having none', () => {
+    const result = runProdCheck(['nfl', KEY], { source: source({ [KEY]: FIXTURE }), env: {} })
+
+    expect(result.outcome).toBe('pass')
+    expect(result.output).toContain('Presence warnings: none')
+  })
+})
+
 describe('runProdCheck producer commit', () => {
   it.each([
     ['a stamp', withProducerCommit(SHA), 'producer 0123456'],
