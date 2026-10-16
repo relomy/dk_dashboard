@@ -7,7 +7,12 @@ import type { Snapshot } from '../../../src/lib/types'
 import { unallowlistedPaths } from '../../../src/lib/unreadPaths'
 import { SNAPSHOT_KEY, guardProdRead, type ProdReadDeps, type SnapshotSource } from '../../lib/snapshotSource'
 
-export type ProdCheckDeps = ProdReadDeps
+/** "Is `commit` the same as, or a descendant of, `base` on the producer's main?" The real one asks GitHub; tests pass a fake. */
+export type CommitOrderCheck = (commit: string, base: string) => boolean
+
+export interface ProdCheckDeps extends ProdReadDeps {
+  commitOrder?: CommitOrderCheck
+}
 
 export type ProdCheckOutcome = 'pass' | 'dashboard'
 
@@ -19,10 +24,14 @@ export interface ProdCheckResult {
   output: string
 }
 
-const USAGE = 'Usage: npm run prod:check -- [all | <sport>...] [latest | snapshots/live-<timestamp>.json]'
+const USAGE =
+  'Usage: npm run prod:check -- [all | <sport>...] [latest | snapshots/live-<timestamp>.json] [--expect-commit <sha>]'
+const EXPECT_COMMIT_FLAG = '--expect-commit'
 const MAX_LISTED = 10
 const SPORT_NAME = /^[a-z][a-z0-9_-]*$/
 const MAX_FAILURE_LENGTH = 200
+const COMMIT_SHA = /^[0-9a-f]{40}$/
+const SHORT_COMMIT_LENGTH = 7
 
 /**
  * Runs the Live contract (the shared invariants and the unread-field detector) against the sports of
@@ -32,14 +41,41 @@ const MAX_FAILURE_LENGTH = 200
 export function runProdCheck(args: string[], deps: ProdCheckDeps): ProdCheckResult {
   // "latest", "all" and a blank spell the defaults out, so the workflow can pass its inputs straight through.
   // Anything that isn't a bare sport name is the snapshot key, which the guard then validates.
-  const named = args.filter((arg) => arg !== '')
+  const { rest, expectedCommit } = takeExpectedCommit(args)
+  const named = rest.filter((arg) => arg !== '')
   const requestedSports = named.filter((arg) => SPORT_NAME.test(arg) && arg !== 'latest' && arg !== 'all')
   const requestedKey = named.find((arg) => !SPORT_NAME.test(arg))
   guardProdRead({ task: 'The prod check', key: requestedKey, usage: USAGE }, deps)
 
   const key = requestedKey ?? latestSnapshotKey(deps.source)
   const snapshot = interpretSnapshot(JSON.parse(deps.source.read(key)))
+  if (expectedCommit !== undefined) expectProducerCommit(snapshot, expectedCommit, deps.commitOrder)
   return checkSnapshot(snapshot, requestedSports, key)
+}
+
+/** Pulls `--expect-commit <sha>` out of the args. A blank SHA means no expectation, so the workflow can pass its input straight through. */
+function takeExpectedCommit(args: string[]): { rest: string[]; expectedCommit?: string } {
+  const at = args.indexOf(EXPECT_COMMIT_FLAG)
+  if (at === -1) return { rest: args }
+  const value = args[at + 1] ?? ''
+  const rest = [...args.slice(0, at), ...args.slice(at + 2)]
+  if (value === '') return { rest }
+  if (!COMMIT_SHA.test(value)) {
+    throw new Error(`Expected ${EXPECT_COMMIT_FLAG} to be a full 40-character lowercase commit SHA, got "${value}".\n${USAGE}`)
+  }
+  return { rest, expectedCommit: value }
+}
+
+/** Setup errors, not contract failures: the run stops before any sport is checked. */
+function expectProducerCommit(snapshot: Snapshot, expected: string, commitOrder: CommitOrderCheck | undefined): void {
+  if (!commitOrder) throw new Error(`${EXPECT_COMMIT_FLAG} needs a commit-order check, and none was provided.`)
+  const actual = producerCommitOf(snapshot)
+  if (actual === null) {
+    throw new Error(`The snapshot has no producer commit (older snapshots do not), so it cannot be checked against ${expected}.`)
+  }
+  if (!commitOrder(actual, expected)) {
+    throw new Error(`The snapshot's producer commit ${actual} is not ${expected} or a later commit, so the producer hasn't run since the deploy; retry later.`)
+  }
 }
 
 /**
@@ -65,7 +101,7 @@ function checkSnapshot(snapshot: InterpretedSnapshot, requestedSports: string[],
     return { exitCode: 1, outcome: 'dashboard', key, output: `Unsupported snapshot schema version: ${String(snapshot.schema_version)}` }
   }
   const sports = requestedSports.length > 0 ? requestedSports : sportsIn(snapshot)
-  const lines = [`Prod check: ${key} | snapshot_at ${String(snapshot.snapshot_at)}`]
+  const lines = [`Prod check: ${key} | snapshot_at ${String(snapshot.snapshot_at)} | producer ${shortCommit(producerCommitOf(snapshot))}`]
   const skipped: string[] = []
   let checkedCount = 0
   let ok = true
@@ -112,6 +148,16 @@ function checkSport(snapshot: Snapshot, sport: string, key: string): SportCheck 
   lines.push('', `Unread paths: ${unallowlisted.length} unallowlisted, ${unread.length - unallowlisted.length} allowlisted`)
   lines.push(...capped(unallowlisted.map((path) => `  - ${path}`)))
   return { kind: 'checked', ok, lines }
+}
+
+/** The producer commit the snapshot records, or null for `null`, a missing stamp (older snapshots) or anything that is not a SHA. */
+function producerCommitOf(snapshot: Snapshot): string | null {
+  const stamp = (snapshot as { producer_commit?: unknown }).producer_commit
+  return typeof stamp === 'string' && COMMIT_SHA.test(stamp) ? stamp : null
+}
+
+function shortCommit(commit: string | null): string {
+  return commit === null ? 'unknown' : commit.slice(0, SHORT_COMMIT_LENGTH)
 }
 
 function sportsIn(snapshot: Snapshot): string[] {

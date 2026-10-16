@@ -199,6 +199,107 @@ describe('runProdCheck', () => {
   })
 })
 
+const SHA = '0123456789abcdef0123456789abcdef01234567'
+
+function withProducerCommit(value: unknown): string {
+  return withSnapshot((snapshot) => {
+    ;(snapshot as unknown as Record<string, unknown>).producer_commit = value
+  })
+}
+
+describe('runProdCheck producer commit', () => {
+  it.each([
+    ['a stamp', withProducerCommit(SHA), 'producer 0123456'],
+    ['a null stamp', withProducerCommit(null), 'producer unknown'],
+    ['no stamp', FIXTURE, 'producer unknown'],
+  ])('shows the shortened producer commit in the header for %s', (_name, text, expected) => {
+    const result = runProdCheck(['nfl', KEY], { source: source({ [KEY]: text }), env: {} })
+
+    expect(result.output.split('\n')[0]).toBe(`Prod check: ${KEY} | snapshot_at 2026-10-04T18:41:34Z | ${expected}`)
+  })
+})
+
+describe('runProdCheck --expect-commit', () => {
+  const EXPECTED = 'fedcba9876543210fedcba9876543210fedcba98'
+
+  /** A fake commit-order check: records what it was asked and answers as told. */
+  function commitOrder(answer: boolean) {
+    const asked: Array<[string, string]> = []
+    return {
+      asked,
+      isSameOrDescendant: (commit: string, base: string) => {
+        asked.push([commit, base])
+        return answer
+      },
+    }
+  }
+
+  it('passes when the stamped commit is the expected one or a later one', () => {
+    const order = commitOrder(true)
+
+    const result = runProdCheck(['nfl', '--expect-commit', EXPECTED, KEY], {
+      source: source({ [KEY]: withProducerCommit(SHA) }),
+      env: {},
+      commitOrder: order.isSameOrDescendant,
+    })
+
+    expect(order.asked).toEqual([[SHA, EXPECTED]])
+    expect(result.output).toContain('## nfl')
+  })
+
+  it('stops at once on a mismatch, naming both commits and telling the operator to retry later', () => {
+    const order = commitOrder(false)
+
+    expect(() =>
+      runProdCheck(['--expect-commit', EXPECTED, KEY], {
+        source: source({ [KEY]: withProducerCommit(SHA) }),
+        env: {},
+        commitOrder: order.isSameOrDescendant,
+      }),
+    ).toThrow(
+      `The snapshot's producer commit ${SHA} is not ${EXPECTED} or a later commit, so the producer hasn't run since the deploy; retry later.`,
+    )
+  })
+
+  it.each([
+    ['null', withProducerCommit(null)],
+    ['missing', FIXTURE],
+  ])('fails the expectation with its own message when the stamp is %s', (_name, text) => {
+    const order = commitOrder(true)
+
+    expect(() =>
+      runProdCheck(['--expect-commit', EXPECTED, KEY], {
+        source: source({ [KEY]: text }),
+        env: {},
+        commitOrder: order.isSameOrDescendant,
+      }),
+    ).toThrow(`The snapshot has no producer commit (older snapshots do not), so it cannot be checked against ${EXPECTED}.`)
+    expect(order.asked).toEqual([])
+  })
+
+  it('rejects an expected commit that is not a full SHA before reading anything', () => {
+    const snapshots = source({ [KEY]: FIXTURE })
+
+    expect(() => runProdCheck(['--expect-commit', 'abc123', KEY], { source: snapshots, env: {}, commitOrder: commitOrder(true).isSameOrDescendant })).toThrow(
+      'Expected --expect-commit to be a full 40-character lowercase commit SHA, got "abc123".',
+    )
+    expect(snapshots.reads).toEqual([])
+  })
+
+  it('does not check commit order when no commit is expected, and a blank expectation means none', () => {
+    const order = commitOrder(false)
+
+    const result = runProdCheck(['nfl', '--expect-commit', '', KEY], {
+      source: source({ [KEY]: withProducerCommit(SHA) }),
+      env: {},
+      commitOrder: order.isSameOrDescendant,
+    })
+
+    expect(order.asked).toEqual([])
+    expect(result.output).toContain('## nfl')
+  })
+})
+
 describe('describeFailure', () => {
   it('keeps the operator-facing line of a setup error and drops the rest, which may echo what was read', () => {
     const error = new Error('Unexpected token in snapshot\n{"secret":"value"}')
