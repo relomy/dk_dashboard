@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 // Exported by the dk_results producer: cfb and mlb contests (provenance in public/mock/PRODUCER_FIXTURE.md).
 import producerSnapshot from '../../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import { buildLiveModel, type LiveModel } from '../liveModel'
-import { createShiftsFeed, type ShiftsStorage, type VipShiftItem } from '../shifts'
+import { createShiftsFeed, digestOf, diffDigests, type ShiftsStorage, type VipShiftItem } from '../shifts'
 // Exported by the dk_results producer: an NFL mid-slate contest with six VIPs.
 import nflSnapshot from '../../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
 
@@ -1165,5 +1165,112 @@ describe('subscribing to the feed', () => {
     unsubscribe()
     feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: false })
     expect(calls).toBe(0)
+  })
+})
+
+describe('pair diff', () => {
+  const BEFORE_AT = T0
+  const AFTER_AT = T0 + 300_000
+
+  /** Digests of two NFL models; the later one is stamped with a later snapshot time. */
+  function pair(after: LiveModel, before: LiveModel = nflModel()) {
+    return {
+      before: digestOf({ ...before, snapshotAt: '2026-10-04T18:40:00Z' }, BEFORE_AT),
+      after: digestOf({ ...after, snapshotAt: '2026-10-04T18:45:00Z' }, AFTER_AT),
+    }
+  }
+
+  const diff = (after: LiveModel, before?: LiveModel) => {
+    const digests = pair(after, before)
+    return diffDigests(digests.before, digests.after)
+  }
+
+  it('returns nothing for two identical digests', () => {
+    expect(diff(nflModel())).toEqual([])
+  })
+
+  it('reports one step of change, carrying the later snapshot time apart from the build clock', () => {
+    const items = diff(nflModel({ EmpireMaker2: { rank: 480 } }))
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({
+      kind: 'vip',
+      vipKey: KEY.empire,
+      rank: { from: 511, to: 480 },
+      snapshotAt: '2026-10-04T18:45:00Z',
+      detectedAt: AFTER_AT,
+    })
+    expect(items[0].surfaced).toBeUndefined()
+  })
+
+  it('gives the same ids when the same pair is rebuilt at another time', () => {
+    const later = { ...pair(nflModel({ EmpireMaker2: { rank: 480 } }, cashLine(33.5, 505))) }
+    const first = diffDigests(later.before, later.after)
+    const again = diffDigests({ ...later.before, at: 1 }, { ...later.after, at: 2 })
+    expect(first).toHaveLength(2)
+    expect(again.map((item) => item.id)).toEqual(first.map((item) => item.id))
+    expect(new Set(first.map((item) => item.id)).size).toBe(2)
+  })
+
+  it('applies the feed thresholds to the one step', () => {
+    expect(diff(nflModel({ EmpireMaker2: { rank: 510 } }, cashLine(31.9, 499)))).toEqual([])
+  })
+
+  it('does not net: a crossing in is its own High item for the step', () => {
+    const [item] = diff(nflModel({ EmpireMaker2: INSIDE }))
+    expect(item).toMatchObject({ vipKey: KEY.empire, priority: 'high', crossing: { path: 'in' } })
+  })
+
+  it('carries a cash line move in the same step as the crossing cause', () => {
+    const items = diff(nflModel({ EmpireMaker2: INSIDE }, cashLine(33.5, 505)))
+    const vip = items.find((item): item is VipShiftItem => item.kind === 'vip')
+    expect(vip?.crossing?.cause).toEqual({ points: { from: 31.239998, to: 33.5 }, rank: { from: 500, to: 505 } })
+  })
+
+  it('reports the contest completing as one High contest state item, and nothing after it', () => {
+    const live = nflModel()
+    const done = nflModel({}, completed)
+    const items = diff(done, live)
+    expect(items.filter((item) => item.kind === 'contest-state')).toEqual([
+      expect.objectContaining({ priority: 'high', state: { from: 'live', to: 'completed' }, parts: ['contest-state'] }),
+    ])
+    const digests = pair(nflModel({ EmpireMaker2: { rank: 400 } }, completed), done)
+    expect(diffDigests(digests.before, digests.after)).toEqual([])
+  })
+
+  describe('parts', () => {
+    it('lists rank and points when only those passed their thresholds', () => {
+      const [item] = diff(nflModel({ EmpireMaker2: { rank: 480 } }))
+      expect(item.parts).toEqual(['rank-points'])
+    })
+
+    it('adds player events when a lineup slot changed', () => {
+      const [item] = diff(
+        nflModel({ EmpireMaker2: { rank: 480 } }, (snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 15.44, game_status: 'Final' })),
+      )
+      expect(item.parts).toEqual(['rank-points', 'player-events'])
+    })
+
+    it('adds crossings for a crossing, even when the rank and points did not move enough', () => {
+      const [item] = diff(nflModel({ EmpireMaker2: INSIDE }))
+      expect(item.parts).toEqual(['crossings'])
+    })
+
+    it('marks a cash line move as cash line', () => {
+      const [item] = diff(nflModel({}, cashLine(33.5, 505)))
+      expect(item).toMatchObject({ kind: 'cash-line', parts: ['cash-line'] })
+    })
+  })
+})
+
+describe('feed items', () => {
+  it('carry the snapshot they came from and their parts', () => {
+    const { feed, at } = seededFeed()
+    at(T0 + 60_000)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }, cashLine(33.5, 505)), { visit: false })
+    const model = nflModel()
+    expect(feed.feed().map((item) => [item.kind, item.snapshotAt, item.parts])).toEqual([
+      ['vip', model.snapshotAt, ['rank-points']],
+      ['cash-line', model.snapshotAt, ['cash-line']],
+    ])
   })
 })
