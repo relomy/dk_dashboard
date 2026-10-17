@@ -325,4 +325,16 @@ describe('/api/snapshot', () => {
     expect(response.headers.get('x-snapshot-cache')).toBe('miss')
     await expect(response.json()).resolves.toEqual({ n: 1 })
   })
+
+  it('falls back to R2 when the cache read fails', async () => {
+    cache.match = async () => {
+      throw new Error('cache match failed')
+    }
+
+    const response = await invoke('?path=snapshots/a.json', envWithR2({ n: 1 }), authHeaders)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-snapshot-cache')).toBe('miss')
+    await expect(response.json()).resolves.toEqual({ n: 1 })
+  })
 })

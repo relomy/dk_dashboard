@@ -43,7 +43,7 @@ export const onRequestGet: PagesFunction<EnvBindings> = async ({ request, env, w
   // The WebWorker lib's CacheStorage lacks the Workers-only `default` cache.
   const cache = (caches as unknown as { default: Cache }).default
   const cacheKey = new Request(request.url)
-  const cached = await cache.match(cacheKey)
+  const cached = await cache.match(cacheKey).catch(() => undefined)
   if (cached) {
     return snapshotResponse(await cached.text(), BROWSER_CACHE_CONTROL, 'hit')
   }
