@@ -1,0 +1,788 @@
+<!--
+PROTOTYPE, THROWAWAY. Never merge to main.
+Question (#116): does the Shifts Timeline specced in #89 read well, and does the Shifts item shape give it everything it needs?
+Related: #116 (this prototype), #89 (Shifts Timeline spec), #117 (Timeline data source, blocks #89).
+Open this file directly in a browser. Variants A, B, C are switchable with ?variant= or the bottom bar. Sample data is hand-written; nothing is fetched.
+Verdict: Variant B "Step rail" everywhere (one card per step, one row per VIP, on a vertical time rail), plus a "Compact" toggle that renders the same steps in C's sentence form.
+Mixed entries under a kind filter hide non-matching chips and keep a "+N hidden" chip. The filter bar fits 375px with no collapsed form.
+Contest state changes are their own kind. The item-shape gaps are recorded in the #116 comment.
+-->
+<title>Shifts Timeline Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout concept: the real Shifts page (max-w-3xl column, dark-first) with a PROTOTYPE stripe on top, scenario controls, then one of three Timeline presentations chosen by ?variant= / #variant-x and a floating bottom bar. */
+:root {
+  --bg: #0a0a0b; --card: #171718; --card2: #232326; --fg: #fafafa; --mut: #a1a1a6;
+  --bd: rgba(255,255,255,.1); --bd2: rgba(255,255,255,.2);
+  --good: #a3e635; --good-bg: rgba(163,230,53,.14);
+  --bad: #fb7185; --bad-bg: rgba(251,113,133,.14);
+  --line: #fcd34d; --line-bg: rgba(252,211,77,.14);
+  --high: #f87171; --high-bg: rgba(248,113,113,.16);
+  --unseen: #7aa2ff; --unseen-bg: rgba(122,162,255,.14);
+  --proto: #22d3ee; --proto-ink: #04222a;
+  --bar-bg: #fafafa; --bar-fg: #0a0a0b;
+  --sans: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #f6f6f7; --card: #ffffff; --card2: #ececef; --fg: #141416; --mut: #5d5d66;
+  --bd: rgba(0,0,0,.12); --bd2: rgba(0,0,0,.22);
+  --good: #4d7c0f; --good-bg: rgba(77,124,15,.12);
+  --bad: #be123c; --bad-bg: rgba(190,18,60,.1);
+  --line: #a16207; --line-bg: rgba(161,98,7,.12);
+  --high: #dc2626; --high-bg: rgba(220,38,38,.1);
+  --unseen: #2f5bd8; --unseen-bg: rgba(47,91,216,.1);
+  --proto: #0e7490; --proto-ink: #ffffff;
+  --bar-bg: #141416; --bar-fg: #fafafa; color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #f6f6f7; --card: #ffffff; --card2: #ececef; --fg: #141416; --mut: #5d5d66;
+  --bd: rgba(0,0,0,.12); --bd2: rgba(0,0,0,.22);
+  --good: #4d7c0f; --good-bg: rgba(77,124,15,.12);
+  --bad: #be123c; --bad-bg: rgba(190,18,60,.1);
+  --line: #a16207; --line-bg: rgba(161,98,7,.12);
+  --high: #dc2626; --high-bg: rgba(220,38,38,.1);
+  --unseen: #2f5bd8; --unseen-bg: rgba(47,91,216,.1);
+  --proto: #0e7490; --proto-ink: #ffffff;
+  --bar-bg: #141416; --bar-fg: #fafafa; color-scheme: light; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 96px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--unseen); outline-offset: 2px; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.shell { max-width: 768px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; padding-block: 12px 0; }
+.shell > * { min-width: 0; }
+
+/* prototype chrome */
+.banner { margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 6px max(16px, env(safe-area-inset-left, 0px)); background: var(--proto); color: var(--proto-ink);
+  font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; line-height: 1.35; }
+.banner b { font-weight: 500; }
+.ctrl { border: 1px dashed var(--proto); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+.ctrl .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ctrl .lab { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--mut); min-width: 62px; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.seg button, .ctrl select, .btn { background: var(--card); border: 1px solid var(--bd2); border-radius: 7px; padding: 4px 9px; font-size: 12px; color: var(--fg); }
+.seg button[aria-pressed="true"] { background: var(--proto); color: var(--proto-ink); border-color: var(--proto); }
+.ctrl select { padding: 4px 6px; }
+.btn.go { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.status { font-family: var(--mono); font-size: 11px; color: var(--mut); }
+.vbar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 50; background: var(--bar-bg); color: var(--bar-fg);
+  border-radius: 999px; display: flex; align-items: center; gap: 4px; padding: 5px; box-shadow: 0 6px 24px rgba(0,0,0,.45); max-width: calc(100vw - 24px); }
+.vbar button { background: transparent; border: 0; color: inherit; border-radius: 999px; padding: 7px 12px; font-size: 13px; }
+.vbar .nav { width: 34px; padding: 7px 0; font-size: 16px; }
+.vbar .lbl { font-family: var(--mono); font-size: 12px; padding: 0 6px; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.vbar .add { background: var(--bar-fg); color: var(--bar-bg); font-size: 12px; }
+pre.state { margin: 0; border: 1px solid var(--bd); border-radius: 10px; padding: 10px; font-family: var(--mono); font-size: 11px; line-height: 1.5; color: var(--mut); overflow-x: auto; white-space: pre; }
+.stlab { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--mut); }
+
+/* shared page parts (the real app's language) */
+.pagehead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pagehead h1 { margin: 0; font-size: 18px; font-weight: 600; }
+.btn-o { background: transparent; border: 1px solid var(--bd2); border-radius: 8px; padding: 5px 11px; font-size: 13px; }
+.btn-o:disabled { opacity: .45; cursor: default; }
+.badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: 500; line-height: 1.5; border: 1px solid transparent; white-space: nowrap; }
+.badge.high { background: var(--high-bg); color: var(--high); }
+.badge.new { background: var(--unseen-bg); color: var(--unseen); }
+.badge.line { background: var(--line-bg); color: var(--line); }
+.badge.out { border-color: var(--bd2); color: var(--mut); }
+.up { color: var(--good); } .dn { color: var(--bad); } .amber { color: var(--line); } .mut { color: var(--mut); }
+.mv { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.mv .l { color: var(--mut); }
+.mv .v { font-family: var(--mono); font-variant-numeric: tabular-nums; display: inline-flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.mv .v small { font-size: 11px; color: var(--mut); }
+.lu-btn { background: transparent; border: 0; color: var(--mut); padding: 3px 0; font-size: 12px; text-align: left; width: 100%; }
+.lu { list-style: none; margin: 4px 0 0; padding: 0; }
+.lu li { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid var(--bd); }
+.lu li.still { opacity: .5; }
+.lu .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.lu .nm small { color: var(--mut); margin-left: 6px; }
+.lu .d { font-family: var(--mono); font-size: 12px; width: 56px; text-align: right; flex-shrink: 0; }
+.fresh { animation: flash 2.6s ease-out 1; }
+@keyframes flash { 0% { box-shadow: 0 0 0 2px var(--unseen), 0 0 22px var(--unseen-bg); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.sk { background: linear-gradient(90deg, var(--card) 0%, var(--card2) 50%, var(--card) 100%); background-size: 200% 100%; animation: sh 1.2s linear infinite; border-radius: 10px; }
+@keyframes sh { to { background-position: -200% 0; } }
+.prog { height: 6px; border-radius: 4px; background: var(--card2); overflow: hidden; }
+.prog > i { display: block; height: 100%; background: var(--unseen); transition: width .18s linear; }
+.empty { text-align: center; color: var(--mut); padding: 28px 8px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+@media (prefers-reduced-motion: reduce) { .fresh, .sk { animation: none; } .prog > i { transition: none; } }
+
+/* ---------- Variant A: Ledger ---------- */
+.a-tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--bd); }
+.a-tabs button { background: none; border: 0; padding: 8px 0; color: var(--mut); border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 500; }
+.a-tabs button[aria-selected="true"] { color: var(--fg); border-color: var(--fg); }
+.a-tabs .n { font-family: var(--mono); font-size: 11px; margin-left: 5px; color: var(--mut); }
+.a-fb { display: flex; flex-direction: column; gap: 8px; }
+.a-fb .full { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.a-fb .grp { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.a-fb .grp > .gl { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--mut); margin-right: 2px; }
+.chip { border: 1px solid var(--bd2); background: transparent; border-radius: 999px; padding: 3px 10px; font-size: 12px; color: var(--mut); white-space: nowrap; }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.a-fb .tog { display: none; justify-content: space-between; align-items: center; width: 100%; background: var(--card); border: 1px solid var(--bd2); border-radius: 10px; padding: 9px 12px; }
+@media (max-width: 600px) {
+  .a-fb .tog { display: flex; }
+  .a-fb .full { display: none; flex-direction: column; align-items: stretch; background: var(--card); border: 1px solid var(--bd); border-radius: 10px; padding: 10px; }
+  .a-fb.open .full { display: flex; }
+}
+.a-list { display: flex; flex-direction: column; gap: 8px; }
+.a-card { background: var(--card); border: 1px solid var(--bd); border-radius: 12px; padding: 11px 13px; display: flex; flex-direction: column; gap: 5px; }
+.a-card.unseen { border-color: color-mix(in srgb, var(--unseen) 45%, var(--bd)); }
+.a-card h3 { margin: 0; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.a-card h3 .time { margin-left: auto; font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--mut); }
+.a-card .sec { display: flex; flex-direction: column; gap: 2px; }
+.a-card .sec + .sec { border-top: 1px solid var(--bd); padding-top: 5px; }
+.a-card .cause { color: var(--mut); }
+.a-hid { background: transparent; border: 0; padding: 0; text-align: left; color: var(--mut); font-size: 12px; text-decoration: underline dotted; text-underline-offset: 3px; }
+.a-div { display: flex; align-items: center; gap: 10px; color: var(--unseen); font-family: var(--mono); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; padding: 4px 0; }
+.a-div::before, .a-div::after { content: ""; height: 1px; background: var(--unseen); flex: 1; }
+.a-div span { text-align: center; }
+.a-gap { border: 1px dashed var(--bd2); border-radius: 12px; padding: 10px 13px; display: flex; gap: 10px; align-items: center; background: repeating-linear-gradient(135deg, transparent 0 8px, var(--card) 8px 16px); }
+.a-gap .t { flex: 1; min-width: 0; }
+.a-gap b { display: block; font-weight: 500; }
+.a-gap p { margin: 1px 0 0; color: var(--mut); font-size: 12px; }
+.a-note { border: 1px dashed var(--bd2); border-radius: 12px; padding: 12px 13px; color: var(--mut); text-align: center; display: flex; flex-direction: column; gap: 3px; }
+.a-note b { color: var(--fg); font-weight: 500; }
+.a-more { width: 100%; background: var(--card); border: 1px solid var(--bd2); border-radius: 12px; padding: 11px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.a-more small { color: var(--mut); }
+.a-lh { display: flex; justify-content: space-between; color: var(--mut); font-size: 12px; }
+
+/* ---------- Variant B: Step rail ---------- */
+.b-seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--card); border: 1px solid var(--bd); border-radius: 10px; padding: 3px; gap: 3px; }
+.b-seg button { background: transparent; border: 0; border-radius: 8px; padding: 7px; font-weight: 500; color: var(--mut); }
+.b-seg button[aria-selected="true"] { background: var(--fg); color: var(--bg); }
+.b-sticky { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg); padding-block: 6px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--bd); }
+.b-strip { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; align-items: center; padding-bottom: 1px; -webkit-overflow-scrolling: touch; }
+.b-strip::-webkit-scrollbar { display: none; }
+.b-strip .chip { flex-shrink: 0; }
+.b-strip .sl { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--mut); flex-shrink: 0; }
+.b-meter { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 11px; color: var(--mut); }
+.b-meter .prog { flex: 1; }
+.b-rail { display: flex; flex-direction: column; }
+.b-row { display: grid; grid-template-columns: 44px 16px minmax(0, 1fr); column-gap: 8px; }
+.b-time { font-family: var(--mono); font-size: 12px; color: var(--mut); text-align: right; padding-top: 12px; }
+.b-time.new { color: var(--unseen); }
+.b-track { position: relative; }
+.b-track::before { content: ""; position: absolute; left: 7px; top: 0; bottom: 0; border-left: 2px solid var(--bd2); }
+.b-track.dash::before { border-left-style: dashed; }
+.b-track.first::before { top: 16px; }
+.b-track.last::before { bottom: calc(100% - 16px); }
+.b-track i { position: absolute; left: 2px; top: 13px; width: 12px; height: 12px; border-radius: 50%; background: var(--bg); border: 2px solid var(--mut); }
+.b-track i.hi { background: var(--high); border-color: var(--high); }
+.b-track i.nw { border-color: var(--unseen); }
+.b-track i.hol { border-style: dashed; }
+.b-body { padding: 6px 0 10px; min-width: 0; }
+.b-step { background: var(--card); border: 1px solid var(--bd); border-radius: 12px; overflow: hidden; }
+.b-step.unseen { border-color: color-mix(in srgb, var(--unseen) 45%, var(--bd)); }
+.b-line { padding: 7px 12px; background: var(--line-bg); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 13px; }
+.b-v { padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--bd); }
+.b-v:first-child { border-top: 0; }
+.b-v .top { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.b-v .top b { font-weight: 600; }
+.pill { font-size: 12px; border-radius: 6px; padding: 1px 7px; background: var(--card2); font-family: var(--mono); white-space: nowrap; }
+.pill.good { background: var(--good-bg); color: var(--good); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.amb { background: var(--line-bg); color: var(--line); }
+.pill.dim { background: transparent; border: 1px dashed var(--bd2); color: var(--mut); }
+.b-more { border: 0; background: transparent; color: var(--mut); text-align: left; padding: 0; font-size: 12px; }
+.b-detail { padding-top: 4px; }
+.b-marker { display: grid; grid-template-columns: 44px 16px minmax(0, 1fr); column-gap: 8px; align-items: center; }
+.b-marker .mk { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; color: var(--unseen); font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin: 2px 0; }
+.b-marker .mk::before, .b-marker .mk::after { content: ""; flex: 1; height: 2px; background: var(--unseen); }
+.b-gapc { padding: 9px 12px; border: 1px dashed var(--bd2); border-radius: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.b-gapc span { flex: 1; min-width: 0; }
+.b-load { background: transparent; border: 1px dashed var(--bd2); border-radius: 12px; padding: 10px 12px; width: 100%; text-align: left; display: flex; justify-content: space-between; gap: 8px; }
+.b-endc { border: 1px solid var(--bd); border-radius: 12px; padding: 10px 12px; color: var(--mut); background: var(--card); }
+.b-endc b { color: var(--fg); font-weight: 500; }
+.b-range { color: var(--mut); font-size: 12px; font-family: var(--mono); }
+
+/* ---------- Variant C: Sentence log ---------- */
+.c-tabs { display: flex; gap: 14px; font-family: var(--mono); font-size: 12px; border-bottom: 1px solid var(--bd); padding-bottom: 6px; align-items: baseline; flex-wrap: wrap; }
+.c-tabs button { background: none; border: 0; padding: 0; color: var(--mut); }
+.c-tabs button[aria-selected="true"] { color: var(--fg); text-decoration: underline; text-underline-offset: 6px; text-decoration-thickness: 2px; }
+.c-tabs .sp { flex: 1; }
+.c-q { font-family: var(--mono); font-size: 12px; border: 1px solid var(--bd2); border-radius: 8px; width: 100%; background: var(--card); padding: 7px 10px; text-align: left; display: flex; justify-content: space-between; gap: 8px; }
+.c-q span { min-width: 0; overflow-wrap: anywhere; }
+.c-fp { border: 1px solid var(--bd); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; margin-top: -4px; }
+.c-fp label { display: flex; align-items: center; gap: 8px; font-size: 13px; min-height: 28px; }
+.c-fp .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 12px; }
+.c-fp input { accent-color: var(--unseen); width: 16px; height: 16px; }
+.c-log { font-family: var(--mono); font-size: 12.5px; line-height: 1.55; display: flex; flex-direction: column; }
+.c-h { position: sticky; top: env(safe-area-inset-top, 0px); background: var(--bg); color: var(--mut); font-size: 11px; letter-spacing: .08em; padding: 8px 0 3px; border-bottom: 1px solid var(--bd); z-index: 5; }
+.c-step { display: grid; grid-template-columns: 46px minmax(0, 1fr); column-gap: 8px; padding: 6px 0 6px 8px; border-left: 2px solid transparent; }
+.c-step.unseen { border-left-color: var(--unseen); }
+.c-step.old { opacity: .78; }
+.c-t { color: var(--mut); padding-top: 1px; }
+.c-ls { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.c-s { overflow-wrap: anywhere; }
+.c-s.hi::before { content: "HIGH "; color: var(--high); font-weight: 500; }
+.c-s .who { font-weight: 500; font-family: var(--sans); }
+.c-s .ln { color: var(--mut); }
+.c-tg { background: none; border: 0; color: var(--mut); padding: 0; font: inherit; text-align: left; text-decoration: underline dotted; text-underline-offset: 3px; }
+.c-lu { margin: 2px 0 4px 10px; border-left: 1px solid var(--bd); padding-left: 8px; display: flex; flex-direction: column; }
+.c-lu div { display: flex; gap: 8px; justify-content: space-between; }
+.c-lu div.still { opacity: .5; }
+.c-div { margin: 6px 0; color: var(--unseen); text-align: center; position: relative; padding: 2px 0; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; background: var(--unseen-bg); border-block: 1px solid var(--unseen); }
+.c-gap { margin: 3px 0 3px 8px; padding: 4px 8px; color: var(--line); border: 1px dashed var(--line); display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.c-gap span { flex: 1; min-width: 0; }
+.c-foot { color: var(--mut); margin: 8px 0 0 8px; display: flex; flex-direction: column; gap: 3px; }
+.c-foot .ld { color: var(--fg); text-align: left; background: none; border: 0; padding: 0; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.c-bar { font-family: var(--mono); letter-spacing: -.5px; color: var(--unseen); }
+.c-rule { text-align: center; color: var(--mut); margin: 4px 0; font-size: 11px; overflow-wrap: anywhere; }
+</style>
+
+<div class="shell">
+  <div class="banner" role="note"><b>Prototype</b> · issue #116 · Shifts Timeline · throwaway · hand-written sample entries, not wired to the real module, fetching or cache</div>
+  <div class="ctrl" aria-label="Prototype controls">
+    <div class="row"><span class="lab">Scenario</span><span class="seg" id="seg-scn"></span></div>
+    <div class="row" id="row-end" hidden><span class="lab">Ends by</span><span class="seg" id="seg-end"></span></div>
+    <div class="row"><span class="lab">Seen mark</span><span class="seg" id="seg-seen"></span>
+      <button class="btn go" type="button" id="btn-new">+ Simulate new entry</button></div>
+    <div class="status" id="status"></div>
+  </div>
+  <div id="view"></div>
+  <div class="stlab">Prototype state (updates on every action)</div>
+  <pre class="state" id="state" aria-live="polite"></pre>
+</div>
+<nav class="vbar" aria-label="Prototype variants">
+  <button class="nav" type="button" id="prev" aria-label="Previous variant">&#8592;</button>
+  <span class="lbl" id="vlabel"></span>
+  <button class="nav" type="button" id="next" aria-label="Next variant">&#8594;</button>
+  <button class="add" type="button" id="bar-new">+ entry</button>
+</nav>
+
+<script>
+(function () {
+'use strict';
+/* ====================== Sample data in the Shifts item shape ====================== */
+var T = function (h, m) { return h * 60 + m; };
+var hm = function (t) { return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); };
+var M = function (a, b) { return { from: a, to: b }; };
+var r2 = function (x) { return Math.round(x * 100) / 100; };
+var CONTEST = 'NBA $5 Double Up';
+var CONTEST_START = T(19, 5);
+var WINDOW_START = T(19, 40);
+var CAP = 60;
+var VIPS = [
+  { key: 'you', name: 'You', profile: true }, { key: 'shark', name: 'SharkBait', profile: true }, { key: 'chalk', name: 'ChalkDust', profile: true },
+  { key: 'mc', name: 'mmcgee', profile: false }, { key: 'rip', name: 'Ripcity_9', profile: false }
+];
+var vname = function (k) { var v = VIPS.filter(function (x) { return x.key === k; })[0]; return v ? v.name : 'VIP'; };
+var SLOTS = ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F', 'UTIL'];
+var POOL = [['Jalen Brunson', 41.5], ['Luka Doncic', 52.8], ['Donovan Mitchell', 33.0], ['Jaylen Brown', 28.4], ['Nikola Jokic', 61.2], ['Anthony Davis', 44.6], ['Tyrese Haliburton', 30.1], ['Franz Wagner', 26.7], ['Bam Adebayo', 35.9], ['Cade Cunningham', 29.8], ['Evan Mobley', 31.4], ['Zion Williamson', 0], ['Paolo Banchero', 27.3], ['Desmond Bane', 24.0]];
+var ROST = { you: [0, 1, 3, 5, 4, 6, 8, 11], shark: [9, 2, 7, 12, 10, 6, 13, 11], chalk: [0, 2, 3, 12, 4, 9, 7, 13], mc: [1, 2, 3, 5, 4, 6, 8, 13], rip: [0, 9, 7, 5, 10, 6, 8, 13] };
+/* lineup(key, {slotIndex: {from,to,gs:[a,b],reveal,stats}}, [hiddenSlotIndexes]) -> LineupSlotDiff[] (changed by |move|, unchanged, hidden) */
+function lineup(key, ch, hid) {
+  ch = ch || {}; hid = hid || [];
+  var changed = [], same = [], hidden = [];
+  ROST[key].forEach(function (pi, i) {
+    var p = POOL[pi], c = ch[i], base = { key: i + '-' + pi, slot: SLOTS[i], name: p[0], playerKey: p[0].toLowerCase().replace(/\W/g, '') };
+    if (hid.indexOf(i) >= 0 && !c) { hidden.push({ key: base.key, slot: base.slot, name: 'Locked', playerKey: null, points: M(null, null), pointsMove: null, locked: M(true, true), gameStatus: M(null, null) }); return; }
+    if (c && c.reveal) { changed.push({ key: base.key, slot: base.slot, name: base.name, playerKey: base.playerKey, points: M(null, c.to), pointsMove: c.to, locked: M(true, false), gameStatus: M(null, 'in-progress'), stats: M(null, c.stats || null) }); return; }
+    if (c) { var gs = c.gs || ['in-progress', 'in-progress']; changed.push({ key: base.key, slot: base.slot, name: base.name, playerKey: base.playerKey, points: M(c.from, c.to), pointsMove: r2(c.to - c.from), locked: M(false, false), gameStatus: M(gs[0], gs[1]) }); return; }
+    same.push({ key: base.key, slot: base.slot, name: base.name, playerKey: base.playerKey, points: M(p[1], p[1]), pointsMove: 0, locked: M(false, false), gameStatus: M('in-progress', 'in-progress') });
+  });
+  changed.sort(function (a, b) { return Math.abs(b.pointsMove || 0) - Math.abs(a.pointsMove || 0); });
+  return changed.concat(same, hidden);
+}
+function V(key, o) { var it = { kind: 'vip', vipKey: key, priority: o.x ? 'high' : 'normal', rank: M(o.r[0], o.r[1]), points: M(o.p[0], o.p[1]), distanceToCashPoints: M(o.dp[0], o.dp[1]), distanceToCashRank: M(o.dr[0], o.dr[1]), lineup: o.l }; if (o.x) it.crossing = { path: o.x[0], cause: o.x[1] || null }; return it; }
+function CL(p, r) { return { kind: 'cash-line', priority: 'normal', points: M(p[0], p[1]), rank: M(r[0], r[1]) }; }
+function CS(a, b) { return { kind: 'contest-state', priority: 'high', state: M(a, b) }; }
+function FIN(key, r, p, cash) { return { kind: 'vip', vipKey: key, priority: 'high', rank: M(r[0], r[1]), points: M(p[0], p[1]), distanceToCashPoints: M(null, null), distanceToCashRank: M(null, null), finishedCashing: cash }; }
+function ST(t, items) { var id = 's' + hm(t).replace(':', ''); items.forEach(function (it) { it.id = id + ':' + (it.vipKey || it.kind); it.snapshotAt = '2026-10-17T' + hm(t) + ':00'; }); return { kind: 'step', t: t, id: id, items: items }; }
+function GAP(t, reason) { return { kind: 'gap', t: t, reason: reason, id: 'g' + hm(t).replace(':', '') }; }
+var cA = CL([308.4, 311.8], [4181, 4203]);   /* 21:30 line move, also the cause of ChalkDust leaving */
+var cB = CL([305.4, 307.3], [4151, 4170]);   /* 21:05 */
+
+var FULL = [
+  ST(T(21, 30), [
+    V('chalk', { r: [4172, 4219], p: [310.0, 310.9], dp: [1.6, -0.9], dr: [9, -16], x: ['out', { points: M(308.4, 311.8), rank: M(4181, 4203) }],
+      l: lineup('chalk', { 2: { from: 31.2, to: 33.0, gs: ['in-progress', 'final'] }, 4: { from: 58.0, to: 56.4 } }, [7]) }),
+    V('shark', { r: [2310, 2297], p: [355.2, 358.0], dp: [46.8, 46.2], dr: [1871, 1906], l: lineup('shark', { 0: { from: 27.0, to: 29.8 } }, [7]) }),
+    cA ]),
+  ST(T(21, 25), [
+    V('you', { r: [4164, 4150], p: [308.6, 312.9], dp: [0.2, 4.5], dr: [6, 31], l: lineup('you', { 1: { from: 49.0, to: 52.8 }, 2: { from: 27.8, to: 28.4 } }, [7]) }),
+    V('shark', { r: [2311, 2310], p: [341.0, 341.6], dp: [35.8, 35.5], dr: [1859, 1860], l: lineup('shark', { 7: { reveal: true, to: 14.2, stats: '6 reb, 3 ast' }, 1: { from: 30.1, to: 33.0, gs: ['in-progress', 'final'] } }) }) ]),
+  ST(T(21, 20), [CL([307.3, 308.4], [4170, 4181])]),
+  ST(T(21, 15), [
+    V('you', { r: [4203, 4164], p: [305.9, 308.6], dp: [-1.4, 1.3], dr: [-33, 6], x: ['in', null], l: lineup('you', { 4: { from: 55.0, to: 58.7 }, 0: { from: 38.2, to: 41.5 } }, [7]) }) ]),
+  ST(T(21, 10), [
+    V('chalk', { r: [4163, 4158], p: [309.1, 309.9], dp: [1.7, 2.6], dr: [-12, 12], l: lineup('chalk', { 4: { from: 59.0, to: 60.0 } }, [7]) }) ]),
+  ST(T(21, 5), [
+    V('shark', { r: [4149, 4181], p: [306.0, 306.8], dp: [0.6, -0.5], dr: [2, -11], x: ['out', { points: M(305.4, 307.3), rank: M(4151, 4170) }], l: lineup('shark', { 5: { from: 28.0, to: 25.9 } }, [7]) }), cB ]),
+  ST(T(21, 0), [
+    V('shark', { r: [4188, 4149], p: [303.2, 306.0], dp: [-2.2, 0.6], dr: [-37, 2], x: ['in', null], l: lineup('shark', { 2: { from: 29.0, to: 33.0, gs: ['in-progress', 'final'] }, 3: { from: 24.1, to: 26.7 } }, [7]) }) ]),
+  ST(T(20, 55), [
+    V('rip', { r: [4390, 4128], p: [298.1, 304.4], dp: [-4.1, 1.8], dr: [-240, 22], x: ['in', { points: M(301.2, 302.6), rank: M(4120, 4150) }], l: lineup('rip', { 4: { from: 50.0, to: 58.2 } }, [7]) }),
+    V('mc', { r: [3902, 3870], p: [318.0, 320.6], dp: [14.8, 16.2], dr: [248, 280], l: lineup('mc', { 1: { from: 49.1, to: 51.7 } }, [7]) }) ]),
+  ST(T(20, 50), [
+    V('you', { r: [4390, 4390], p: [296.0, 296.4], dp: [-3.0, -2.6], dr: [-250, -250], l: lineup('you', { 7: { reveal: true, to: 8.8, stats: '2 pts in 6 min' } }) }) ]),
+  GAP(T(20, 45), 'unavailable'),
+  ST(T(20, 40), [CL([301.2, 303.9], [4120, 4152])]),
+  GAP(T(20, 35), 'stale'),
+  ST(T(20, 30), [
+    V('chalk', { r: [4260, 4119], p: [297.0, 302.9], dp: [-4.2, 0.9], dr: [-140, 33], x: ['in', null], l: lineup('chalk', { 4: { from: 44.0, to: 49.9 } }, [7]) }) ]),
+  ST(T(20, 25), [
+    V('shark', { r: [4305, 4262], p: [288.0, 291.1], dp: [-12.0, -9.4], dr: [-190, -150], l: lineup('shark', { 0: { from: 22.0, to: 25.1 } }, [7]) }),
+    V('you', { r: [4430, 4390], p: [292.0, 296.0], dp: [-7.0, -3.9], dr: [-300, -270], l: lineup('you', { 4: { from: 44.0, to: 48.0 } }, [7]) }) ]),
+  ST(T(20, 10), [
+    V('shark', { r: [4310, 4305], p: [286.4, 288.0], dp: [-13.2, -12.0], dr: [-170, -190], l: lineup('shark', { 9: null }, [7]) }) ].map(function (x) { return x; })),
+  ST(T(20, 5), [
+    V('you', { r: [4480, 4430], p: [289.0, 292.0], dp: [-10.0, -7.0], dr: [-360, -300], l: lineup('you', { 3: { from: 30.0, to: 33.0 } }, [7]) }) ]),
+  ST(T(19, 55), [CL([296.0, 298.4], [4090, 4118])]),
+  ST(T(19, 50), [
+    V('chalk', { r: [4310, 4260], p: [292.0, 297.0], dp: [-6.0, -3.0], dr: [-220, -170], l: lineup('chalk', { 5: { reveal: true, to: 13.0, stats: '5 reb' }, 4: { from: 40.0, to: 44.0 } }) }) ]),
+  ST(T(19, 45), [
+    V('mc', { r: [3760, 3902], p: [316.0, 318.0], dp: [20.0, 14.8], dr: [330, 248], x: ['out', null], l: lineup('mc', { 3: { from: 40.2, to: 42.2 } }, [7]) }) ]),
+  ST(T(19, 40), [
+    V('you', { r: [4510, 4480], p: [286.0, 289.0], dp: [-12.0, -10.0], dr: [-390, -360], l: lineup('you', { 7: { reveal: true, to: 5.0 } }) }) ])
+];
+FULL[14].items[0].lineup = lineup('shark', { 0: { from: 20.0, to: 21.4 } }, [7]);
+
+var DONE = [
+  ST(T(23, 45), [CS('live', 'completed'),
+    FIN('you', [3980, 3961], [401.3, 404.7], true), FIN('shark', [2290, 2287], [410.2, 412.0], true), FIN('chalk', [4219, 4248], [333.1, 336.0], false),
+    FIN('mc', [3810, 3799], [441.0, 444.9], true), FIN('rip', [4100, 4094], [377.8, 379.0], true)]),
+  ST(T(23, 40), [V('chalk', { r: [4201, 4219], p: [331.0, 333.1], dp: [-2.1, -3.9], dr: [-9, -26], l: lineup('chalk', { 4: { from: 60.0, to: 62.1, gs: ['in-progress', 'final'] } }) })]),
+  ST(T(23, 35), [V('you', { r: [3990, 3980], p: [399.0, 401.3], dp: [20.0, 21.3], dr: [210, 228], l: lineup('you', { 1: { from: 70.0, to: 72.3, gs: ['in-progress', 'final'] } }) })]),
+  ST(T(23, 30), [CL([380.1, 379.6], [4041, 4010])]),
+  ST(T(23, 25), [V('shark', { r: [2288, 2290], p: [409.0, 410.2], dp: [49.0, 50.6], dr: [1900, 1897], l: lineup('shark', { 0: { from: 44.0, to: 45.2 } }) })]),
+  ST(T(23, 20), [V('chalk', { r: [4150, 4201], p: [333.0, 331.0], dp: [3.0, -1.9], dr: [4, -20], x: ['out', { points: M(330.0, 332.9), rank: M(4155, 4181) }], l: lineup('chalk', { 2: { from: 40.0, to: 38.0 } }) }), CL([330.0, 332.9], [4155, 4181])]),
+  ST(T(23, 15), [V('you', { r: [4010, 3990], p: [396.0, 399.0], dp: [16.0, 19.0], dr: [140, 180], l: lineup('you', { 7: { reveal: true, to: 11.0 } }) })]),
+  ST(T(23, 10), [V('rip', { r: [4160, 4100], p: [370.0, 377.8], dp: [32.0, 40.0], dr: [90, 150], l: lineup('rip', { 4: { from: 60.0, to: 67.8 } }) })]),
+  ST(T(23, 5), [V('mc', { r: [3840, 3810], p: [436.0, 441.0], dp: [90.0, 96.0], dr: [330, 380], l: lineup('mc', { 1: { from: 70.0, to: 75.0 } }) })])
+];
+var INJECT = [
+  function (t) { return ST(t, [V('chalk', { r: [4226, 4188], p: [311.9, 313.4], dp: [-0.6, 0.9], dr: [-22, 18], x: ['in', { points: M(311.8, 312.5), rank: M(4203, 4206) }], l: lineup('chalk', { 0: { from: 41.5, to: 45.0 } }, [7]) }), CL([311.8, 312.5], [4203, 4206])]); },
+  function (t) { return ST(t, [V('you', { r: [4150, 4131], p: [312.9, 316.0], dp: [1.1, 3.5], dr: [56, 75], l: lineup('you', { 7: { reveal: true, to: 9.4, stats: '3 reb, 1 ast' }, 0: { from: 41.5, to: 44.6 } }) })]); },
+  function (t) { return ST(t, [CL([312.5, 314.1], [4206, 4239])]); },
+  function (t) { return ST(t, [V('shark', { r: [2297, 2294], p: [358.0, 361.7], dp: [46.2, 47.6], dr: [1906, 1912], l: lineup('shark', { 1: { from: 52.8, to: 56.5, gs: ['in-progress', 'final'] } }, [7]) })]); }
+];
+
+/* ====================== State ====================== */
+var VARS = [{ k: 'A', n: 'Ledger' }, { k: 'B', n: 'Step rail' }, { k: 'C', n: 'Sentence log' }];
+var PROFILE = ['you', 'shark', 'chalk'];
+var KINDS = [['crossing', 'Cash crossings'], ['rankpoints', 'Rank & points'], ['player', 'Player events'], ['cashline', 'Cash line moves']];
+var SCN = [['full', 'Full'], ['single', 'Single VIP'], ['empty', 'Empty'], ['loading', 'Loading'], ['end', 'End of range'], ['completed', 'Completed']];
+var SEEN = [['inside', 'Inside first page'], ['further', 'Further back'], ['none', 'None']];
+var END = [['history-end', 'History end'], ['contest-start', 'Contest start'], ['cap', 'Cap (60)']];
+var S = { variant: 'A', scenario: 'full', tab: 'timeline', loaded: 5, seenMode: 'inside', seenT: null, endReason: 'history-end', injected: [], freshId: null,
+  loadingMore: null, retrying: {}, open: {}, showAll: {}, fopen: false,
+  filters: { vips: PROFILE.slice(), kinds: KINDS.map(function (k) { return k[0]; }), high: false } };
+var timers = [];
+
+function dataset() {
+  if (S.scenario === 'completed') return { rows: DONE, seen: { inside: T(23, 42), further: T(23, 22) }, completed: true };
+  var rows = FULL;
+  if (S.scenario === 'single') rows = FULL.map(function (r) { return r.kind !== 'step' ? r : ST_(r, function (it) { return it.kind !== 'vip' || it.vipKey === 'you'; }); }).filter(Boolean);
+  if (S.scenario === 'empty') rows = [];
+  return { rows: rows, seen: { inside: T(21, 22), further: T(21, 3) }, completed: false };
+}
+function ST_(r, keep) { var items = r.items.filter(keep); if (!items.length) return null; return { kind: 'step', t: r.t, id: r.id, items: items }; }
+function modelVips() { return S.scenario === 'single' ? VIPS.slice(0, 1) : VIPS; }
+function seenT() {
+  if (S.seenT !== null) return S.seenT;
+  if (S.seenMode === 'none') return null;
+  return dataset().seen[S.seenMode];
+}
+function baseRows() { var d = dataset(); return d.rows; }
+function allRows() { return S.injected.concat(baseRows()); }
+function totalSteps() { return baseRows().filter(function (r) { return r.kind === 'step'; }).length; }
+function fullyLoaded() { return S.scenario === 'end' || S.loaded >= totalSteps(); }
+function endReason() { return S.scenario === 'end' ? S.endReason : 'history-end'; }
+
+/* ---- what the UI has to derive today (each is a field the shape lacks, see report) ---- */
+var over = function (it) {
+  var d = function (m, th) { return m.from !== null && m.to !== null && Math.abs(m.to - m.from) >= th; };
+  return d(it.rank, 2) || d(it.points, 1) || d(it.distanceToCashPoints, 1) || d(it.distanceToCashRank, 2);
+};
+function playerEvents(it) {
+  var out = [];
+  (it.lineup || []).forEach(function (s) {
+    if (s.locked.from && !s.locked.to) out.push({ type: 'reveal', name: s.name, pts: s.pointsMove });
+    else if (s.gameStatus.from && s.gameStatus.from !== s.gameStatus.to && s.gameStatus.to === 'final') out.push({ type: 'final', name: s.name, pts: s.points.to });
+  });
+  return out;
+}
+function partsOf(it) {
+  if (it.kind === 'cash-line') return ['cashline'];
+  if (it.kind === 'contest-state' || it.finishedCashing !== undefined) return ['contest'];
+  var p = [];
+  if (it.crossing) p.push('crossing');
+  if (over(it)) p.push('rankpoints');
+  if (playerEvents(it).length) p.push('player');
+  if (!p.length) p.push('rankpoints');
+  return p;
+}
+var same = function (a, b) { return a && b && a.points.from === b.points.from && a.points.to === b.points.to && a.rank.from === b.rank.from && a.rank.to === b.rank.to; };
+
+/* ====================== View model (filters, windowing, divider) ====================== */
+function compute() {
+  var rows = allRows(), seq = [], count = 0, hiddenSteps = 0, i;
+  for (i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    if (row.kind === 'step' && !row.live) { if (count >= (S.scenario === 'end' ? 1e9 : S.loaded)) break; count++; }
+    seq.push(row);
+  }
+  while (seq.length && seq[seq.length - 1].kind === 'gap') seq.pop();
+  var f = S.filters, vipOk = function (k) { return f.vips.indexOf(k) >= 0; }, stepsLoaded = 0, gapsLoaded = 0, oldestT = null;
+  var out = [];
+  seq.forEach(function (row) {
+    if (row.kind === 'gap') { out.push(row); gapsLoaded++; return; }
+    stepsLoaded++; oldestT = row.t;
+    var items = [], totalHidden = 0;
+    row.items.forEach(function (it) {
+      var all = partsOf(it), vis;
+      if (it.kind === 'vip' && !vipOk(it.vipKey)) return;
+      if (f.high && it.priority !== 'high') return;
+      vis = all.filter(function (p) { return p === 'contest' || f.kinds.indexOf(p) >= 0; });
+      if (S.showAll[it.id]) vis = all.slice();
+      if (!vis.length) return;
+      items.push({ item: it, all: all, vis: vis, hidden: all.length - vis.length });
+    });
+    /* merge: a standalone cash line item that is exactly the cause of a visible crossing in the same step */
+    items.forEach(function (x) {
+      x.merged = x.item.kind === 'cash-line' && items.some(function (y) { return y.item.crossing && y.item.crossing.cause && same(y.item.crossing.cause, x.item) && y.vis.indexOf('crossing') >= 0; });
+      x.causes = x.item.crossing && x.item.crossing.cause && items.some(function (y) { return y.item.kind === 'cash-line' && same(x.item.crossing.cause, y.item); });
+    });
+    if (!items.length) { hiddenSteps++; return; }
+    out.push({ kind: 'step', t: row.t, id: row.id, live: row.live, items: items, hiddenParts: items.reduce(function (n, x) { return n + x.hidden; }, 0) });
+  });
+  var st = seenT(), divAt = null, outside = false, caughtUp = false;
+  if (st !== null && out.length) {
+    for (i = 0; i < out.length; i++) if (out[i].t <= st) { divAt = i; break; }
+    if (divAt === null) outside = true; else if (divAt === 0) caughtUp = true;
+  } else if (st !== null && !out.length && stepsLoaded) outside = false;
+  var reason = endReason(), more = !fullyLoaded();
+  var snaps = S.scenario === 'end' && reason === 'cap' ? CAP : stepsLoaded + gapsLoaded + 1;
+  return { seq: out, divAt: divAt, outside: outside, caughtUp: caughtUp, seen: st, stepsLoaded: stepsLoaded, gapsLoaded: gapsLoaded, hiddenSteps: hiddenSteps,
+    oldestT: S.scenario === 'end' && reason === 'contest-start' ? CONTEST_START : (more ? oldestT : (S.scenario === 'end' ? WINDOW_START : oldestT)), more: more, reason: reason, snaps: snaps,
+    newestT: rows.length ? rows[0].t : null, shown: out.filter(function (r) { return r.kind === 'step'; }).length };
+}
+function nextBackT(v) { var rows = baseRows().filter(function (r) { return r.kind === 'step'; }); var n = rows[Math.min(S.loaded + 9, rows.length - 1)]; return n ? n.t : WINDOW_START; }
+
+/* ====================== Text (copy follows shiftText.ts) ====================== */
+var PATH = { 'in': 'Moved into cashing', out: 'Fell out of cashing' };
+var fmtRank = function (n) { return n === null || n === undefined ? '—' : '#' + n.toLocaleString('en-US'); };
+var fmtPts = function (n) { return n === null || n === undefined ? '—' : n.toFixed(2); };
+var fmtSig = function (n) { return n === null || n === undefined ? '—' : (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n).toFixed(2); };
+function lineMove(m) {
+  var p = [];
+  if (m.points.from !== null && m.points.to !== m.points.from) p.push(fmtSig(r2(m.points.to - m.points.from)) + ' pts');
+  if (m.rank.from !== null && m.rank.to !== m.rank.from) { var d = m.rank.to - m.rank.from; p.push((d > 0 ? 'down ' : 'up ') + Math.abs(d) + ' places'); }
+  return p.join(' and ');
+}
+var CONTEST_TXT = 'The contest is complete: the final standings are in';
+function moveRow(label, mv, fmt, o) {
+  o = o || {}; var ch = mv.from === null || mv.to === null ? 0 : mv.to - mv.from, better = o.low ? ch < 0 : ch > 0;
+  var tone = ch === 0 || o.neutral ? '' : (better ? 'up' : 'dn'), arrow = ch === 0 ? '' : ((o.neutral ? ch > 0 : better) ? '▲' : '▼');
+  return '<div class="mv" role="group" aria-label="' + label + '"><span class="l">' + label + '</span><span class="v ' + tone + '">' + fmt(mv.from) + ' → ' + fmt(mv.to) +
+    (o.places && ch !== 0 ? '<small>(' + Math.abs(ch) + ' places)</small>' : '') + (arrow ? '<small class="' + tone + '">' + arrow + '</small>' : '') + '</span></div>';
+}
+var GSW = { 'pre-game': 'Pre', 'in-progress': 'Live', final: 'Final' };
+function lineupHTML(it, key) {
+  var L = it.lineup || [], changed = L.filter(function (s) { return (s.pointsMove || 0) !== 0 || s.locked.from !== s.locked.to || (s.gameStatus.from && s.gameStatus.from !== s.gameStatus.to); });
+  var open = !!S.open[key], rows = '';
+  if (open) rows = '<ul class="lu">' + L.map(function (s) {
+    var hid = s.locked.to, ch = changed.indexOf(s) >= 0;
+    var gs = hid ? '' : (s.gameStatus.from && s.gameStatus.from !== s.gameStatus.to ? GSW[s.gameStatus.from] + ' → ' + GSW[s.gameStatus.to] : GSW[s.gameStatus.to]);
+    var d = hid ? '' : (s.pointsMove === null ? '—' : s.pointsMove === 0 ? '0.00' : fmtSig(s.pointsMove));
+    return '<li class="' + (ch ? '' : 'still') + '"><span class="nm">' + (hid ? 'Locked · still hidden' : s.name) + (s.locked.from && !s.locked.to ? ' <span class="badge line">Revealed</span>' : '') + '<small>' + gs + '</small></span><span class="d ' + (s.pointsMove > 0 ? 'up' : s.pointsMove < 0 ? 'dn' : 'mut') + '">' + d + '</span></li>';
+  }).join('') + '</ul>';
+  return { head: '<button type="button" class="lu-btn" data-act="lu" data-id="' + key + '" aria-expanded="' + open + '">' + (open ? '▾' : '▸') + ' Lineup · ' + changed.length + ' of ' + L.length + ' changed</button>', body: rows, changed: changed.length, total: L.length };
+}
+function playerLines(it) {
+  return playerEvents(it).map(function (e) { return e.type === 'reveal' ? 'Revealed ' + e.name + ' (' + fmtSig(e.pts) + ')' : e.name + '’s game went final (' + fmtPts(e.pts) + ')'; });
+}
+var KIND_LABEL = { crossing: 'cash crossing', rankpoints: 'rank & points', player: 'player events', cashline: 'cash line' };
+var filtersActive = function () { var f = S.filters, n = 0; if (f.kinds.length < 4) n++; if (f.high) n++; if (f.vips.join() !== PROFILE.join() && S.scenario !== 'single') n++; return n; };
+var vipFilterText = function () { var f = S.filters; return S.scenario === 'single' ? 'You (only VIP)' : f.vips.join() === PROFILE.join() ? 'Profile VIPs (3)' : f.vips.length === 5 ? 'All VIPs' : f.vips.length + ' VIPs'; };
+
+/* ====================== Shared fragments ====================== */
+function skeleton(n) { var s = ''; for (var i = 0; i < n; i++) s += '<div class="sk" style="height:' + (70 + (i % 2) * 30) + 'px"></div>'; return '<div class="a-list" aria-hidden="true">' + s + '</div>'; }
+function summaryNet() {
+  var st = seenT(), rows = allRows().filter(function (r) { return r.kind === 'step' && (st === null || r.t > st); }).slice().reverse(), by = {}, order = [], line = null, out = [];
+  rows.forEach(function (r) { r.items.forEach(function (it) {
+    if (it.kind === 'vip' && it.finishedCashing === undefined && PROFILE.indexOf(it.vipKey) >= 0 && modelVips().some(function (v) { return v.key === it.vipKey; })) {
+      var n = by[it.vipKey]; if (!n) { n = by[it.vipKey] = { key: it.vipKey, rank: M(it.rank.from, it.rank.to), points: M(it.points.from, it.points.to), cross: [] }; order.push(n); }
+      n.rank.to = it.rank.to; n.points.to = it.points.to; if (it.crossing) n.cross.push(it.crossing.path);
+    }
+    if (it.kind === 'cash-line') { if (!line) line = { points: M(it.points.from, it.points.to), rank: M(it.rank.from, it.rank.to) }; else { line.points.to = it.points.to; line.rank.to = it.rank.to; } }
+  }); });
+  order.forEach(function (n) { if (n.cross.length) { var a = n.cross[0], b = n.cross[n.cross.length - 1]; n.path = a === b ? a : a + ' then ' + b; } });
+  order.sort(function (a, b) { return (b.path ? 1 : 0) - (a.path ? 1 : 0) || Math.abs(b.rank.to - b.rank.from) - Math.abs(a.rank.to - a.rank.from); });
+  return { vips: order, line: line };
+}
+var PATHN = { 'in': 'Moved into cashing', out: 'Fell out of cashing', 'in then out': 'Crossed into cashing and back out', 'out then in': 'Fell out of cashing and back in' };
+function summaryHTML() {
+  var n = summaryNet(), count = n.vips.length + (n.line ? 1 : 0);
+  var h = '<div class="a-list">';
+  if (!count) h += '<div class="empty"><p style="margin:0">Nothing has moved since you last looked.</p></div>';
+  n.vips.forEach(function (v) { h += '<article class="a-card"><h3>' + vname(v.key) + (v.path ? ' <span class="badge high">High</span>' : '') + '</h3>' + (v.path ? '<div>' + PATHN[v.path] + '</div>' : '') + moveRow('Rank', v.rank, fmtRank, { low: true, places: true }) + moveRow('Points', v.points, fmtPts) + '</article>'; });
+  if (n.line) h += '<article class="a-card"><h3>Cash line</h3>' + moveRow('Points', n.line.points, fmtPts, { neutral: true }) + moveRow('Rank', n.line.rank, fmtRank, { neutral: true }) + '</article>';
+  return h + '<p class="mut" style="margin:4px 0 0;font-size:12px">Net since the Seen mark (' + (seenT() === null ? 'none' : hm(seenT())) + '). The Timeline never changes it.</p></div>';
+}
+function summaryCount() { var n = summaryNet(); return n.vips.length + (n.line ? 1 : 0); }
+function pagehead() { return '<div class="pagehead"><h1>Shifts</h1><button class="btn-o" type="button" data-act="seen"' + (summaryCount() ? '' : ' disabled') + '>Mark as seen</button></div>'; }
+function emptyBlock(v, cls) {
+  if (S.scenario === 'empty' || (!v.stepsLoaded && !allRows().length)) return '<div class="empty ' + cls + '"><b style="color:var(--fg)">No VIP shifts yet</b><span>Shifts appear here as snapshots arrive for ' + CONTEST + '.</span></div>';
+  return '<div class="empty ' + cls + '"><b style="color:var(--fg)">No entries match these filters</b><span>' + v.hiddenSteps + ' loaded ' + (v.hiddenSteps === 1 ? 'entry is' : 'entries are') + ' hidden.</span><button class="btn-o" type="button" data-act="resetf">Reset filters</button></div>';
+}
+function reasonText(v) {
+  if (v.reason === 'contest-start') return ['Start of the contest', 'Reached ' + hm(CONTEST_START) + ', when the contest started. Nothing is earlier.'];
+  if (v.reason === 'cap') return ['Cap reached', 'Stopped at ' + CAP + ' snapshots, the most the Timeline loads. Earlier shifts are not shown.'];
+  return ['End of loaded history', 'From ' + hm(v.oldestT) + ' (earlier snapshots aren’t loaded).'];
+}
+function gapText(g) { return g.reason === 'unavailable' ? ['Snapshot unavailable', hm(g.t) + ' could not be loaded. The entries either side are compared across the gap, so a crossing in and out inside it is missed.'] : ['Snapshot skipped', hm(g.t) + ' was skipped: the NBA data in it was not fresh. Nothing was downloaded.']; }
+function loadingFirst() { return { done: 3, total: 6 }; }
+
+/* ====================== Variant A: Ledger (card per VIP per step) ====================== */
+function filterA() {
+  var f = S.filters, n = filtersActive(), vips = '';
+  if (S.scenario === 'single') vips = '<span class="mut">Following <b style="color:var(--fg);font-weight:500">You</b> (only VIP)</span>';
+  else vips = '<div class="grp"><span class="gl">VIP</span>' + modelVips().map(function (v) { return '<button class="chip" type="button" data-act="vip" data-k="' + v.key + '" aria-pressed="' + (f.vips.indexOf(v.key) >= 0) + '">' + v.name + (v.profile ? '' : '') + '</button>'; }).join('') + '<button class="chip" type="button" data-act="vipprofile" style="border-style:dashed">Profile</button></div>';
+  var kinds = '<div class="grp"><span class="gl">Kind</span>' + KINDS.map(function (k) { return '<button class="chip" type="button" data-act="kind" data-k="' + k[0] + '" aria-pressed="' + (f.kinds.indexOf(k[0]) >= 0) + '">' + k[1] + '</button>'; }).join('') + '</div>';
+  var hi = '<div class="grp"><button class="chip" type="button" data-act="high" aria-pressed="' + f.high + '">High priority only</button></div>';
+  return '<div class="a-fb' + (S.fopen ? ' open' : '') + '"><button class="tog" type="button" data-act="fopen" aria-expanded="' + S.fopen + '"><span>Filters' + (n ? ' · ' + n + ' changed' : '') + '</span><span class="mut">' + vipFilterText() + ' ▾</span></button><div class="full">' + vips + kinds + hi + '</div></div>';
+}
+function partsA(x, step) {
+  var it = x.item, v = x.vis, h = '';
+  if (it.kind === 'cash-line') return '<div class="sec">' + moveRow('Points', it.points, fmtPts, { neutral: true }) + moveRow('Rank', it.rank, fmtRank, { neutral: true, places: true }) + '</div>';
+  if (it.kind === 'contest-state') return '<div class="sec"><p style="margin:0">' + CONTEST_TXT + '.</p></div>';
+  if (it.finishedCashing !== undefined) return '<div class="sec"><div>' + (it.finishedCashing ? 'Finished cashing' : 'Finished outside the cash line') + '</div>' + moveRow('Rank', it.rank, fmtRank, { low: true, places: true }) + moveRow('Points', it.points, fmtPts) + '</div>';
+  var lu = (v.indexOf('rankpoints') >= 0 || v.indexOf('player') >= 0) && it.lineup ? lineupHTML(it, step.id + ':' + it.vipKey) : null;
+  if (v.indexOf('crossing') >= 0) {
+    h += '<div class="sec"><div>' + PATH[it.crossing.path] + '</div>';
+    if (it.crossing.cause) h += '<div class="cause">The cash line moved ' + lineMove(it.crossing.cause) + '. Their lineup did not cause this.</div>';
+    h += '</div>';
+  }
+  if (v.indexOf('rankpoints') >= 0) h += '<div class="sec">' + moveRow('Rank', it.rank, fmtRank, { low: true, places: true }) + moveRow('Points', it.points, fmtPts) + moveRow('To cash', it.distanceToCashPoints, fmtSig) + '</div>';
+  if (v.indexOf('player') >= 0) h += '<div class="sec">' + playerLines(it).map(function (t) { return '<div>' + t + '</div>'; }).join('') + '</div>';
+  if (lu) h += '<div class="sec">' + lu.head + lu.body + '</div>';
+  return h;
+}
+function cardA(row, x, v) {
+  var it = x.item; if (x.merged) return '';
+  var unseen = v.seen !== null && row.t > v.seen, title = it.kind === 'vip' ? vname(it.vipKey) : it.kind === 'cash-line' ? 'Cash line' : 'Contest';
+  var hid = x.hidden ? '<div class="sec"><button class="a-hid" type="button" data-act="showall" data-id="' + it.id + '">' + x.hidden + (x.hidden === 1 ? ' part' : ' parts') + ' hidden by the kind filter · show</button></div>' : '';
+  var shown = S.showAll[it.id] && x.all.length > x.vis.length - 0 && false;
+  return '<article class="a-card' + (unseen ? ' unseen' : '') + (row.id === S.freshId ? ' fresh' : '') + '"><h3>' + title + (it.priority === 'high' ? '<span class="badge high">High</span>' : '') + (row.live ? '<span class="badge new">New</span>' : '') + '<span class="time">' + hm(row.t) + '</span></h3>' + partsA(x, row) + hid + '</article>';
+}
+function listA(v) {
+  var h = '<div class="a-list">';
+  v.seq.forEach(function (row, i) {
+    if (v.divAt === i) h += '<div class="a-div" role="separator"><span>Seen mark · ' + hm(v.seen) + (i === 0 ? ' · you are caught up' : ' · newer above is unseen') + '</span></div>';
+    if (row.kind === 'gap') { var g = gapText(row); h += '<div class="a-gap"><div class="t"><b>' + g[0] + ' · ' + hm(row.t) + '</b><p>' + g[1] + '</p></div>' + (row.reason === 'unavailable' ? '<button class="btn-o" type="button" data-act="retry" data-id="' + row.id + '">' + (S.retrying[row.id] === 1 ? 'Retrying…' : S.retrying[row.id] === 2 ? 'Still unavailable' : 'Retry') + '</button>' : '') + '</div>'; }
+    else row.items.forEach(function (x) { h += cardA(row, x, v); });
+  });
+  if (v.outside) h += '<div class="a-note"><b>Unseen shifts further back</b><span>Your Seen mark (' + hm(v.seen) + ') is older than what is loaded. Load more to see where it falls.</span></div>';
+  return h + '</div>';
+}
+function footA(v) {
+  if (S.loadingMore) { var p = S.loadingMore; return '<div class="a-more" role="status" style="gap:8px"><span>Loading snapshot ' + p.done + ' of ' + p.total + '</span><div class="prog" style="width:100%"><i style="width:' + Math.round(p.done / p.total * 100) + '%"></i></div></div>'; }
+  if (v.more) return '<button class="a-more" type="button" data-act="more"><b>Load 10 more</b><small>10 snapshots back, to about ' + hm(nextBackT(v)) + '</small></button>';
+  var r = reasonText(v);
+  return '<div class="a-note"><b>' + r[0] + '</b><span>' + r[1] + '</span>' + (v.reason !== 'history-end' && v.reason !== 'cap' ? '' : '') + '</div>';
+}
+function viewA(v) {
+  var tabs = '<div class="a-tabs" role="tablist"><button role="tab" type="button" data-act="tab" data-k="summary" aria-selected="' + (S.tab === 'summary') + '">Since you looked<span class="n">' + summaryCount() + '</span></button><button role="tab" type="button" data-act="tab" data-k="timeline" aria-selected="' + (S.tab === 'timeline') + '">Timeline</button></div>';
+  if (S.tab === 'summary') return pagehead() + tabs + summaryHTML();
+  var body;
+  if (S.scenario === 'loading') { var p = loadingFirst(); body = '<div class="a-more" role="status" style="gap:8px"><span>Loading the newest 6 snapshots · ' + p.done + ' of ' + p.total + '</span><div class="prog" style="width:100%"><i style="width:' + (p.done / p.total * 100) + '%"></i></div></div>' + skeleton(3); }
+  else if (!v.seq.length) body = emptyBlock(v, 'a');
+  else body = '<div class="a-lh"><span>Newest first · ' + v.shown + ' of ' + v.stepsLoaded + ' loaded entries shown</span><span class="mono">' + v.snaps + '/' + CAP + ' snapshots</span></div>' + listA(v) + footA(v);
+  return pagehead() + tabs + (S.scenario === 'loading' ? '' : filterA()) + body;
+}
+
+/* ====================== Variant B: Step rail (grouped per step) ====================== */
+function stripB() {
+  var f = S.filters, a = '';
+  if (S.scenario === 'single') a = '<div class="b-strip"><span class="sl">VIP</span><span class="mut">You (only VIP)</span></div>';
+  else a = '<div class="b-strip" data-strip="0"><span class="sl">VIP</span>' + modelVips().map(function (v) { return '<button class="chip" type="button" data-act="vip" data-k="' + v.key + '" aria-pressed="' + (f.vips.indexOf(v.key) >= 0) + '">' + v.name + '</button>'; }).join('') + '<button class="chip" type="button" data-act="vipprofile" style="border-style:dashed">Profile</button></div>';
+  var b = '<div class="b-strip" data-strip="1"><span class="sl">Kind</span>' + KINDS.map(function (k) { return '<button class="chip" type="button" data-act="kind" data-k="' + k[0] + '" aria-pressed="' + (f.kinds.indexOf(k[0]) >= 0) + '">' + k[1] + '</button>'; }).join('') + '<button class="chip" type="button" data-act="high" aria-pressed="' + f.high + '">High only</button></div>';
+  return a + b;
+}
+function rowsB(row, x) { /* one line per VIP within the step card */
+  var it = x.item, v = x.vis, key = row.id + ':' + (it.vipKey || it.kind), p = [], hidden = '';
+  if (it.kind === 'cash-line') return '';
+  if (it.kind === 'contest-state') return '<div class="b-v"><div class="top"><b>Contest</b><span class="badge high">High</span></div><div>' + CONTEST_TXT + '.</div></div>';
+  if (it.finishedCashing !== undefined) return '<div class="b-v"><div class="top"><b>' + vname(it.vipKey) + '</b><span class="pill ' + (it.finishedCashing ? 'good' : 'bad') + '">' + (it.finishedCashing ? 'Finished cashing' : 'Finished outside') + '</span><span class="pill">' + fmtRank(it.rank.to) + '</span><span class="pill">' + fmtPts(it.points.to) + ' pts</span></div></div>';
+  if (v.indexOf('crossing') >= 0) p.push('<span class="pill ' + (it.crossing.path === 'in' ? 'good' : 'bad') + '">' + (it.crossing.path === 'in' ? '▲ Into cashing' : '▼ Out of cashing') + '</span>' + (it.crossing.cause ? '<span class="pill amb" title="Cash line moved ' + lineMove(it.crossing.cause) + '">line ' + lineMove(it.crossing.cause).replace(' and ', ', ') + '</span>' : ''));
+  if (v.indexOf('rankpoints') >= 0) { var dr = it.rank.to - it.rank.from, dp = r2(it.points.to - it.points.from); p.push('<span class="pill ' + (dr < 0 ? 'good' : dr > 0 ? 'bad' : '') + '">' + fmtRank(it.rank.to) + ' (' + (dr < 0 ? '▲' : '▼') + Math.abs(dr) + ')</span><span class="pill ' + (dp > 0 ? 'good' : '') + '">' + fmtSig(dp) + ' pts</span>'); }
+  if (v.indexOf('player') >= 0) playerEvents(it).forEach(function (e) { p.push('<span class="pill">' + (e.type === 'reveal' ? 'Revealed ' + e.name + ' ' + fmtSig(e.pts) : e.name + ' final') + '</span>'); });
+  if (x.hidden) p.push('<button class="b-more pill dim" type="button" data-act="showall" data-id="' + it.id + '">+' + x.hidden + ' hidden</button>');
+  var lu = it.lineup ? lineupHTML(it, key) : null, open = !!S.open[key];
+  var detail = open ? '<div class="b-detail">' + (it.crossing && it.crossing.cause ? '<div class="mut">The cash line moved ' + lineMove(it.crossing.cause) + '. Their lineup did not cause this.</div>' : '') + moveRow('Rank', it.rank, fmtRank, { low: true, places: true }) + moveRow('Points', it.points, fmtPts) + moveRow('To cash', it.distanceToCashPoints, fmtSig) + lu.body + '</div>' : '';
+  return '<div class="b-v"><div class="top"><b>' + vname(it.vipKey) + '</b>' + (it.priority === 'high' ? '<span class="badge high">High</span>' : '') + '<button class="b-more" type="button" data-act="lu" data-id="' + key + '" aria-expanded="' + open + '" style="margin-left:auto">' + (open ? 'Hide' : 'Lineup · ' + lu.changed + '/' + lu.total) + '</button></div><div class="top">' + p.join('') + '</div>' + detail + '</div>';
+}
+function stepB(row, v, first, last) {
+  var unseen = v.seen !== null && row.t > v.seen, hi = row.items.some(function (x) { return x.item.priority === 'high'; });
+  var line = row.items.filter(function (x) { return x.item.kind === 'cash-line'; })[0];
+  var cl = line ? '<div class="b-line"><span class="badge line">Cash line</span><span>' + lineMove(line.item) + '</span>' + (line.merged ? '<span class="mut">· moved the line past ' + row.items.filter(function (y) { return y.item.crossing; }).map(function (y) { return vname(y.item.vipKey); }).join(', ') + '</span>' : '') + '</div>' : '';
+  var body = row.items.map(function (x) { return rowsB(row, x); }).join('');
+  return '<div class="b-row"><div class="b-time ' + (unseen ? 'new' : '') + '">' + hm(row.t) + '</div><div class="b-track ' + (first ? 'first ' : '') + (last ? 'last' : '') + '"><i class="' + (hi ? 'hi ' : '') + (unseen ? 'nw' : '') + '"></i></div><div class="b-body"><div class="b-step' + (unseen ? ' unseen' : '') + (row.id === S.freshId ? ' fresh' : '') + '">' + (row.live ? '<div class="b-line" style="background:var(--unseen-bg)"><span class="badge new">New</span><span>arrived just now</span></div>' : '') + cl + body + '</div></div></div>';
+}
+function listB(v) {
+  var h = '<div class="b-rail">';
+  v.seq.forEach(function (row, i) {
+    var first = i === 0, last = false;
+    if (v.divAt === i) h += '<div class="b-marker"><div class="mk">Seen mark ' + hm(v.seen) + (i === 0 ? ' · caught up' : '') + '</div></div>';
+    if (row.kind === 'gap') { var g = gapText(row); h += '<div class="b-row"><div class="b-time">' + hm(row.t) + '</div><div class="b-track dash"><i class="hol"></i></div><div class="b-body"><div class="b-gapc"><span><b>' + g[0] + '</b> — ' + g[1] + '</span>' + (row.reason === 'unavailable' ? '<button class="btn-o" type="button" data-act="retry" data-id="' + row.id + '">' + (S.retrying[row.id] === 1 ? 'Retrying…' : S.retrying[row.id] === 2 ? 'Still unavailable' : 'Retry') + '</button>' : '') + '</div></div></div>'; }
+    else h += stepB(row, v, first, false);
+  });
+  if (v.outside) h += '<div class="b-row"><div class="b-time"></div><div class="b-track"><i class="hol nw"></i></div><div class="b-body"><div class="b-endc"><b>Unseen shifts further back.</b> Your Seen mark (' + hm(v.seen) + ') is older than what is loaded.</div></div></div>';
+  return h;
+}
+function tailB(v) {
+  var node = function (inner, hol) { return '<div class="b-row"><div class="b-time"></div><div class="b-track last"><i class="' + (hol ? 'hol' : '') + '"></i></div><div class="b-body">' + inner + '</div></div>'; };
+  if (S.loadingMore) { var p = S.loadingMore; return node('<div class="b-endc" role="status"><b>Loading snapshot ' + p.done + ' of ' + p.total + '</b><div class="prog" style="margin-top:8px"><i style="width:' + Math.round(p.done / p.total * 100) + '%"></i></div></div>', true); }
+  if (v.more) return node('<button class="b-load" type="button" data-act="more"><b>Load 10 more</b><span class="mut">back to ~' + hm(nextBackT(v)) + '</span></button>', true);
+  var r = reasonText(v); return node('<div class="b-endc"><b>' + r[0] + '.</b> ' + r[1] + '</div>', true);
+}
+function viewB(v) {
+  var seg = '<div class="b-seg" role="tablist"><button role="tab" type="button" data-act="tab" data-k="summary" aria-selected="' + (S.tab === 'summary') + '">Since you looked · ' + summaryCount() + '</button><button role="tab" type="button" data-act="tab" data-k="timeline" aria-selected="' + (S.tab === 'timeline') + '">Timeline</button></div>';
+  if (S.tab === 'summary') return pagehead() + seg + summaryHTML();
+  var pct = Math.round(v.snaps / CAP * 100);
+  var meter = '<div class="b-meter"><span>' + hm(v.oldestT || WINDOW_START) + ' → ' + hm(v.newestT || T(21, 30)) + '</span><div class="prog"><i style="width:' + pct + '%"></i></div><span>' + v.snaps + '/' + CAP + '</span></div>';
+  var head = pagehead() + seg + (S.scenario === 'loading' ? '' : '<div class="b-sticky">' + stripB() + meter + '</div>');
+  var body;
+  if (S.scenario === 'loading') { var p = loadingFirst(); body = '<div class="b-endc" role="status"><b>Loading the newest 6 snapshots</b> · ' + p.done + ' of ' + p.total + '<div class="prog" style="margin-top:8px"><i style="width:50%"></i></div></div>' + skeleton(2); }
+  else if (!v.seq.length) body = emptyBlock(v, 'b');
+  else body = listB(v) + tailB(v);
+  return head + body;
+}
+
+/* ====================== Variant C: Sentence log (one line per event) ====================== */
+function qC() {
+  var f = S.filters, kinds = f.kinds.length === 4 ? 'all' : f.kinds.join('+') || 'none';
+  var q = 'vip:' + (S.scenario === 'single' ? 'you' : f.vips.join(',') === PROFILE.join(',') ? 'profile' : f.vips.join(',') || 'none') + '  kind:' + kinds + '  high:' + (f.high ? 'only' : 'off');
+  var panel = '';
+  if (S.fopen) {
+    panel = '<div class="c-fp">' + (S.scenario === 'single' ? '<div class="mut">Following You (only VIP)</div>' : '<div class="grid">' + modelVips().map(function (v) { return '<label><input type="checkbox" data-act="vip" data-k="' + v.key + '"' + (f.vips.indexOf(v.key) >= 0 ? ' checked' : '') + '> ' + v.name + '</label>'; }).join('') + '</div><button class="btn-o" type="button" data-act="vipprofile" style="align-self:flex-start">Profile VIPs</button>') +
+      '<div class="grid">' + KINDS.map(function (k) { return '<label><input type="checkbox" data-act="kind" data-k="' + k[0] + '"' + (f.kinds.indexOf(k[0]) >= 0 ? ' checked' : '') + '> ' + k[1] + '</label>'; }).join('') + '</div><label><input type="checkbox" data-act="high"' + (f.high ? ' checked' : '') + '> High priority only</label></div>';
+  }
+  return '<button class="c-q" type="button" data-act="fopen" aria-expanded="' + S.fopen + '"><span>' + q + '</span><span>' + (S.fopen ? '▴' : '▾') + '</span></button>' + panel;
+}
+function linesC(row, x, v) {
+  var it = x.item, vis = x.vis, key = row.id + ':' + (it.vipKey || it.kind), out = [], nm = it.vipKey ? '<span class="who">' + vname(it.vipKey) + '</span>' : '';
+  var hi = it.priority === 'high' ? ' hi' : '', S_ = function (t, h) { out.push('<div class="c-s' + (h ? ' hi' : '') + '">' + t + '</div>'); };
+  if (it.kind === 'cash-line') { S_('The cash line moved <span class="amber">' + lineMove(it) + '</span> <span class="ln">(' + fmtPts(it.points.to) + ', ' + fmtRank(it.rank.to) + ')</span>'); return out; }
+  if (it.kind === 'contest-state') { S_(CONTEST_TXT, true); return out; }
+  if (it.finishedCashing !== undefined) { S_(nm + ' ' + (it.finishedCashing ? 'finished <span class="up">cashing</span>' : 'finished <span class="dn">outside the cash line</span>') + ' <span class="ln">at ' + fmtRank(it.rank.to) + ', ' + fmtPts(it.points.to) + ' pts</span>', false); return out; }
+  var cl = row.items.some(function (y) { return y.item.kind === 'cash-line' && y.vis.indexOf('cashline') >= 0; });
+  if (vis.indexOf('crossing') >= 0) S_(nm + ' <span class="' + (it.crossing.path === 'in' ? 'up' : 'dn') + '">' + PATH[it.crossing.path].toLowerCase() + '</span>' + (it.crossing.cause && cl ? ' <span class="ln">— the cash line moved first</span>' : ''), true);
+  if (vis.indexOf('rankpoints') >= 0) { var dr = it.rank.to - it.rank.from, dp = r2(it.points.to - it.points.from); S_(nm + ' ' + (dr < 0 ? '<span class="up">up ' + Math.abs(dr) + '</span>' : '<span class="dn">down ' + Math.abs(dr) + '</span>') + ' to ' + fmtRank(it.rank.to) + ', ' + fmtSig(dp) + ' pts <span class="ln">(' + fmtSig(it.distanceToCashPoints.to) + ' to cash)</span>'); }
+  if (vis.indexOf('player') >= 0) playerEvents(it).forEach(function (e) { S_(nm + ': ' + (e.type === 'reveal' ? '<span class="amber">revealed</span> ' + e.name + ' ' + fmtSig(e.pts) : e.name + ' <span class="amber">final</span> at ' + fmtPts(e.pts))); });
+  if (x.hidden) out.push('<div class="c-s"><button class="c-tg" type="button" data-act="showall" data-id="' + it.id + '">…' + x.hidden + ' filtered out, show</button></div>');
+  if (it.lineup && (vis.indexOf('rankpoints') >= 0 || vis.indexOf('player') >= 0)) {
+    var lu = lineupHTML(it, key);
+    out.push('<div class="c-s"><button class="c-tg" type="button" data-act="lu" data-id="' + key + '" aria-expanded="' + !!S.open[key] + '">lineup ' + lu.changed + '/' + lu.total + ' ' + (S.open[key] ? '▾' : '▸') + '</button></div>');
+    if (S.open[key]) out.push('<div class="c-lu">' + it.lineup.map(function (s) { var ch = (s.pointsMove || 0) !== 0 || s.locked.from !== s.locked.to; return '<div class="' + (ch ? '' : 'still') + '"><span>' + (s.locked.to ? 'locked' : s.name) + '</span><span class="' + (s.pointsMove > 0 ? 'up' : s.pointsMove < 0 ? 'dn' : 'mut') + '">' + (s.locked.to ? '' : s.pointsMove === 0 ? '0.00' : fmtSig(s.pointsMove)) + '</span></div>'; }).join('') + '</div>');
+  }
+  return out;
+}
+function listC(v) {
+  var h = '<div class="c-log">', lastHour = null;
+  v.seq.forEach(function (row, i) {
+    var hour = Math.floor(row.t / 60);
+    if (hour !== lastHour) { h += '<div class="c-h">' + String(hour).padStart(2, '0') + ':00</div>'; lastHour = hour; }
+    if (v.divAt === i) h += '<div class="c-div" role="separator">seen mark ' + hm(v.seen) + (i === 0 ? ' · caught up' : '') + '</div>';
+    if (row.kind === 'gap') { var g = gapText(row); h += '<div class="c-gap"><span>' + hm(row.t) + ' ' + g[0].toLowerCase() + '. ' + g[1] + '</span>' + (row.reason === 'unavailable' ? '<button class="c-tg" type="button" data-act="retry" data-id="' + row.id + '">' + (S.retrying[row.id] === 1 ? 'retrying…' : S.retrying[row.id] === 2 ? 'still unavailable' : 'retry') + '</button>' : '') + '</div>'; return; }
+    var unseen = v.seen !== null && row.t > v.seen, lines = [];
+    row.items.forEach(function (x) { lines = lines.concat(linesC(row, x, v)); });
+    h += '<div class="c-step' + (unseen ? ' unseen' : ' old') + (row.id === S.freshId ? ' fresh' : '') + '"><div class="c-t">' + hm(row.t) + '</div><div class="c-ls">' + (row.live ? '<div class="c-s"><span class="badge new">new</span></div>' : '') + lines.join('') + '</div></div>';
+  });
+  if (v.outside) h += '<div class="c-rule">unseen shifts exist further back (seen mark ' + hm(v.seen) + ' is before the oldest loaded entry)</div>';
+  return h + '</div>';
+}
+function footC(v) {
+  if (S.loadingMore) { var p = S.loadingMore, n = Math.round(p.done / p.total * 20); return '<div class="c-foot" role="status"><span class="c-bar">[' + '█'.repeat(n) + '░'.repeat(20 - n) + ']</span><span>loading snapshot ' + p.done + '/' + p.total + '</span></div>'; }
+  if (v.more) return '<div class="c-foot"><button class="ld" type="button" data-act="more">▸ load 10 more</button><span>back to ~' + hm(nextBackT(v)) + ' · ' + v.snaps + '/' + CAP + ' snapshots loaded</span></div>';
+  var r = reasonText(v); return '<div class="c-rule">── ' + r[0].toLowerCase() + ' ──<br>' + r[1] + '</div>';
+}
+function viewC(v) {
+  var tabs = '<div class="c-tabs" role="tablist"><button role="tab" type="button" data-act="tab" data-k="summary" aria-selected="' + (S.tab === 'summary') + '">since-you-looked(' + summaryCount() + ')</button><button role="tab" type="button" data-act="tab" data-k="timeline" aria-selected="' + (S.tab === 'timeline') + '">timeline</button><span class="sp"></span><button type="button" data-act="seen" ' + (summaryCount() ? '' : 'disabled') + '>mark-as-seen</button></div>';
+  var title = '<div class="pagehead"><h1>Shifts</h1><span class="status">' + CONTEST + '</span></div>';
+  if (S.tab === 'summary') return title + tabs + summaryHTML();
+  var body;
+  if (S.scenario === 'loading') { var p = loadingFirst(); body = '<div class="c-foot" role="status"><span class="c-bar">[' + '█'.repeat(10) + '░'.repeat(10) + ']</span><span>loading the newest 6 snapshots ' + p.done + '/' + p.total + '</span></div>' + skeleton(2); }
+  else if (!v.seq.length) body = emptyBlock(v, 'c');
+  else body = '<div class="c-rule" style="text-align:left;margin:0">' + v.shown + ' of ' + v.stepsLoaded + ' entries · newest first · ' + hm(v.newestT) + ' → ' + hm(v.oldestT || WINDOW_START) + '</div>' + listC(v) + footC(v);
+  return title + tabs + (S.scenario === 'loading' ? '' : qC()) + body;
+}
+
+/* ====================== Render + actions ====================== */
+var $ = function (id) { return document.getElementById(id); };
+function seg(el, items, cur, act) { el.innerHTML = items.map(function (i) { return '<button type="button" data-set="' + act + '" data-v="' + i[0] + '" aria-pressed="' + (cur === i[0]) + '">' + i[1] + '</button>'; }).join(''); }
+function render() {
+  var keepY = window.scrollY, v = compute(), strips = [].map.call(document.querySelectorAll('[data-strip]'), function (e) { return e.scrollLeft; });
+  var fn = S.variant === 'A' ? viewA : S.variant === 'B' ? viewB : viewC;
+  $('view').innerHTML = fn(v);
+  [].forEach.call(document.querySelectorAll('[data-strip]'), function (e, i) { e.scrollLeft = strips[i] || 0; });
+  seg($('seg-scn'), SCN, S.scenario, 'scn'); seg($('seg-end'), END, S.endReason, 'end'); seg($('seg-seen'), SEEN, S.seenT !== null ? '' : S.seenMode, 'seen');
+  $('row-end').hidden = S.scenario !== 'end';
+  var cur = VARS.filter(function (x) { return x.k === S.variant; })[0];
+  $('vlabel').textContent = cur.k + ' (' + cur.n + ')';
+  $('status').textContent = 'variant ' + cur.k + ' · ' + S.scenario + ' · ' + v.shown + ' of ' + v.stepsLoaded + ' loaded entries shown · ' + v.snaps + '/' + CAP + ' snapshots';
+  var f = S.filters;
+  $('state').textContent = JSON.stringify({
+    variant: S.variant + ' (' + cur.n + ')', scenario: S.scenario, tab: S.tab, entriesLoaded: v.stepsLoaded, entriesShown: v.shown, hiddenByFilters: v.hiddenSteps, gaps: v.gapsLoaded,
+    snapshotsLoaded: v.snaps + '/' + CAP, range: (v.oldestT ? hm(v.oldestT) : '-') + ' -> ' + (v.newestT ? hm(v.newestT) : '-'),
+    loadMore: S.loadingMore ? 'loading ' + S.loadingMore.done + '/' + S.loadingMore.total : v.more ? 'available' : 'ended: ' + v.reason,
+    seenMark: v.seen === null ? 'none' : hm(v.seen), divider: v.seen === null ? 'none' : v.outside ? 'outside loaded range (note shown)' : v.caughtUp ? 'top (caught up)' : v.divAt === null ? 'none' : 'before entry ' + (v.divAt + 1),
+    filters: { vips: f.vips, kinds: f.kinds, highOnly: f.high }, newEntriesInjected: S.injected.length
+  }, null, 1);
+  window.scrollTo(0, keepY);
+}
+function clear() { timers.forEach(clearInterval); timers = []; S.loadingMore = null; }
+function setScenario(s) { clear(); S.scenario = s; S.loaded = 5; S.injected = []; S.seenT = null; S.open = {}; S.showAll = {}; S.retrying = {}; S.freshId = null; S.tab = 'timeline';
+  S.filters.vips = s === 'single' ? ['you'] : PROFILE.slice(); if (s === 'end') S.loaded = 99; }
+function inject() {
+  if (S.scenario === 'empty' || S.scenario === 'loading') { setScenario('full'); }
+  var rows = allRows(), t = (rows.length ? rows[0].t : T(21, 30)) + 5, fn = INJECT[S.injected.length % INJECT.length], row = fn(t);
+  if (S.scenario === 'single') row = ST_(row, function (it) { return it.kind !== 'vip' || it.vipKey === 'you'; }) || ST(t, [CL([312.5, 314.1], [4206, 4239])]);
+  if (S.scenario === 'completed') row = ST(t, [CL([379.6, 380.2], [4010, 4033])]);
+  row.live = true; row.id = row.id + 'n' + S.injected.length; row.items.forEach(function (it) { it.id = row.id + ':' + (it.vipKey || it.kind); });
+  S.injected.unshift(row); S.freshId = row.id; render();
+  setTimeout(function () { if (S.freshId === row.id) { S.freshId = null; render(); } }, 3000);
+  var el = $('status'); el.textContent = 'new entry arrived at ' + hm(t) + ' (top of the Timeline)';
+}
+function loadMore() {
+  if (S.loadingMore) return; S.loadingMore = { done: 0, total: 10 }; render();
+  var id = setInterval(function () { S.loadingMore.done++; if (S.loadingMore.done >= S.loadingMore.total) { clearInterval(id); S.loadingMore = null; S.loaded += 10; } render(); }, 170);
+  timers.push(id);
+}
+function toggle(arr, k) { var i = arr.indexOf(k); if (i >= 0) arr.splice(i, 1); else arr.push(k); }
+document.addEventListener('click', function (e) {
+  var s = e.target.closest('[data-set]');
+  if (s) { var a = s.dataset.set, val = s.dataset.v;
+    if (a === 'scn') setScenario(val); else if (a === 'end') { S.endReason = val; } else if (a === 'seen') { S.seenMode = val; S.seenT = null; }
+    render(); return; }
+  var b = e.target.closest('[data-act]'); if (!b || b.tagName === 'INPUT') return;
+  var act = b.dataset.act, k = b.dataset.k, id = b.dataset.id, f = S.filters;
+  if (act === 'tab') S.tab = k; else if (act === 'vip') toggle(f.vips, k); else if (act === 'kind') toggle(f.kinds, k); else if (act === 'high') f.high = !f.high;
+  else if (act === 'vipprofile') f.vips = S.scenario === 'single' ? ['you'] : PROFILE.slice();
+  else if (act === 'fopen') S.fopen = !S.fopen; else if (act === 'lu') S.open[id] = !S.open[id]; else if (act === 'showall') S.showAll[id] = true;
+  else if (act === 'resetf') { f.vips = S.scenario === 'single' ? ['you'] : PROFILE.slice(); f.kinds = KINDS.map(function (x) { return x[0]; }); f.high = false; }
+  else if (act === 'more') return loadMore();
+  else if (act === 'seen') { var r = allRows(); S.seenT = r.length ? r[0].t + 1 : null; S.tab = 'summary'; }
+  else if (act === 'retry') { S.retrying[id] = 1; render(); setTimeout(function () { S.retrying[id] = 2; render(); }, 900); return; }
+  render();
+});
+document.addEventListener('change', function (e) { var b = e.target; if (b.tagName !== 'INPUT') return; var f = S.filters, act = b.dataset.act, k = b.dataset.k; if (act === 'vip') toggle(f.vips, k); else if (act === 'kind') toggle(f.kinds, k); else if (act === 'high') f.high = !f.high; render(); });
+function setVariant(k, from) { S.variant = k; try { var u = new URL(location.href); u.searchParams.set('variant', k); u.hash = 'variant-' + k.toLowerCase(); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch (err) { try { location.hash = 'variant-' + k.toLowerCase(); } catch (e2) { } } render(); }
+function cycle(d) { var i = VARS.map(function (x) { return x.k; }).indexOf(S.variant); setVariant(VARS[(i + d + VARS.length) % VARS.length].k); }
+$('prev').onclick = function () { cycle(-1); }; $('next').onclick = function () { cycle(1); };
+$('btn-new').onclick = inject; $('bar-new').onclick = inject;
+document.addEventListener('keydown', function (e) { var t = e.target; if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return; if (e.key === 'ArrowLeft') cycle(-1); else if (e.key === 'ArrowRight') cycle(1); });
+(function init() {
+  var q = ''; try { q = new URLSearchParams(location.search).get('variant') || ''; } catch (e) { }
+  var h = (location.hash || '').replace('#', ''), m = /variant-?([abc])/i.exec(h) || /^([abc])$/i.exec(q);
+  if (!m && /^[abc]$/i.test(q)) m = [0, q];
+  if (m) S.variant = m[1].toUpperCase();
+  var sc = /scenario-(\w+)/.exec(h); if (sc && SCN.some(function (x) { return x[0] === sc[1]; })) setScenario(sc[1]);
+  render();
+})();
+})();
+</script>
