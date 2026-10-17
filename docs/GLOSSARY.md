@@ -20,7 +20,7 @@ A per-day index of the snapshots captured on a given UTC day.
 _Avoid_: index, catalog
 
 **History**:
-The browsable timeline of past snapshots, resolved through manifests.
+The browsable list of past snapshots, resolved through manifests.
 
 ### Freshness and lifecycle
 
@@ -293,3 +293,35 @@ _Avoid_: baseline
 The list of everything that moved for your VIPs since the Seen mark, most
 important first: VIP shifts, cash line moves, and a contest's state changing.
 _Avoid_: changes feed, activity feed, notifications
+
+**Timeline**:
+Every VIP shift in a sport's primary contest, one step per snapshot, newest first
+and timestamped, reaching back as far as History is loaded. A log you browse, with
+no unseen state.
+_Avoid_: history, activity log
+
+**Step**:
+One snapshot's slice of the Timeline: the VIP shifts between that snapshot and the
+one before it, one row per VIP that shifted.
+_Avoid_: entry, event
+
+**Gap**:
+A snapshot in the Timeline for which no step could be built, because it failed to
+load, is missing, or was skipped as not fresh.
+_Avoid_: hole, error row
+
+**Range note**:
+How far back the Timeline reaches: from a time ("From HH:MM"), the contest start, or
+the cap.
+_Avoid_: footer
+
+**Range meter**:
+The number of snapshots loaded for the Timeline, measured against the cap.
+
+**Compact**:
+The same Steps with each change reduced to one short line.
+_Avoid_: list mode, sentence view
+
+**Contest state** (kind):
+A kind of Timeline change: a contest's State changing, such as going live or
+completing.

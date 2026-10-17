@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import ShiftsBanner from '../components/shifts/ShiftsBanner'
 import { ProfileContext } from '../context/ProfileContext'
 import { ShiftsContext } from '../context/ShiftsContext'
-import type { ContestShiftItem, ShiftItem, ShiftsFeed, ShiftsGap, VipShiftItem } from '../lib/shifts'
+import type { ContestShiftItem, ShiftItem, ShiftsFeed, AwaySummary, VipShiftItem } from '../lib/shifts'
 import { load } from './liveHarness'
 
 // Sample feed outputs over the NFL fixture's VIPs (provenance in public/mock/PRODUCER_FIXTURE.md).
@@ -17,6 +17,8 @@ function crossingItem(key: keyof typeof VIP, overrides: Partial<VipShiftItem> = 
     kind: 'vip',
     priority: 'high',
     detectedAt: 0,
+    snapshotAt: '2026-10-04T18:00:00Z',
+    parts: ['rank-points'],
     vipKey: VIP[key],
     rank: { from: 600, to: 580 },
     points: { from: 30, to: 34.5 },
@@ -33,12 +35,14 @@ function completedItem(): ContestShiftItem {
     kind: 'contest-state',
     priority: 'high',
     detectedAt: 0,
+    snapshotAt: '2026-10-04T18:00:00Z',
+    parts: ['contest-state'],
     state: { from: 'live', to: 'completed' },
   }
 }
 
 /** A feed stub holding fixed items. `markSurfaced` flags the items and notifies, as the real feed does. */
-function stubFeed(initial: ShiftItem[], gap: ShiftsGap | null = null) {
+function stubFeed(initial: ShiftItem[], away: AwaySummary | null = null) {
   let items = initial
   const listeners = new Set<() => void>()
   const notify = () => listeners.forEach((listener) => listener())
@@ -47,8 +51,9 @@ function stubFeed(initial: ShiftItem[], gap: ShiftsGap | null = null) {
     feed: () => items,
     unseenCount: () => items.length,
     unsurfaced: () => items.filter((item) => item.priority === 'high' && !item.surfaced),
-    gap: () => gap,
+    awaySummary: () => away,
     autoAdvanced: () => false,
+    seenSnapshotAt: () => null,
     markSeen: vi.fn(),
     markSurfaced: vi.fn((ids: string[]) => {
       items = items.map((item) => (ids.includes(item.id) ? { ...item, surfaced: true } : item))
@@ -256,14 +261,14 @@ describe('dismissing and surfacing', () => {
 })
 
 describe('the "while you were away" line', () => {
-  const gap = (overrides: Partial<ShiftsGap> = {}): ShiftsGap => ({
+  const awaySummary = (overrides: Partial<AwaySummary> = {}): AwaySummary => ({
     unseenCount: 3,
     topItem: crossingItem('empire'),
     minutesAway: 45,
     ...overrides,
   })
 
-  it('shows no summary without a gap', async () => {
+  it('shows no summary without an away summary', async () => {
     const { feed } = stubFeed([crossingItem('empire')])
     await renderBanner(feed)
     await screen.findAllByRole('listitem')
@@ -271,7 +276,7 @@ describe('the "while you were away" line', () => {
   })
 
   it('shows one summary row with the time away, the unseen count and the top item', async () => {
-    const { feed } = stubFeed([], gap())
+    const { feed } = stubFeed([], awaySummary())
     await renderBanner(feed)
     const summary = await screen.findByText(/away/i)
     const row = summary.closest('li') as HTMLElement
@@ -283,7 +288,7 @@ describe('the "while you were away" line', () => {
   })
 
   it('words a long absence in hours and a single unseen item in the singular', async () => {
-    const { feed } = stubFeed([], gap({ minutesAway: 125, unseenCount: 1, topItem: completedItem() }))
+    const { feed } = stubFeed([], awaySummary({ minutesAway: 125, unseenCount: 1, topItem: completedItem() }))
     await renderBanner(feed)
     const row = (await screen.findByText(/away/i)).closest('li') as HTMLElement
     expect(row.textContent).toContain('2 hours 5 minutes')
@@ -292,14 +297,14 @@ describe('the "while you were away" line', () => {
   })
 
   it('names the top item as "You" for the Profile\'s own VIP', async () => {
-    const { feed } = stubFeed([], gap())
+    const { feed } = stubFeed([], awaySummary())
     await renderBanner(feed, 'EmpireMaker2')
     const row = (await screen.findByText(/away/i)).closest('li') as HTMLElement
     expect(row.textContent).toContain('You moved into cashing')
   })
 
   it('dismisses only the summary and leaves the High rows alone', async () => {
-    const { feed } = stubFeed([crossingItem('empire')], gap())
+    const { feed } = stubFeed([crossingItem('empire')], awaySummary())
     await renderBanner(feed)
     const row = (await screen.findByText(/away/i)).closest('li') as HTMLElement
     fireEvent.click(within(row).getByRole('button', { name: 'Dismiss' }))

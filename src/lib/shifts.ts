@@ -27,11 +27,18 @@ export interface Move<T> {
 
 export type ShiftPriority = 'high' | 'normal'
 
+/** The five kinds of change an item can carry: what a kind filter chooses between. */
+export type ShiftPart = 'rank-points' | 'player-events' | 'cash-line' | 'crossings' | 'contest-state'
+
 interface ShiftItemBase {
   id: string
   priority: ShiftPriority
-  /** Epoch milliseconds of the build that detected the item. */
+  /** Epoch milliseconds of the build that detected the item (the build clock, not the snapshot's time). */
   detectedAt: number
+  /** The `snapshot_at` of the snapshot the item was built from. */
+  snapshotAt: string
+  /** The kinds of change in the item that passed their thresholds. */
+  parts: ShiftPart[]
   /** High items only: whether the UI has already shown the item (see `markSurfaced`). */
   surfaced?: boolean
 }
@@ -101,18 +108,30 @@ export interface VipShiftItem extends ShiftItemBase {
 /** The net cash line move since the Seen mark, reported above its threshold. */
 export interface CashLineShiftItem extends ShiftItemBase, CashLineMove {
   kind: 'cash-line'
+  /** Timeline only: the ids of the VIP items in the same step whose crossing this move caused. */
+  causedCrossings?: string[]
 }
 
 /** A contest state change. */
 export interface ContestShiftItem extends ShiftItemBase {
   kind: 'contest-state'
   state: Move<ContestState>
+  /** Timeline only, on the item for the contest completing: every VIP's final standing, in one place. */
+  standings?: FinalStanding[]
+}
+
+/** One VIP's final standing in a completed contest. */
+export interface FinalStanding {
+  vipKey: string
+  rank: Move<number | null>
+  points: Move<number | null>
+  cashing: boolean
 }
 
 export type ShiftItem = VipShiftItem | CashLineShiftItem | ContestShiftItem
 
 /** Set when a visit follows a long absence and something is unseen. */
-export interface ShiftsGap {
+export interface AwaySummary {
   unseenCount: number
   topItem: ShiftItem
   minutesAway: number
@@ -131,12 +150,14 @@ export interface ShiftsFeed {
   unseenCount(): number
   /** High priority items not yet passed to `markSurfaced`. */
   unsurfaced(): ShiftItem[]
-  /** The returned-after-a-gap data, or null. */
-  gap(): ShiftsGap | null
+  /** The away summary data, or null. */
+  awaySummary(): AwaySummary | null
   /** True after a quick visit moved the Seen mark on by itself; cleared by the next visit or by `markSeen`. */
   autoAdvanced(): boolean
   /** Advances the Seen mark to now and clears the High priority log. */
   markSeen(): void
+  /** The Seen mark's snapshot time, or null before the feed is seeded. Read-only; `subscribe` follows its moves. */
+  seenSnapshotAt(): string | null
   /** Marks High items as shown; the items stay in the feed until `markSeen`. */
   markSurfaced(ids: string[]): void
   /** Calls `listener` after the feed changes; returns the function that stops it. */
@@ -169,9 +190,9 @@ export const CASH_LINE_POINTS_THRESHOLD = 1.0
 export const CASH_LINE_RANK_THRESHOLD = 2
 /** The High priority log keeps at most this many entries; the oldest are dropped first. */
 export const HIGH_LOG_CAP = 50
-/** A visit after a gap shorter than this advances the Seen mark silently, in milliseconds. */
+/** A visit after an absence shorter than this advances the Seen mark silently, in milliseconds. */
 export const AUTO_ADVANCE_MS = 10 * 60_000
-/** A visit after a gap of at least this long sets the returned-after-a-gap flag (when something is unseen). */
+/** A visit after an absence of at least this long sets the away summary (when something is unseen). */
 export const SUMMARY_MS = 30 * 60_000
 // ----------------------------------------------------------------------------------------------------------------
 
@@ -195,7 +216,8 @@ interface VipDigest {
   players: PlayerDigest[]
 }
 
-interface Digest {
+/** One snapshot reduced to what the diff compares; the feed stores it and `diffDigests` compares two of them. */
+export interface Digest {
   at: number
   snapshotAt: string
   contestKey: string
@@ -241,7 +263,8 @@ function contestKeyOf(model: LiveModel): string {
   return `${model.contest.name}|${model.contest.startTime ?? ''}`
 }
 
-function digestOf(model: LiveModel, at: number): Digest {
+/** Reduces a Live model to its digest; `at` is the build clock in epoch milliseconds. */
+export function digestOf(model: LiveModel, at: number): Digest {
   return {
     at,
     snapshotAt: model.snapshotAt,
@@ -342,7 +365,7 @@ function playerIdOf(player: PlayerDigest): string {
  * slot position: no points before, the first points as its move. Every other move is the player's own points,
  * matched by `playerKey`; a player who appears (a late swap) is not compared.
  */
-function lineupDiff(before: PlayerDigest[], after: PlayerDigest[]): LineupSlotDiff[] {
+function lineupDiff(before: PlayerDigest[], after: PlayerDigest[]): { slots: LineupSlotDiff[]; changedCount: number } {
   const prior = new Map<string, PlayerDigest>()
   for (const player of before) if (!player.locked && !prior.has(playerIdOf(player))) prior.set(playerIdOf(player), player)
   const changed: LineupSlotDiff[] = []
@@ -385,14 +408,14 @@ function lineupDiff(before: PlayerDigest[], after: PlayerDigest[]): LineupSlotDi
     ;(slotChanged ? changed : unchanged).push(slot)
   })
   changed.sort((a, b) => Math.abs(b.pointsMove ?? 0) - Math.abs(a.pointsMove ?? 0))
-  return [...changed, ...unchanged, ...hidden]
+  return { slots: [...changed, ...unchanged, ...hidden], changedCount: changed.length }
 }
 
 /**
  * Net VIP shifts: one item per VIP present on both sides whose rank, points or distance to cash moved by at least
  * its threshold. A VIP on one side only (added to or removed from the Profile) is quietly ignored: no shift.
  */
-function netVipShifts(seen: Digest, current: Digest, detectedAt: number): VipShiftItem[] {
+function netVipShifts(seen: Digest, current: Digest, idAnchor: string | number): VipShiftItem[] {
   const final = current.contestState === 'completed'
   const before = vipsByKey(seen.vips)
   const items: VipShiftItem[] = []
@@ -401,34 +424,42 @@ function netVipShifts(seen: Digest, current: Digest, detectedAt: number): VipShi
     const prior = before.get(vip.key)
     if (!prior || handledKeys.has(vip.key)) continue
     handledKeys.add(vip.key)
-    const item = vipItemOf(prior, vip, seen, detectedAt, final)
+    const item = vipItemOf(prior, vip, current, idAnchor, final)
     // Final standings are settled, so any difference in them is worth reporting; live moves must clear a threshold.
-    const shifted = final
-      ? !sameValue(item.rank) || !sameValue(item.points) || prior.cashing !== vip.cashing
-      : movedBy(item.rank, VIP_RANK_THRESHOLD) ||
-        movedBy(item.points, VIP_POINTS_THRESHOLD) ||
-        movedBy(item.distanceToCashPoints, DISTANCE_TO_CASH_POINTS_THRESHOLD) ||
-        movedBy(item.distanceToCashRank, DISTANCE_TO_CASH_RANK_THRESHOLD)
+    const shifted = final ? !sameValue(item.rank) || !sameValue(item.points) || prior.cashing !== vip.cashing : item.parts?.includes('rank-points')
     if (shifted) items.push(item)
   }
   return items
 }
 
 /** A VIP's item from the Seen mark to now: live moves and lineup, or final standings only once completed. */
-function vipItemOf(prior: VipDigest, vip: VipDigest, seen: Digest, detectedAt: number, final: boolean): VipShiftItem {
+function vipItemOf(prior: VipDigest, vip: VipDigest, current: Digest, idAnchor: string | number, final: boolean): VipShiftItem {
   const item: VipShiftItem = {
     kind: 'vip',
-    id: itemId('vip', vip.key, seen.at),
+    id: itemId('vip', vip.key, idAnchor),
     priority: 'normal',
-    detectedAt,
+    detectedAt: current.at,
+    snapshotAt: current.snapshotAt,
+    parts: [],
     vipKey: vip.key,
     rank: moveOf(prior.rank, vip.rank),
     points: moveOf(prior.points, vip.points),
     distanceToCashPoints: final ? moveOf(null, null) : moveOf(prior.distanceToCash.points, vip.distanceToCash.points),
     distanceToCashRank: final ? moveOf(null, null) : moveOf(prior.distanceToCash.rank, vip.distanceToCash.rank),
   }
-  if (final) item.finishedCashing = vip.cashing
-  else item.lineup = lineupDiff(prior.players, vip.players)
+  if (final) {
+    item.finishedCashing = vip.cashing
+    item.parts = ['contest-state']
+    return item
+  }
+  const lineup = lineupDiff(prior.players, vip.players)
+  item.lineup = lineup.slots
+  const rankAndPoints =
+    movedBy(item.rank, VIP_RANK_THRESHOLD) ||
+    movedBy(item.points, VIP_POINTS_THRESHOLD) ||
+    movedBy(item.distanceToCashPoints, DISTANCE_TO_CASH_POINTS_THRESHOLD) ||
+    movedBy(item.distanceToCashRank, DISTANCE_TO_CASH_RANK_THRESHOLD)
+  item.parts = [...(rankAndPoints ? ['rank-points' as const] : []), ...(lineup.changedCount > 0 ? ['player-events' as const] : [])]
   return item
 }
 
@@ -442,10 +473,20 @@ function cashLineMoveOf(from: Digest, to: Digest): CashLineMove {
 }
 
 /** The net cash line move since the Seen mark, or none below its threshold. */
-function cashLineShift(seen: Digest, current: Digest, detectedAt: number): CashLineShiftItem[] {
+function cashLineShift(seen: Digest, current: Digest, idAnchor: string | number): CashLineShiftItem[] {
   const move = cashLineMoveOf(seen, current)
   if (!cashLineMoved(move)) return []
-  return [{ kind: 'cash-line', id: itemId('cash-line', seen.at), priority: 'normal', detectedAt, ...move }]
+  return [
+    {
+      kind: 'cash-line',
+      id: itemId('cash-line', idAnchor),
+      priority: 'normal',
+      detectedAt: current.at,
+      snapshotAt: current.snapshotAt,
+      parts: ['cash-line'],
+      ...move,
+    },
+  ]
 }
 
 type NewCrossing = Omit<CrossingEntry, 'seq' | 'id'>
@@ -493,10 +534,10 @@ function appendEntries(log: LogEntry[], newEntries: (NewCrossing | NewContestSta
 }
 
 /** The contest-level items for the log's state changes, oldest first. */
-function contestStateItems(log: LogEntry[]): ContestShiftItem[] {
+function contestStateItems(log: LogEntry[], snapshotAt: string): ContestShiftItem[] {
   return log.flatMap((entry): ContestShiftItem[] =>
     entry.kind === 'contest-state'
-      ? [{ kind: 'contest-state', id: entry.id, priority: 'high', detectedAt: entry.at, surfaced: entry.surfaced, state: moveOf(entry.from, entry.to) }]
+      ? [{ kind: 'contest-state', id: entry.id, priority: 'high', detectedAt: entry.at, snapshotAt, parts: ['contest-state'], surfaced: entry.surfaced, state: moveOf(entry.from, entry.to) }]
       : [],
   )
 }
@@ -511,7 +552,7 @@ function itemId(kind: ShiftItem['kind'] | 'crossing', ...parts: (string | number
  * item (from the Seen mark's rank and points) when the net moves alone would not have. A VIP missing from the Seen
  * mark or the current model gets none.
  */
-function withCrossings(items: VipShiftItem[], seen: Digest, current: Digest, log: LogEntry[], detectedAt: number): VipShiftItem[] {
+function withCrossings(items: VipShiftItem[], seen: Digest, current: Digest, log: LogEntry[], idAnchor: string | number): VipShiftItem[] {
   const byVip = new Map<string, CrossingEntry[]>()
   for (const entry of log) if (entry.kind === 'crossing') byVip.set(entry.vipKey, [...(byVip.get(entry.vipKey) ?? []), entry])
   const result = new Map(items.map((item) => [item.vipKey, item]))
@@ -523,10 +564,11 @@ function withCrossings(items: VipShiftItem[], seen: Digest, current: Digest, log
     const firstDirection = crossings[0].direction
     const latestCrossing = crossings[crossings.length - 1]
     const path: CrossingPath = firstDirection === latestCrossing.direction ? firstDirection : firstDirection === 'in' ? 'in then out' : 'out then in'
-    const baseItem = result.get(vip.key) ?? vipItemOf(prior, vip, seen, detectedAt, current.contestState === 'completed')
+    const baseItem = result.get(vip.key) ?? vipItemOf(prior, vip, current, idAnchor, current.contestState === 'completed')
     result.set(vip.key, {
       ...baseItem,
       priority: 'high',
+      parts: [...(baseItem.parts ?? []), 'crossings'],
       surfaced: crossings.every((entry) => entry.surfaced),
       crossing: { path, cause: latestCrossing.cause },
     })
@@ -543,6 +585,134 @@ function rankMagnitude(item: ShiftItem): number {
 function orderFeed(items: ShiftItem[]): ShiftItem[] {
   const weight = (item: ShiftItem) => (item.priority === 'high' ? 1 : 0)
   return [...items].sort((a, b) => weight(b) - weight(a) || rankMagnitude(b) - rankMagnitude(a))
+}
+
+/**
+ * One step of change: the items for `after` compared with the digest `before` it, not netted against anything
+ * earlier, so a crossing in and then out is two items in two steps. Thresholds are the feed's. Items carry the later
+ * snapshot's time, ids that depend only on the two digests' snapshots (the same pair always gives the same ids), and
+ * no surfaced state. Nothing is reported once `before` is completed.
+ */
+export function diffDigests(before: Digest, after: Digest): ShiftItem[] {
+  if (before.contestState === 'completed') return []
+  const anchor = after.snapshotAt
+  const log = [...detectCompletion(before, after), ...detectCrossings(before, after)].map(
+    (entry): LogEntry => ({ ...entry, seq: 0, id: entry.kind === 'crossing' ? itemId('crossing', entry.vipKey, anchor) : itemId('contest-state', anchor) }),
+  )
+  const items = orderFeed([
+    ...contestStateItems(log, anchor),
+    ...withCrossings(netVipShifts(before, after, anchor), before, after, log, anchor),
+    ...cashLineShift(before, after, anchor),
+  ])
+  return items.map((item) => {
+    const copy = { ...item }
+    delete copy.surfaced
+    return copy
+  })
+}
+
+/** Why a snapshot is skipped: it failed to load (retryable), the producer's sport data was not fresh, or it is not renderable. */
+export type GapReason = 'unavailable' | 'not-fresh' | 'not-renderable'
+
+/** Stands in the input where a snapshot was skipped: it failed to load or interpret, or its sport was not fresh. */
+export interface TimelineGapMarker {
+  reason: GapReason
+  /** The skipped snapshot's `snapshot_at`. */
+  snapshotAt: string
+}
+
+/** The Timeline's input: digests and gap markers, oldest first. */
+export type TimelineInput = Digest | TimelineGapMarker
+
+/** One snapshot's slice of the Timeline: the items that shifted between it and the snapshot before it. */
+export interface TimelineStep {
+  kind: 'step'
+  id: string
+  snapshotAt: string
+  items: ShiftItem[]
+}
+
+/** A skipped snapshot, shown where its step would have been. */
+export interface TimelineGapEntry {
+  kind: 'gap'
+  id: string
+  snapshotAt: string
+  reason: GapReason
+}
+
+export type TimelineEntry = TimelineStep | TimelineGapEntry
+
+export function isGapMarker(input: TimelineInput): input is TimelineGapMarker {
+  return 'reason' in input
+}
+
+/** What stopped the range: the oldest loaded snapshot is the window's start, the contest's start, or the cap. */
+export type TimelineReach = 'window' | 'contest-start' | 'cap'
+
+/** The note at the tail of the rail: "From HH:MM" (`from`), the contest's start, or the cap. */
+export interface RangeNote {
+  kind: 'from' | 'contest-start' | 'cap'
+  /** The oldest digest's `snapshot_at`. */
+  snapshotAt: string
+}
+
+export interface TimelineOptions {
+  /** Why the input starts where it does; defaults to `window` (the note reads "From HH:MM"). */
+  reach?: TimelineReach
+}
+
+export interface Timeline {
+  /** Steps and gaps, newest first. */
+  entries: TimelineEntry[]
+  /** Null when there is no digest. */
+  rangeNote: RangeNote | null
+}
+
+/** The step for the contest completing: the final standings sit on its one state item, not on per-VIP items. */
+function withFinalStandings(items: ShiftItem[], before: Digest, after: Digest): ShiftItem[] {
+  if (!items.some((item) => item.kind === 'contest-state')) return items
+  const prior = vipsByKey(before.vips)
+  const standings = [...vipsByKey(after.vips).values()].map((vip): FinalStanding => ({
+    vipKey: vip.key,
+    rank: moveOf(prior.get(vip.key)?.rank ?? null, vip.rank),
+    points: moveOf(prior.get(vip.key)?.points ?? null, vip.points),
+    cashing: vip.cashing,
+  }))
+  return items
+    .filter((item) => item.kind !== 'vip' || item.crossing !== undefined || item.finishedCashing === undefined)
+    .map((item) => (item.kind === 'contest-state' ? { ...item, standings } : item))
+}
+
+/** Links a cash line move to the VIP items in its step whose crossing it caused. */
+function withCauseLinks(items: ShiftItem[]): ShiftItem[] {
+  const caused = items.filter((item) => item.kind === 'vip' && item.crossing?.cause).map((item) => item.id)
+  if (caused.length === 0) return items
+  return items.map((item) => (item.kind === 'cash-line' ? { ...item, causedCrossings: caused } : item))
+}
+
+/**
+ * Builds the Timeline: one step per consecutive pair of digests (oldest first in), newest first out, each timed by
+ * the later snapshot. A gap marker yields a gap entry in its place, and the digests either side of it are compared
+ * across it. Pure: it reads no storage and no Seen mark, and the same input always gives the same ids.
+ */
+export function buildTimeline(inputs: TimelineInput[], options: TimelineOptions = {}): Timeline {
+  const entries: TimelineEntry[] = []
+  let previous: Digest | null = null
+  let oldest: Digest | null = null
+  for (const input of inputs) {
+    if (isGapMarker(input)) {
+      entries.push({ kind: 'gap', id: `gap:${input.snapshotAt}`, snapshotAt: input.snapshotAt, reason: input.reason })
+      continue
+    }
+    oldest ??= input
+    if (previous) {
+      const items = withCauseLinks(withFinalStandings(diffDigests(previous, input), previous, input))
+      entries.push({ kind: 'step', id: `step:${input.snapshotAt}`, snapshotAt: input.snapshotAt, items })
+    }
+    previous = input
+  }
+  const kind = options.reach === 'contest-start' || options.reach === 'cap' ? options.reach : 'from'
+  return { entries: entries.reverse(), rangeNote: oldest ? { kind, snapshotAt: oldest.snapshotAt } : null }
 }
 
 function defaultStorage(): ShiftsStorage | null {
@@ -577,9 +747,11 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
   }
 
   let items: ShiftItem[] = []
-  let gap: ShiftsGap | null = null
+  let away: AwaySummary | null = null
   let autoAdvanced = false
   let currentKey: string | null = null
+  let seenAt: string | null = null
+  const readSeenAt = (): string | null => (currentKey ? (read(currentKey)?.seen.snapshotAt ?? null) : null)
   const listeners = new Set<() => void>()
   const notify = () => listeners.forEach((listener) => listener())
 
@@ -587,14 +759,14 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
     record(model, { visit }) {
       items = []
       if (visit) {
-        gap = null
+        away = null
         autoAdvanced = false
       }
       try {
         const storageKey = `${STORAGE_KEY_PREFIX}${model.sport}`
         if (storageKey !== currentKey) {
           // The flags describe the sport the feed followed before, not this one.
-          gap = null
+          away = null
           autoAdvanced = false
         }
         currentKey = storageKey
@@ -603,12 +775,12 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
         if (!stored || stored.contestKey !== digest.contestKey) {
           // First visit, another primary contest or a corrupt value: seed both digests and drop the old state.
           write(storageKey, { contestKey: digest.contestKey, seen: digest, last: digest, log: [] })
-          gap = null
+          away = null
           autoAdvanced = false
           return
         }
-        const gapMs = Math.max(0, digest.at - stored.last.at)
-        if (visit && gapMs < AUTO_ADVANCE_MS) {
+        const awayMs = Math.max(0, digest.at - stored.last.at)
+        if (visit && awayMs < AUTO_ADVANCE_MS) {
           // A quick look away: acknowledge everything, High priority log included.
           write(storageKey, { ...stored, seen: digest, last: digest, log: [] })
           autoAdvanced = true
@@ -618,27 +790,28 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
         const log = appendEntries(stored.log, [...detectCompletion(stored.last, digest), ...detectCrossings(stored.last, digest)])
         write(storageKey, { ...stored, seen, last: digest, log })
         items = orderFeed([
-          ...contestStateItems(log),
-          ...withCrossings(netVipShifts(seen, digest, digest.at), seen, digest, log, digest.at),
-          ...cashLineShift(seen, digest, digest.at),
+          ...contestStateItems(log, digest.snapshotAt),
+          ...withCrossings(netVipShifts(seen, digest, seen.at), seen, digest, log, seen.at),
+          ...cashLineShift(seen, digest, seen.at),
         ])
-        if (visit && gapMs >= SUMMARY_MS && items.length > 0) {
-          gap = { unseenCount: items.length, topItem: items[0], minutesAway: Math.floor(gapMs / 60_000) }
+        if (visit && awayMs >= SUMMARY_MS && items.length > 0) {
+          away = { unseenCount: items.length, topItem: items[0], minutesAway: Math.floor(awayMs / 60_000) }
         }
       } catch {
         items = []
-        gap = null
+        away = null
         // Recording must never break the Live view.
       }
     },
     feed: () => items,
+    seenSnapshotAt: () => seenAt,
     unseenCount: () => items.length,
     unsurfaced: () => items.filter((item) => item.priority === 'high' && !item.surfaced),
-    gap: () => gap,
+    awaySummary: () => away,
     autoAdvanced: () => autoAdvanced,
     markSeen() {
       items = []
-      gap = null
+      away = null
       autoAdvanced = false
       try {
         const stored = currentKey ? read(currentKey) : null
@@ -675,10 +848,12 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
     ...feed,
     record(model, options) {
       feed.record(model, options)
+      seenAt = readSeenAt()
       notify()
     },
     markSeen() {
       feed.markSeen()
+      seenAt = readSeenAt()
       notify()
     },
     markSurfaced(ids) {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 // Exported by the dk_results producer: cfb and mlb contests (provenance in public/mock/PRODUCER_FIXTURE.md).
 import producerSnapshot from '../../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import { buildLiveModel, type LiveModel } from '../liveModel'
-import { createShiftsFeed, type ShiftsStorage, type VipShiftItem } from '../shifts'
+import { buildTimeline, createShiftsFeed, digestOf, diffDigests, type Digest, type ShiftsStorage, type TimelineInput, type VipShiftItem } from '../shifts'
 // Exported by the dk_results producer: an NFL mid-slate contest with six VIPs.
 import nflSnapshot from '../../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
 
@@ -53,7 +53,7 @@ function expectQuiet(feed: ReturnType<typeof feedOver>) {
   expect(feed.feed()).toEqual([])
   expect(feed.unseenCount()).toBe(0)
   expect(feed.unsurfaced()).toEqual([])
-  expect(feed.gap()).toBeNull()
+  expect(feed.awaySummary()).toBeNull()
 }
 
 describe('first build', () => {
@@ -726,7 +726,7 @@ function feedWithUnseen() {
   return { feed, at }
 }
 
-describe('visits after a short gap', () => {
+describe('visits after a short absence', () => {
   it('advances the Seen mark silently, leaving nothing unseen and no summary', () => {
     const { feed, at } = feedWithUnseen()
     at(T0 + 1 * MINUTE + 9 * MINUTE)
@@ -788,14 +788,14 @@ describe('the Seen mark moving on by itself', () => {
   })
 })
 
-describe('visits after a middling gap', () => {
+describe('visits after a middling absence', () => {
   it('lets shifts accumulate as unseen, with no summary', () => {
     const { feed, at } = feedWithUnseen()
     at(T0 + MINUTE + 10 * MINUTE)
     feed.record(nflModel({ EmpireMaker2: { rank: 470 } }), { visit: true })
     expect(vipItems(feed)[0].rank).toEqual({ from: 511, to: 470 })
     expect(feed.unseenCount()).toBe(1)
-    expect(feed.gap()).toBeNull()
+    expect(feed.awaySummary()).toBeNull()
   })
 
   it('still accumulates just under the summary duration', () => {
@@ -803,25 +803,25 @@ describe('visits after a middling gap', () => {
     at(T0 + MINUTE + 29 * MINUTE + 59_000)
     feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
     expect(feed.unseenCount()).toBe(1)
-    expect(feed.gap()).toBeNull()
+    expect(feed.awaySummary()).toBeNull()
   })
 })
 
-describe('visits after a long gap', () => {
+describe('visits after a long absence', () => {
   it('sets the flag with the unseen count, top item and minutes away', () => {
     const { feed, at } = feedWithUnseen()
     at(T0 + MINUTE + 30 * MINUTE)
     feed.record(nflModel({ EmpireMaker2: { rank: 480 }, Cubbiesftw23: { rank: 1100 } }), { visit: true })
-    expect(feed.gap()).toEqual({ unseenCount: 2, topItem: feed.feed()[0], minutesAway: 30 })
-    expect(feed.gap()?.topItem).toMatchObject({ vipKey: KEY.cubbies })
+    expect(feed.awaySummary()).toEqual({ unseenCount: 2, topItem: feed.feed()[0], minutesAway: 30 })
+    expect(feed.awaySummary()?.topItem).toMatchObject({ vipKey: KEY.cubbies })
     expect(feed.unseenCount()).toBe(2)
   })
 
-  it('measures the gap from the previous build, not from the Seen mark', () => {
+  it('measures the absence from the previous build, not from the Seen mark', () => {
     const { feed, at } = feedWithUnseen()
     at(T0 + 3 * 60 * MINUTE)
     feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
-    expect(feed.gap()?.minutesAway).toBe(179)
+    expect(feed.awaySummary()?.minutesAway).toBe(179)
   })
 
   it('leaves the flag unset when nothing is unseen', () => {
@@ -846,10 +846,10 @@ describe('visits after a long gap', () => {
     feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
     at(T0 + 41 * MINUTE)
     feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: false })
-    expect(feed.gap()).toMatchObject({ unseenCount: 1, minutesAway: 39 })
+    expect(feed.awaySummary()).toMatchObject({ unseenCount: 1, minutesAway: 39 })
     at(T0 + 42 * MINUTE)
     feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
-    expect(feed.gap()).toBeNull()
+    expect(feed.awaySummary()).toBeNull()
   })
 
   it('drops the flag when the feed moves to another sport, since it described the first', () => {
@@ -859,28 +859,28 @@ describe('visits after a long gap', () => {
     feed.record(nflModel(), { visit: true })
     clock = T0 + 40 * MINUTE
     feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
-    expect(feed.gap()).not.toBeNull()
+    expect(feed.awaySummary()).not.toBeNull()
     feed.record(modelOf('cfb'), { visit: false })
-    expect(feed.gap()).toBeNull()
+    expect(feed.awaySummary()).toBeNull()
   })
 
-  it('reads the previous build from stored state, so a fresh feed instance sees the gap', () => {
+  it('reads the previous build from stored state, so a fresh feed instance sees the absence', () => {
     const storage = memoryStorage()
     createShiftsFeed({ storage, now: () => T0 }).record(nflModel(), { visit: true })
     const later = createShiftsFeed({ storage, now: () => T0 + 2 * 60 * MINUTE })
     later.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
-    expect(later.gap()).toMatchObject({ unseenCount: 1, minutesAway: 120 })
+    expect(later.awaySummary()).toMatchObject({ unseenCount: 1, minutesAway: 120 })
   })
 })
 
 describe('polls while the tab stays visible', () => {
-  it('never advance the Seen mark, however long the gap', () => {
+  it('never advance the Seen mark, however long the absence', () => {
     const { feed, at } = feedWithUnseen()
     for (const minutes of [5, 20, 60, 600]) {
       at(T0 + minutes * MINUTE)
       feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: false })
       expect(feed.unseenCount()).toBe(1)
-      expect(feed.gap()).toBeNull()
+      expect(feed.awaySummary()).toBeNull()
     }
   })
 })
@@ -918,12 +918,12 @@ describe('marking as seen', () => {
     expectQuiet(second)
   })
 
-  it('clears the returned-after-a-gap flag', () => {
+  it('clears the away summary', () => {
     const { feed, at } = feedWithUnseen()
     at(T0 + 40 * MINUTE)
     feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: true })
     feed.markSeen()
-    expect(feed.gap()).toBeNull()
+    expect(feed.awaySummary()).toBeNull()
   })
 })
 
@@ -1165,5 +1165,326 @@ describe('subscribing to the feed', () => {
     unsubscribe()
     feed.record(nflModel({ EmpireMaker2: { rank: 480 } }), { visit: false })
     expect(calls).toBe(0)
+  })
+})
+
+describe('pair diff', () => {
+  const BEFORE_AT = T0
+  const AFTER_AT = T0 + 300_000
+
+  /** Digests of two NFL models; the later one is stamped with a later snapshot time. */
+  function pair(after: LiveModel, before: LiveModel = nflModel()) {
+    return {
+      before: digestOf({ ...before, snapshotAt: '2026-10-04T18:40:00Z' }, BEFORE_AT),
+      after: digestOf({ ...after, snapshotAt: '2026-10-04T18:45:00Z' }, AFTER_AT),
+    }
+  }
+
+  const diff = (after: LiveModel, before?: LiveModel) => {
+    const digests = pair(after, before)
+    return diffDigests(digests.before, digests.after)
+  }
+
+  it('returns nothing for two identical digests', () => {
+    expect(diff(nflModel())).toEqual([])
+  })
+
+  it('reports one step of change, carrying the later snapshot time apart from the build clock', () => {
+    const items = diff(nflModel({ EmpireMaker2: { rank: 480 } }))
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({
+      kind: 'vip',
+      vipKey: KEY.empire,
+      rank: { from: 511, to: 480 },
+      snapshotAt: '2026-10-04T18:45:00Z',
+      detectedAt: AFTER_AT,
+    })
+    expect(items[0].surfaced).toBeUndefined()
+  })
+
+  it('gives the same ids when the same pair is rebuilt at another time', () => {
+    const later = { ...pair(nflModel({ EmpireMaker2: { rank: 480 } }, cashLine(33.5, 505))) }
+    const first = diffDigests(later.before, later.after)
+    const again = diffDigests({ ...later.before, at: 1 }, { ...later.after, at: 2 })
+    expect(first).toHaveLength(2)
+    expect(again.map((item) => item.id)).toEqual(first.map((item) => item.id))
+    expect(new Set(first.map((item) => item.id)).size).toBe(2)
+  })
+
+  it('applies the feed thresholds to the one step', () => {
+    expect(diff(nflModel({ EmpireMaker2: { rank: 510 } }, cashLine(31.9, 499)))).toEqual([])
+  })
+
+  it('does not net: a crossing in is its own High item for the step', () => {
+    const [item] = diff(nflModel({ EmpireMaker2: INSIDE }))
+    expect(item).toMatchObject({ vipKey: KEY.empire, priority: 'high', crossing: { path: 'in' } })
+  })
+
+  it('carries a cash line move in the same step as the crossing cause', () => {
+    const items = diff(nflModel({ EmpireMaker2: INSIDE }, cashLine(33.5, 505)))
+    const vip = items.find((item): item is VipShiftItem => item.kind === 'vip')
+    expect(vip?.crossing?.cause).toEqual({ points: { from: 31.239998, to: 33.5 }, rank: { from: 500, to: 505 } })
+  })
+
+  it('reports the contest completing as one High contest state item, and nothing after it', () => {
+    const live = nflModel()
+    const done = nflModel({}, completed)
+    const items = diff(done, live)
+    expect(items.filter((item) => item.kind === 'contest-state')).toEqual([
+      expect.objectContaining({ priority: 'high', state: { from: 'live', to: 'completed' }, parts: ['contest-state'] }),
+    ])
+    const digests = pair(nflModel({ EmpireMaker2: { rank: 400 } }, completed), done)
+    expect(diffDigests(digests.before, digests.after)).toEqual([])
+  })
+
+  describe('parts', () => {
+    it('lists rank and points when only those passed their thresholds', () => {
+      const [item] = diff(nflModel({ EmpireMaker2: { rank: 480 } }))
+      expect(item.parts).toEqual(['rank-points'])
+    })
+
+    it('adds player events when a lineup slot changed', () => {
+      const [item] = diff(
+        nflModel({ EmpireMaker2: { rank: 480 } }, (snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 15.44, game_status: 'Final' })),
+      )
+      expect(item.parts).toEqual(['rank-points', 'player-events'])
+    })
+
+    it('adds crossings for a crossing, even when the rank and points did not move enough', () => {
+      const [item] = diff(nflModel({ EmpireMaker2: INSIDE }))
+      expect(item.parts).toEqual(['crossings'])
+    })
+
+    it('marks a cash line move as cash line', () => {
+      const [item] = diff(nflModel({}, cashLine(33.5, 505)))
+      expect(item).toMatchObject({ kind: 'cash-line', parts: ['cash-line'] })
+    })
+  })
+})
+
+describe('feed items', () => {
+  it('carry the snapshot they came from and their parts', () => {
+    const { feed, at } = seededFeed()
+    at(T0 + 60_000)
+    feed.record(nflModel({ EmpireMaker2: { rank: 480 } }, cashLine(33.5, 505)), { visit: false })
+    const model = nflModel()
+    expect(feed.feed().map((item) => [item.kind, item.snapshotAt, item.parts])).toEqual([
+      ['vip', model.snapshotAt, ['rank-points']],
+      ['cash-line', model.snapshotAt, ['cash-line']],
+    ])
+  })
+})
+
+describe('timeline', () => {
+  const minute = (n: number) => `2026-10-04T18:${String(40 + n).padStart(2, '0')}:00Z`
+
+  /** A digest of an NFL model stamped as the snapshot taken `n` minutes after 18:40. */
+  function snap(n: number, model: LiveModel = nflModel()): Digest {
+    return digestOf({ ...model, snapshotAt: minute(n) }, T0 + n * MINUTE)
+  }
+
+  const stepsOf = (inputs: TimelineInput[], options?: Parameters<typeof buildTimeline>[1]) => buildTimeline(inputs, options).entries
+
+  describe('steps', () => {
+    it('is empty for no snapshot or one snapshot', () => {
+      expect(stepsOf([])).toEqual([])
+      expect(stepsOf([snap(0)])).toEqual([])
+    })
+
+    it('makes one step per consecutive snapshot pair, newest first, timed by the later snapshot', () => {
+      const entries = stepsOf([
+        snap(0),
+        snap(5, nflModel({ EmpireMaker2: { rank: 480 } })),
+        snap(10, nflModel({ EmpireMaker2: { rank: 400 } })),
+        snap(15, nflModel({ EmpireMaker2: { rank: 400 } })),
+      ])
+      expect(entries.map((entry) => [entry.kind, entry.snapshotAt])).toEqual([
+        ['step', minute(15)],
+        ['step', minute(10)],
+        ['step', minute(5)],
+      ])
+      const [newest, middle] = entries
+      expect(newest).toMatchObject({ kind: 'step', items: [] })
+      expect(middle).toMatchObject({ kind: 'step', items: [{ vipKey: KEY.empire, rank: { from: 480, to: 400 }, snapshotAt: minute(10) }] })
+    })
+
+    it('gives the same item and step ids when the same snapshots are rebuilt later', () => {
+      const models = [nflModel(), nflModel({ EmpireMaker2: { rank: 480 } }, cashLine(33.5, 505)), nflModel({ EmpireMaker2: INSIDE })]
+      const build = (clock: number) => stepsOf(models.map((model, n) => digestOf({ ...model, snapshotAt: minute(n * 5) }, clock + n)))
+      const ids = (entries: ReturnType<typeof build>) => entries.flatMap((entry) => [entry.id, ...(entry.kind === 'step' ? entry.items.map((item) => item.id) : [])])
+      expect(ids(build(1))).toEqual(ids(build(999_999)))
+      expect(new Set(ids(build(1))).size).toBe(ids(build(1)).length)
+    })
+
+    it('shows a VIP crossing in and then out as two items in two steps, both High', () => {
+      const entries = stepsOf([snap(0), snap(5, nflModel({ EmpireMaker2: INSIDE })), snap(10, nflModel({ EmpireMaker2: OUTSIDE }))])
+      const crossings = entries.map((entry) => (entry.kind === 'step' ? entry.items : []))
+      expect(crossings).toEqual([
+        [expect.objectContaining({ vipKey: KEY.empire, priority: 'high', crossing: expect.objectContaining({ path: 'out' }) })],
+        [expect.objectContaining({ vipKey: KEY.empire, priority: 'high', crossing: expect.objectContaining({ path: 'in' }) })],
+      ])
+    })
+  })
+
+  describe('cash line', () => {
+    const itemsOf = (entry: ReturnType<typeof stepsOf>[number]) => (entry.kind === 'step' ? entry.items : [])
+
+    it('links a cash line move to the crossing it caused, in the same step', () => {
+      const [step] = stepsOf([snap(0), snap(5, nflModel({ EmpireMaker2: INSIDE }, cashLine(33.5, 505)))])
+      const items = itemsOf(step)
+      const vip = items.find((item): item is VipShiftItem => item.kind === 'vip')
+      const line = items.find((item) => item.kind === 'cash-line')
+      expect(vip?.crossing?.cause).not.toBeNull()
+      expect(line).toMatchObject({ kind: 'cash-line', causedCrossings: [vip?.id] })
+    })
+
+    it('lists a cash line move with no crossing as its own item with no cause link', () => {
+      const [step] = stepsOf([snap(0), snap(5, nflModel({}, cashLine(33.5, 505)))])
+      expect(itemsOf(step)).toEqual([expect.objectContaining({ kind: 'cash-line', parts: ['cash-line'] })])
+      expect(itemsOf(step)[0]).not.toHaveProperty('causedCrossings')
+    })
+
+    it('does not link a crossing when the line moved in another step', () => {
+      const entries = stepsOf([snap(0), snap(5, nflModel({}, cashLine(33.5, 505))), snap(10, nflModel({ EmpireMaker2: INSIDE }, cashLine(33.5, 505)))])
+      expect(itemsOf(entries[0]).map((item) => item.kind)).toEqual(['vip'])
+      expect(itemsOf(entries[1]).map((item) => item.kind)).toEqual(['cash-line'])
+    })
+  })
+
+  describe('per-step moves', () => {
+    it('applies the thresholds to each step, so a slow drift under them is not reported', () => {
+      const entries = stepsOf([snap(0), snap(5, nflModel({ EmpireMaker2: { rank: 510 } })), snap(10, nflModel({ EmpireMaker2: { rank: 509 } })), snap(15, nflModel({ EmpireMaker2: { rank: 508 } }))])
+      expect(entries.map((entry) => (entry.kind === 'step' ? entry.items : null))).toEqual([[], [], []])
+    })
+
+    it('reports a player event and exposes the whole lineup, changed or not', () => {
+      const [moved] = stepsOf([snap(0), snap(5, nflModel({ EmpireMaker2: { rank: 480 } }, (snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 15.44, game_status: 'Final' })))])
+      const item = (moved.kind === 'step' ? moved.items : [])[0] as VipShiftItem
+      expect(item.parts).toEqual(['rank-points', 'player-events'])
+      expect(item.lineup?.length).toBeGreaterThan(1)
+      expect(item.lineup?.some((slot) => slot.pointsMove === 0)).toBe(true)
+    })
+
+    it('carries no VIP display names', () => {
+      const entries = stepsOf([snap(0), snap(5, nflModel({ EmpireMaker2: { rank: 480 } }))])
+      expect(JSON.stringify(entries)).not.toContain('EmpireMaker2')
+    })
+  })
+
+  describe('gaps', () => {
+    it('puts a gap entry with its reason where the skipped snapshot was and compares across it', () => {
+      const entries = stepsOf([snap(0), { reason: 'unavailable', snapshotAt: minute(5) }, snap(10, nflModel({ EmpireMaker2: { rank: 480 } }))])
+      expect(entries.map((entry) => [entry.kind, entry.snapshotAt])).toEqual([
+        ['step', minute(10)],
+        ['gap', minute(5)],
+      ])
+      expect(entries[0]).toMatchObject({ items: [{ vipKey: KEY.empire, rank: { from: 511, to: 480 } }] })
+      expect(entries[1]).toMatchObject({ kind: 'gap', reason: 'unavailable' })
+    })
+
+    it('keeps a not-fresh reason, and several gaps in a row, and a gap at the start', () => {
+      const entries = stepsOf([
+        { reason: 'not-fresh', snapshotAt: minute(0) },
+        snap(5),
+        { reason: 'not-fresh', snapshotAt: minute(10) },
+        { reason: 'unavailable', snapshotAt: minute(15) },
+        snap(20),
+      ])
+      expect(entries.map((entry) => [entry.kind, entry.kind === 'gap' ? entry.reason : null])).toEqual([
+        ['step', null],
+        ['gap', 'unavailable'],
+        ['gap', 'not-fresh'],
+        ['gap', 'not-fresh'],
+      ])
+    })
+  })
+
+  describe('completed contest', () => {
+    const done = (changes = {}) => nflModel(changes, completed)
+
+    it('gives every step up to completion, then one High item with the final standings, and nothing after', () => {
+      const entries = stepsOf([snap(0), snap(5, nflModel({ EmpireMaker2: { rank: 480 } })), snap(10, done({ EmpireMaker2: { rank: 470 } })), snap(15, done({ EmpireMaker2: { rank: 400 } })), snap(20, done())])
+      const items = entries.map((entry) => (entry.kind === 'step' ? entry.items : []))
+      expect(items[0]).toEqual([])
+      expect(items[1]).toEqual([])
+      expect(items[3]).toHaveLength(1)
+      expect(items[2]).toEqual([
+        expect.objectContaining({
+          kind: 'contest-state',
+          priority: 'high',
+          state: { from: 'live', to: 'completed' },
+          standings: expect.arrayContaining([{ vipKey: KEY.empire, rank: { from: 480, to: 470 }, points: expect.anything(), cashing: false }]),
+        }),
+      ])
+    })
+
+    it('holds final standings once, not as per-VIP items', () => {
+      const entries = stepsOf([snap(0), snap(5, done({ EmpireMaker2: { rank: 400 } }))])
+      const items = entries[0].kind === 'step' ? entries[0].items : []
+      expect(items.map((item) => item.kind)).toEqual(['contest-state'])
+      expect(items[0].kind === 'contest-state' && items[0].standings).toHaveLength(nflModel().vips.length)
+    })
+  })
+
+  describe('range note', () => {
+    it('says the timeline starts from the oldest snapshot by default', () => {
+      expect(buildTimeline([snap(5), snap(10)]).rangeNote).toEqual({ kind: 'from', snapshotAt: minute(5) })
+    })
+
+    it('says the contest start or the cap when told what stopped the range', () => {
+      expect(buildTimeline([snap(5), snap(10)], { reach: 'contest-start' }).rangeNote).toEqual({ kind: 'contest-start', snapshotAt: minute(5) })
+      expect(buildTimeline([snap(5), snap(10)], { reach: 'cap' }).rangeNote).toEqual({ kind: 'cap', snapshotAt: minute(5) })
+    })
+
+    it('has no note without snapshots', () => {
+      expect(buildTimeline([]).rangeNote).toBeNull()
+    })
+  })
+})
+
+describe("the Seen mark's snapshot time", () => {
+  const SEEN_AT = '2026-10-04T18:41:34Z'
+  const LATER_AT = '2026-10-04T18:46:34Z'
+
+  it('is null before the feed has been recorded', () => {
+    expect(createShiftsFeed({ storage: memoryStorage(), now: () => T0 }).seenSnapshotAt()).toBeNull()
+  })
+
+  it('is the snapshot time of the build the Seen mark was seeded from', () => {
+    const { feed } = seededFeed()
+    expect(feed.seenSnapshotAt()).toBe(SEEN_AT)
+  })
+
+  it('stays put on a later build and moves to the newest build when marked seen', () => {
+    const { feed } = seededFeed()
+    feed.record(nflModel({}, (snapshot) => (snapshot.snapshot_at = LATER_AT)), { visit: false })
+    expect(feed.seenSnapshotAt()).toBe(SEEN_AT)
+    feed.markSeen()
+    expect(feed.seenSnapshotAt()).toBe(LATER_AT)
+  })
+
+  it('moves when a quick visit advances the Seen mark on its own', () => {
+    const { feed, at } = seededFeed()
+    at(T0 + 60_000)
+    feed.record(nflModel({}, (snapshot) => (snapshot.snapshot_at = LATER_AT)), { visit: true })
+    expect(feed.seenSnapshotAt()).toBe(LATER_AT)
+  })
+
+  it('is read-only: reading it writes nothing to storage', () => {
+    const storage = memoryStorage()
+    const feed = createShiftsFeed({ storage, now: () => T0 })
+    feed.record(nflModel(), { visit: true })
+    const before = [...storage.data.entries()]
+    feed.seenSnapshotAt()
+    feed.seenSnapshotAt()
+    expect([...storage.data.entries()]).toEqual(before)
+  })
+
+  it('notifies subscribers when the Seen mark moves', () => {
+    const { feed } = seededFeed()
+    let notified = 0
+    feed.subscribe(() => notified++)
+    feed.markSeen()
+    expect(notified).toBe(1)
   })
 })

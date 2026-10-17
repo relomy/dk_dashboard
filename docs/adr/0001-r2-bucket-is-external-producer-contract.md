@@ -20,5 +20,9 @@ The bucket name and key layout are an API, not an internal detail. Renaming the
 bucket or changing the `snapshots/*` / `manifest/*` / `latest.json` key shape
 breaks the producer silently — coordinate any such change with `dk_results`.
 Snapshot keys are immutable and published in dependency order (snapshot before
-the `latest.json` that points at it), which is what makes the `public,
-max-age=60` cache on `snapshots/*` safe.
+the `latest.json` that points at it), which is what makes the long-lived cache on
+`snapshots/*` safe. Successful (200) `/api/snapshot` responses for `snapshots/*`
+send `Cache-Control: private, max-age=31536000, immutable`; `private` keeps
+shared caches from storing an authenticated response. Error responses (401, 400,
+404, 500) and `manifest/*` and `latest.json` responses stay `no-store`, because
+those keys or statuses can change or appear later.

@@ -8,12 +8,12 @@ import { useLatest } from '../../hooks/useLatest'
 import { useLiveModel } from '../../hooks/useLiveModel'
 import { useShiftsFeed } from '../../hooks/useShiftsFeed'
 import type { LiveModel } from '../../lib/liveModel'
-import type { ShiftsFeed, ShiftsGap } from '../../lib/shifts'
+import type { ShiftsFeed, AwaySummary } from '../../lib/shifts'
 import { awayText, describeItem } from './shiftText'
 
 /**
  * The banner under the top bar: one row per High item not yet surfaced, plus one "while you were away" line after a
- * long gap. Renders nothing without a feed (anyone but the owner, or outside the shell) or without a model for `sport`.
+ * long absence. Renders nothing without a feed (anyone but the owner, or outside the shell) or without a model for `sport`.
  */
 function ShiftsBanner({ sport }: { sport: string | null }) {
   const feed = useShiftsFeed()
@@ -44,10 +44,10 @@ function ScopedBanner({ feed, sport }: { feed: ShiftsFeed; sport: string | null 
  */
 function BannerRows({ feed, model, sport, username }: { feed: ShiftsFeed; model: LiveModel; sport: string; username: string | undefined }) {
   const items = useSyncExternalStore(feed.subscribe, feed.feed)
-  const gap = useSyncExternalStore(feed.subscribe, feed.gap)
+  const away = useSyncExternalStore(feed.subscribe, feed.awaySummary)
   const [shownIds, setShownIds] = useState<string[]>([])
   const [dismissedIds, setDismissedIds] = useState<string[]>([])
-  const [dismissedGap, setDismissedGap] = useState<ShiftsGap | null>(null)
+  const [dismissedAway, setDismissedAway] = useState<AwaySummary | null>(null)
 
   const unsurfaced = items.filter((item) => item.priority === 'high' && !item.surfaced)
   const fresh = unsurfaced.filter((item) => !shownIds.includes(item.id))
@@ -56,7 +56,7 @@ function BannerRows({ feed, model, sport, username }: { feed: ShiftsFeed; model:
     const item = items.find((candidate) => candidate.id === id)
     return item && !dismissedIds.includes(id) ? [item] : []
   })
-  const summary = gap && gap !== dismissedGap ? gap : null
+  const summary = away && away !== dismissedAway ? away : null
   if (rows.length === 0 && !summary) return null
 
   const shiftsPath = `/shifts/${sport}`
@@ -68,7 +68,7 @@ function BannerRows({ feed, model, sport, username }: { feed: ShiftsFeed; model:
             lead={<Clock aria-hidden="true" className="size-4 text-muted-foreground" />}
             text={`While you were away (${awayText(summary.minutesAway)}): ${summary.unseenCount} unseen, top: ${describeItem(summary.topItem, model, username)}`}
             action={{ label: 'Open', to: shiftsPath }}
-            onDismiss={() => setDismissedGap(summary)}
+            onDismiss={() => setDismissedAway(summary)}
           />
         ) : null}
         {rows.map((item) => (

@@ -1,26 +1,8 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchJson } from '../lib/api'
-import type { DayManifest, LatestResponse, ManifestSnapshotSummary } from '../lib/types'
-
-function sortNewestFirst(items: ManifestSnapshotSummary[]): ManifestSnapshotSummary[] {
-  return [...items].sort((a, b) => b.snapshot_at.localeCompare(a.snapshot_at))
-}
-
-function dedupeByTimestamp(items: ManifestSnapshotSummary[]): ManifestSnapshotSummary[] {
-  const seen = new Set<string>()
-  const result: ManifestSnapshotSummary[] = []
-
-  for (const item of items) {
-    if (seen.has(item.snapshot_at)) {
-      continue
-    }
-    seen.add(item.snapshot_at)
-    result.push(item)
-  }
-
-  return result
-}
+import { manifestWindowPaths, snapshotsNewestFirst } from '../lib/manifestWindow'
+import type { DayManifest, LatestResponse } from '../lib/types'
 
 export function useHistoryTimeline(enabled: boolean) {
   const latestQuery = useQuery({
@@ -30,8 +12,9 @@ export function useHistoryTimeline(enabled: boolean) {
     staleTime: 60_000,
   })
 
-  const todayManifestPath = latestQuery.data?.manifest_today_path
-  const yesterdayManifestPath = latestQuery.data?.manifest_yesterday_path
+  const range = latestQuery.data ? manifestWindowPaths(latestQuery.data) : undefined
+  const todayManifestPath = range?.today
+  const yesterdayManifestPath = range?.yesterday
 
   const todayManifestQuery = useQuery({
     queryKey: ['history-timeline-manifest', todayManifestPath],
@@ -48,12 +31,7 @@ export function useHistoryTimeline(enabled: boolean) {
   })
 
   const snapshots = useMemo(() => {
-    const combined = [
-      ...(todayManifestQuery.data?.snapshots ?? []),
-      ...(yesterdayManifestQuery.data?.snapshots ?? []),
-    ]
-
-    return sortNewestFirst(dedupeByTimestamp(combined))
+    return snapshotsNewestFirst(todayManifestQuery.data?.snapshots ?? [], yesterdayManifestQuery.data?.snapshots ?? [])
   }, [todayManifestQuery.data, yesterdayManifestQuery.data])
 
   return {
