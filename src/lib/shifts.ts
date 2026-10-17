@@ -150,8 +150,8 @@ export interface ShiftsFeed {
   unseenCount(): number
   /** High priority items not yet passed to `markSurfaced`. */
   unsurfaced(): ShiftItem[]
-  /** The returned-after-a-gap data, or null. */
-  gap(): AwaySummary | null
+  /** The away summary data, or null. */
+  awaySummary(): AwaySummary | null
   /** True after a quick visit moved the Seen mark on by itself; cleared by the next visit or by `markSeen`. */
   autoAdvanced(): boolean
   /** Advances the Seen mark to now and clears the High priority log. */
@@ -190,9 +190,9 @@ export const CASH_LINE_POINTS_THRESHOLD = 1.0
 export const CASH_LINE_RANK_THRESHOLD = 2
 /** The High priority log keeps at most this many entries; the oldest are dropped first. */
 export const HIGH_LOG_CAP = 50
-/** A visit after a gap shorter than this advances the Seen mark silently, in milliseconds. */
+/** A visit after an absence shorter than this advances the Seen mark silently, in milliseconds. */
 export const AUTO_ADVANCE_MS = 10 * 60_000
-/** A visit after a gap of at least this long sets the returned-after-a-gap flag (when something is unseen). */
+/** A visit after an absence of at least this long sets the away summary (when something is unseen). */
 export const SUMMARY_MS = 30 * 60_000
 // ----------------------------------------------------------------------------------------------------------------
 
@@ -747,7 +747,7 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
   }
 
   let items: ShiftItem[] = []
-  let gap: AwaySummary | null = null
+  let away: AwaySummary | null = null
   let autoAdvanced = false
   let currentKey: string | null = null
   let seenAt: string | null = null
@@ -759,14 +759,14 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
     record(model, { visit }) {
       items = []
       if (visit) {
-        gap = null
+        away = null
         autoAdvanced = false
       }
       try {
         const storageKey = `${STORAGE_KEY_PREFIX}${model.sport}`
         if (storageKey !== currentKey) {
           // The flags describe the sport the feed followed before, not this one.
-          gap = null
+          away = null
           autoAdvanced = false
         }
         currentKey = storageKey
@@ -775,12 +775,12 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
         if (!stored || stored.contestKey !== digest.contestKey) {
           // First visit, another primary contest or a corrupt value: seed both digests and drop the old state.
           write(storageKey, { contestKey: digest.contestKey, seen: digest, last: digest, log: [] })
-          gap = null
+          away = null
           autoAdvanced = false
           return
         }
-        const gapMs = Math.max(0, digest.at - stored.last.at)
-        if (visit && gapMs < AUTO_ADVANCE_MS) {
+        const awayMs = Math.max(0, digest.at - stored.last.at)
+        if (visit && awayMs < AUTO_ADVANCE_MS) {
           // A quick look away: acknowledge everything, High priority log included.
           write(storageKey, { ...stored, seen: digest, last: digest, log: [] })
           autoAdvanced = true
@@ -794,12 +794,12 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
           ...withCrossings(netVipShifts(seen, digest, seen.at), seen, digest, log, seen.at),
           ...cashLineShift(seen, digest, seen.at),
         ])
-        if (visit && gapMs >= SUMMARY_MS && items.length > 0) {
-          gap = { unseenCount: items.length, topItem: items[0], minutesAway: Math.floor(gapMs / 60_000) }
+        if (visit && awayMs >= SUMMARY_MS && items.length > 0) {
+          away = { unseenCount: items.length, topItem: items[0], minutesAway: Math.floor(awayMs / 60_000) }
         }
       } catch {
         items = []
-        gap = null
+        away = null
         // Recording must never break the Live view.
       }
     },
@@ -807,11 +807,11 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
     seenSnapshotAt: () => seenAt,
     unseenCount: () => items.length,
     unsurfaced: () => items.filter((item) => item.priority === 'high' && !item.surfaced),
-    gap: () => gap,
+    awaySummary: () => away,
     autoAdvanced: () => autoAdvanced,
     markSeen() {
       items = []
-      gap = null
+      away = null
       autoAdvanced = false
       try {
         const stored = currentKey ? read(currentKey) : null

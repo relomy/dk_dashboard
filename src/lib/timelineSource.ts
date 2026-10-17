@@ -92,18 +92,20 @@ export const apiTimelineHistory: TimelineHistory = {
 const defaultYield = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
 
 /** Runs tasks with at most `bound` in flight at once, across every caller sharing the limiter. */
-function createLimiter(bound: number): <T>(task: () => Promise<T>) => Promise<T> {
+export function createLimiter(bound: number): <T>(task: () => Promise<T>) => Promise<T> {
   const limit = Math.max(bound, 1)
   let active = 0
   const waiting: Array<() => void> = []
   return async (task) => {
+    // A freed slot is handed straight to the next waiter (active stays counted), so nobody can slip in between.
     if (active >= limit) await new Promise<void>((resolve) => waiting.push(resolve))
-    active += 1
+    else active += 1
     try {
       return await task()
     } finally {
-      active -= 1
-      waiting.shift()?.()
+      const next = waiting.shift()
+      if (next) next()
+      else active -= 1
     }
   }
 }

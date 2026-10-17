@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { TIMELINE_CAP, TIMELINE_FETCH_BOUND, TIMELINE_LOAD_MORE_SNAPSHOTS, TIMELINE_OPEN_SNAPSHOTS } from '../timelineConfig'
 import { ApiError } from '../api'
-import { createTimelineSource, type TimelineHistory } from '../timelineSource'
+import { createLimiter, createTimelineSource, type TimelineHistory } from '../timelineSource'
 import { pathOf, stamp, stubHistory } from '../../test/timelineHistory'
 import type { TimelineOpening } from '../timelineSource'
 import type { VipShiftItem } from '../shifts'
@@ -9,6 +9,32 @@ import type { VipShiftItem } from '../shifts'
 const noYield = async () => {}
 const sourceOf = (history: TimelineHistory, extra: Partial<Parameters<typeof createTimelineSource>[0]> = {}) =>
   createTimelineSource({ history, now: () => 1_000, yieldToMain: noYield, ...extra })
+
+describe('the fetch limiter', () => {
+  it('never lets a caller arriving as a slot is released run beside the waiter that was handed it', async () => {
+    // A caller lands a few microtasks after the release; whichever microtask lines up with the hand-over, the bound holds.
+    for (let delay = 0; delay <= 10; delay += 1) {
+      const run = createLimiter(1)
+      let active = 0
+      let peak = 0
+      const task = (gate: Promise<void>) => async () => {
+        peak = Math.max(peak, ++active)
+        await gate
+        active -= 1
+      }
+      let release: () => void = () => {}
+      const first = run(task(new Promise<void>((resolve) => { release = resolve })))
+      const waiter = run(task(Promise.resolve()))
+      release()
+      const barger = (async () => {
+        for (let i = 0; i < delay; i += 1) await Promise.resolve()
+        await run(task(Promise.resolve()))
+      })()
+      await Promise.all([first, waiter, barger])
+      expect(peak, `delay ${delay}`).toBe(1)
+    }
+  })
+})
 
 describe('the Timeline source', () => {
   it('opens on the newest snapshots, giving one fewer Step, newest first with snapshot times', async () => {

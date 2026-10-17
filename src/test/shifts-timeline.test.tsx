@@ -20,7 +20,7 @@ function stubFeed(): ShiftsFeed {
     feed: () => NO_ITEMS,
     unseenCount: () => 0,
     unsurfaced: () => [],
-    gap: () => null,
+    awaySummary: () => null,
     autoAdvanced: () => false,
     seenSnapshotAt: () => null,
     markSeen: vi.fn(),

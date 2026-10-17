@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useTimelineSource } from '../context/TimelineSourceContext'
 import { SNAPSHOT_POLL_MS } from '../lib/pollInterval'
@@ -12,8 +12,29 @@ export interface LoadMoreState {
   announcement: string
 }
 
+const idle: LoadMoreState = { busy: false, progress: null, error: null, announcement: '' }
+
 /** The tail of each (client, sport) operation queue; it outlives a remount so an operation in flight keeps its place. */
 const queues = new WeakMap<QueryClient, Map<string, Promise<unknown>>>()
+
+/** The Load more in flight for each (client, sport), so a remounted hook neither starts a second one nor loses sight of it. */
+const loadsInFlight = new WeakMap<QueryClient, Map<string, Promise<void>>>()
+
+/** Keeps state per sport: a value set for another sport is ignored, and reading under a new sport gives `initial`. */
+function useSportState<T>(sport: string, initial: T): [T, (update: T | ((prev: T) => T)) => void] {
+  const [held, setHeld] = useState<{ sport: string; value: T }>({ sport, value: initial })
+  const value = held.sport === sport ? held.value : initial
+  const set = useCallback(
+    (update: T | ((prev: T) => T)) =>
+      setHeld((prev) => {
+        const base = prev.sport === sport ? prev.value : initial
+        return { sport, value: typeof update === 'function' ? (update as (prev: T) => T)(base) : update }
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sport],
+  )
+  return [value, set]
+}
 
 /**
  * Runs `operation` after every earlier one for the same Timeline has finished, on the opening cached by then, and
@@ -44,8 +65,8 @@ function enqueue(
  */
 export function useShiftsTimeline(sport: string) {
   const source = useTimelineSource()
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
-  const [refreshError, setRefreshError] = useState<Error | null>(null)
+  const [progress, setProgress] = useSportState<{ done: number; total: number } | null>(sport, null)
+  const [refreshError, setRefreshError] = useSportState<Error | null>(sport, null)
   const queryClient = useQueryClient()
   const queryKey = ['shifts-timeline', sport]
   const query = useQuery({
@@ -60,7 +81,7 @@ export function useShiftsTimeline(sport: string) {
   const retry = useCallback(() => {
     setProgress(null)
     void query.refetch()
-  }, [query])
+  }, [query, setProgress])
   /** Refetches one failed snapshot and swaps the rebuilt Timeline in; resolves `{ ok: false }` when it still fails. */
   const retryGap = useCallback(
     async (snapshotAt: string): Promise<{ ok: boolean }> => {
@@ -79,12 +100,14 @@ export function useShiftsTimeline(sport: string) {
   /**
    * Keeps an open Timeline current: re-reads the manifest every `SNAPSHOT_POLL_MS` while the page is visible,
    * adds only the unseen snapshots, and pauses while hidden, catching up on return once an interval has passed.
-   * It also catches up on mount when the cached opening is older than an interval, and stops for good once the
-   * contest is completed.
+   * It also catches up on mount when the cached opening is older than an interval. Once the contest is completed
+   * only the interval stops: the catch-up on mount and on return stays, so a Timeline kept open overnight, or a new
+   * slate, does not stay stale.
    */
-  const live = query.data?.kind === 'ready' && !query.data.completed
+  const ready = query.data?.kind === 'ready'
+  const completed = query.data?.kind === 'ready' && query.data.completed
   useEffect(() => {
-    if (!live) return
+    if (!ready) return
     let timer: ReturnType<typeof setInterval> | undefined
     let lastRefresh = queryClient.getQueryState(queryKey)?.dataUpdatedAt ?? Date.now()
     let refreshing = false
@@ -108,6 +131,7 @@ export function useShiftsTimeline(sport: string) {
     }
     const start = () => {
       stop()
+      if (completed) return
       timer = setInterval(() => void refreshNow(), SNAPSHOT_POLL_MS)
     }
     const onVisibilityChange = () => {
@@ -125,31 +149,44 @@ export function useShiftsTimeline(sport: string) {
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live, queryClient, sport])
-  const [more, setMore] = useState<LoadMoreState>({ busy: false, progress: null, error: null, announcement: '' })
-  const busy = useRef(false)
+  }, [ready, completed, queryClient, sport])
+  const [more, setMore] = useSportState<LoadMoreState>(sport, idle)
+  const loadKey = JSON.stringify(queryKey)
+  /** Follows a Load more already in flight (started by an earlier mount) until it settles. */
+  useEffect(() => {
+    const running = loadsInFlight.get(queryClient)?.get(loadKey)
+    if (!running) return
+    setMore((prev) => (prev.busy ? prev : { ...prev, busy: true, announcement: 'Loading more snapshots' }))
+    void running.then(() => setMore((prev) => (prev.busy ? { busy: false, progress: null, error: null, announcement: '' } : prev)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient, loadKey])
   /** Loads the next page further back and swaps the longer Timeline in; a failure leaves the rail as it was. */
   const loadMore = useCallback(async () => {
-    if (busy.current) return
-    busy.current = true
+    const running = loadsInFlight.get(queryClient) ?? new Map<string, Promise<void>>()
+    loadsInFlight.set(queryClient, running)
+    if (running.has(loadKey)) return
     setMore({ busy: true, progress: null, error: null, announcement: 'Loading more snapshots' })
-    try {
-      let added = 0
-      await enqueue(queryClient, queryKey, async (current) => {
-        if (!current.loadMore) return null
-        const next = await current.loadMore({ onProgress: (done, total) => setMore((prev) => ({ ...prev, progress: { done, total } })) })
-        added = next.kind === 'ready' ? next.range.loaded - current.range.loaded : 0
-        return next
-      })
-      setMore({ busy: false, progress: null, error: null, announcement: `Loaded ${added} more snapshots` })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not load more snapshots.'
-      setMore({ busy: false, progress: null, error: message, announcement: `Could not load more snapshots: ${message}` })
-    } finally {
-      busy.current = false
-    }
+    const load = (async () => {
+      try {
+        let added = 0
+        await enqueue(queryClient, queryKey, async (current) => {
+          if (!current.loadMore) return null
+          const next = await current.loadMore({ onProgress: (done, total) => setMore((prev) => ({ ...prev, progress: { done, total } })) })
+          added = next.kind === 'ready' ? next.range.loaded - current.range.loaded : 0
+          return next
+        })
+        setMore({ busy: false, progress: null, error: null, announcement: `Loaded ${added} more snapshots` })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Could not load more snapshots.'
+        setMore({ busy: false, progress: null, error: message, announcement: `Could not load more snapshots: ${message}` })
+      } finally {
+        running.delete(loadKey)
+      }
+    })()
+    running.set(loadKey, load)
+    await load
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryClient, sport])
+  }, [queryClient, loadKey, setMore])
   return {
     opening: query.data,
     // An opening on screen is never replaced by an error; background failures arrive as `refreshError`.

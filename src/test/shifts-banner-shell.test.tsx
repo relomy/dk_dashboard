@@ -8,7 +8,7 @@ import { ProfileProvider } from '../context/ProfileProvider'
 import { contestOf, load } from './liveHarness'
 
 // The banner with the real Shifts feed behind the app shell: what shows, what a reload brings back, and what a
-// long gap summarises. Time is the clock the shell reads, so a "reload" is a remount at a later `Date.now()`.
+// long absence summarises. Time is the clock the shell reads, so a "reload" is a remount at a later `Date.now()`.
 
 const store = new Map<string, string>()
 let pointer: string
@@ -172,7 +172,7 @@ describe('the Shifts banner in the app shell', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(1)
   })
 
-  it('shows one "while you were away" line after a long gap with something unseen', async () => {
+  it('shows one "while you were away" line after a long absence with something unseen', async () => {
     const first = renderShell('/live/nfl')
     await seeded()
     first.unmount()
@@ -189,7 +189,7 @@ describe('the Shifts banner in the app shell', () => {
     expect(screen.getAllByText(/while you were away/i)).toHaveLength(1)
   })
 
-  it('shows no summary after a long gap with nothing unseen', async () => {
+  it('shows no summary after a long absence with nothing unseen', async () => {
     const first = renderShell('/live/nfl')
     await seeded()
     first.unmount()

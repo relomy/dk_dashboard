@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TimelineSourceContext } from '../context/TimelineSourceContext'
 import { useShiftsTimeline } from '../hooks/useShiftsTimeline'
 import { SNAPSHOT_POLL_MS as TIMELINE_REFRESH_MS } from '../lib/pollInterval'
+import { TIMELINE_LOAD_MORE_SNAPSHOTS } from '../lib/timelineConfig'
 import { createTimelineSource, type TimelineOpening } from '../lib/timelineSource'
 import { stamp, stubHistory, type StubOptions } from './timelineHistory'
 
@@ -20,7 +21,8 @@ function setup(options: StubOptions = {}) {
     </QueryClientProvider>
   )
   const mount = () => renderHook(() => useShiftsTimeline('nfl'), { wrapper })
-  return { ...stub, client, mount }
+  const mountSport = (initial: string) => renderHook(({ sport }) => useShiftsTimeline(sport), { wrapper, initialProps: { sport: initial } })
+  return { ...stub, client, mount, mountSport }
 }
 
 const stepTimes = (opening: TimelineOpening | undefined) =>
@@ -144,7 +146,7 @@ describe('useShiftsTimeline', () => {
     expect(calls.manifests).toHaveLength(1)
   })
 
-  it('stops polling once the contest is completed', async () => {
+  it('stops the interval once the contest is completed', async () => {
     const done = (snapshot: { sports: { nfl: { contests: Array<{ state: string }> } } }) => {
       snapshot.sports.nfl.contests[0].state = 'completed'
     }
@@ -154,5 +156,97 @@ describe('useShiftsTimeline', () => {
     calls.manifests.length = 0
     await tick(TIMELINE_REFRESH_MS * 3)
     expect(calls.manifests).toEqual([])
+  })
+
+  describe('after the contest is completed', () => {
+    const done = (snapshot: { sports: { nfl: { contests: Array<{ state: string }> } } }) => {
+      snapshot.sports.nfl.contests[0].state = 'completed'
+    }
+    const setVisibility = (state: 'visible' | 'hidden') => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state })
+      document.dispatchEvent(new Event('visibilitychange'))
+    }
+    afterEach(() => {
+      Reflect.deleteProperty(document, 'visibilityState')
+    })
+
+    it('catches up quietly on mount when the cached Timeline is older than an interval', async () => {
+      const { mount, publish } = setup({ mutate: { 6: done } })
+      const first = mount()
+      await waitFor(() => expect(first.result.current.opening?.kind).toBe('ready'))
+      first.unmount()
+      publish(7)
+      await tick(TIMELINE_REFRESH_MS + 1000)
+      const second = mount()
+      await waitFor(() => expect(stepTimes(second.result.current.opening)).toHaveLength(5))
+    })
+
+    it('catches up when the page becomes visible again after an interval, without an interval timer', async () => {
+      const { mount, publish, calls } = setup({ mutate: { 6: done, 7: done } })
+      const hook = mount()
+      await waitFor(() => expect(hook.result.current.opening?.kind).toBe('ready'))
+      act(() => setVisibility('hidden'))
+      publish(7)
+      await tick(TIMELINE_REFRESH_MS + 1000)
+      expect(calls.manifests).toHaveLength(1)
+      act(() => setVisibility('visible'))
+      await waitFor(() => expect(stepTimes(hook.result.current.opening)).toHaveLength(5))
+      calls.manifests.length = 0
+      await tick(TIMELINE_REFRESH_MS * 3)
+      expect(calls.manifests).toEqual([])
+    })
+  })
+
+  it('does not carry refresh errors, progress or Load more state across a sport switch', async () => {
+    const { mountSport, history, calls } = setup({ slots: many })
+    const hook = mountSport('nfl')
+    await waitFor(() => expect(hook.result.current.opening?.kind).toBe('ready'))
+    const manifest = history.manifest
+    history.manifest = async () => { throw new Error('manifest down') }
+    await tick(TIMELINE_REFRESH_MS)
+    expect(hook.result.current.refreshError?.message).toBe('manifest down')
+    history.manifest = manifest
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const snapshot = history.snapshot
+    history.snapshot = async (path) => {
+      if (calls.snapshots.length >= 5) await gate
+      return snapshot(path)
+    }
+    act(() => { void hook.result.current.loadMore() })
+    expect(hook.result.current.more.busy).toBe(true)
+    hook.rerender({ sport: 'golf' })
+    expect(hook.result.current.refreshError).toBeNull()
+    expect(hook.result.current.progress).toBeNull()
+    expect(hook.result.current.more).toMatchObject({ busy: false, error: null, announcement: '' })
+    await act(async () => { release() })
+  })
+
+  it('ignores a second Load more after a remount while the first is still in flight', async () => {
+    const { mount, history } = setup({ slots: many })
+    const first = mount()
+    await waitFor(() => expect(first.result.current.opening?.kind).toBe('ready'))
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const snapshot = history.snapshot
+    const requested: string[] = []
+    history.snapshot = async (path) => {
+      requested.push(path)
+      await gate
+      return snapshot(path)
+    }
+    act(() => { void first.result.current.loadMore() })
+    await waitFor(() => expect(requested.length).toBeGreaterThan(0))
+    const fetchedByFirst = requested.length
+    first.unmount()
+    const second = mount()
+    expect(second.result.current.more.busy).toBe(true)
+    await act(async () => { await second.result.current.loadMore() })
+    expect(requested).toHaveLength(fetchedByFirst)
+    await act(async () => { release() })
+    await waitFor(() => expect(stepTimes(second.result.current.opening)).toHaveLength(14))
+    await waitFor(() => expect(second.result.current.more.busy).toBe(false))
+    expect(new Set(requested).size).toBe(requested.length)
+    expect(requested).toHaveLength(TIMELINE_LOAD_MORE_SNAPSHOTS)
   })
 })

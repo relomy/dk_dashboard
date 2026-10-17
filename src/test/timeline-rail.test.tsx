@@ -78,6 +78,22 @@ describe('a failed Retry', () => {
     expect(within(gap).getByRole('status').textContent).toMatch(/retry failed/i)
   })
 
+  it('keeps focus on Retry while it runs, ignoring clicks until it settles', async () => {
+    let settle: (value: { ok: boolean }) => void = () => {}
+    const onRetryGap = vi.fn(() => new Promise<{ ok: boolean }>((resolve) => (settle = resolve)))
+    render(<Harness timeline={gapTimeline} onRetryGap={onRetryGap} />)
+    const retry = within(screen.getByRole('group', { name: /snapshot unavailable/i })).getByRole('button', { name: 'Retry' })
+    retry.focus()
+    fireEvent.click(retry)
+    expect(retry.getAttribute('aria-disabled')).toBe('true')
+    expect(retry.hasAttribute('disabled')).toBe(false)
+    expect(document.activeElement).toBe(retry)
+    fireEvent.click(retry)
+    expect(onRetryGap).toHaveBeenCalledTimes(1)
+    await act(async () => settle({ ok: false }))
+    expect(retry.getAttribute('aria-disabled')).not.toBe('true')
+  })
+
   it('moves focus to the Step that replaces the gap after a successful retry', async () => {
     const onRetryGap = vi.fn(async () => ({ ok: true }))
     const { rerender } = render(<Harness timeline={gapTimeline} onRetryGap={onRetryGap} />)
@@ -220,12 +236,22 @@ describe('empty states', () => {
     expect(within(screen.getByRole('group', { name: /snapshot unavailable/i })).getByRole('button', { name: 'Retry' })).toBeTruthy()
   })
 
-  it('say "No entries match these filters" when the default filters hide every Step, keeping the gap', () => {
-    const hidden: Timeline = { entries: [step('s1', T(10), [vip('x', MODEL.vips[2].key)]), onlyGaps.entries[0]], rangeNote: null }
+  const hidden: Timeline = { entries: [step('s1', T(10), [vip('x', MODEL.vips[2].key)]), onlyGaps.entries[0]], rangeNote: null }
+
+  it('say "No shifts for your Profile\'s VIPs", without a Reset, when the default filters hide every Step', () => {
     render(<Harness timeline={hidden} rules={{ exact: FIRST.name }} />)
-    expect(screen.getByText('No entries match these filters')).toBeTruthy()
+    expect(screen.getByText("No shifts for your Profile's VIPs")).toBeTruthy()
     expect(screen.queryByText('No VIP shifts yet')).toBeNull()
+    expect(screen.queryByText('No entries match these filters')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Reset' })).toBeNull()
     expect(screen.getByRole('group', { name: /snapshot unavailable/i })).toBeTruthy()
+  })
+
+  it('say "No entries match these filters" with a Reset once the filters are changed', () => {
+    render(<Harness timeline={hidden} rules={{ exact: FIRST.name }} />)
+    fireEvent.click(screen.getByRole('button', { name: 'High priority only' }))
+    const message = screen.getByText('No entries match these filters')
+    expect(within(message.parentElement as HTMLElement).getByRole('button', { name: 'Reset' })).toBeTruthy()
   })
 })
 

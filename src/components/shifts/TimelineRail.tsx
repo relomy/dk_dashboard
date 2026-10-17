@@ -179,6 +179,7 @@ function GapNode({ gap, onRetry, onRetried }: { gap: TimelineGapEntry; onRetry: 
   const label = GAP_LABELS[gap.reason]
   const retriable = gap.reason === 'unavailable'
   const retry = async () => {
+    if (retrying) return
     setRetrying(true)
     setFailed(false)
     try {
@@ -197,7 +198,7 @@ function GapNode({ gap, onRetry, onRetried }: { gap: TimelineGapEntry; onRetry: 
       <p className="text-xs">Shifts inside it may be lost; the Steps either side are compared across it.</p>
       {retriable ? (
         <>
-          <Button variant="outline" size="sm" disabled={retrying} onClick={() => void retry()}>
+          <Button variant="outline" size="sm" aria-disabled={retrying} onClick={() => void retry()}>
             Retry
           </Button>
           <p role="status" aria-live="polite" className="text-xs text-destructive">
@@ -405,8 +406,8 @@ export function TimelineRail({
       {loadMoreAnnouncement}
       {hasSteps ? null : (
         <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground">
-          <p>{hasHiddenSteps ? 'No entries match these filters' : 'No VIP shifts yet'}</p>
-          {hasHiddenSteps ? (
+          <p>{hasHiddenSteps ? (view.isDefault ? "No shifts for your Profile's VIPs" : 'No entries match these filters') : 'No VIP shifts yet'}</p>
+          {hasHiddenSteps && !view.isDefault ? (
             <Button type="button" variant="outline" size="sm" onClick={view.reset}>
               Reset
             </Button>
