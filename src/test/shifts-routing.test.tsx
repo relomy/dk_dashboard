@@ -48,7 +48,7 @@ function renderApp(role: 'owner' | 'friend', path: string) {
 }
 
 describe('/shifts/:sport', () => {
-  it('shows the Shifts page to the owner inside the app shell', async () => {
+  it('shows the Shifts page to an owner inside the app shell', async () => {
     renderApp('owner', '/shifts/nfl')
     expect(await screen.findByRole('heading', { name: 'Shifts' })).toBeTruthy()
     expect(screen.getByText('DK/LIVE')).toBeTruthy()
@@ -56,11 +56,14 @@ describe('/shifts/:sport', () => {
     expect(screen.getByRole('tab', { name: 'Summary', selected: true })).toBeTruthy()
   })
 
-  it('sends a non-owner to the landing page, as for an unknown route', async () => {
+  it('shows the Shifts page to a friend inside the app shell', async () => {
     renderApp('friend', '/shifts/nfl')
-    await screen.findByText('DK/LIVE')
-    expect(screen.queryByRole('heading', { name: 'Shifts' })).toBeNull()
-    expect(screen.queryByText(/shifts are not available/i)).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Mark as seen' })).toBeNull()
+    expect(await screen.findByRole('heading', { name: 'Shifts' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Summary', selected: true })).toBeTruthy()
+  })
+
+  it('opens the Timeline tab for a friend at its own address', async () => {
+    renderApp('friend', '/shifts/nfl/timeline')
+    expect(await screen.findByRole('tab', { name: 'Timeline', selected: true })).toBeTruthy()
   })
 })

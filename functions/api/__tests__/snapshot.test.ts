@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { onRequestGet } from '../snapshot'
 import type { EnvBindings } from '../../_shared/types'
@@ -75,14 +75,75 @@ function buildEnv(overrides: Partial<TestEnv> = {}): TestEnv {
   }
 }
 
+const waitUntilPromises: Promise<unknown>[] = []
+
 async function invoke(path: string, env: TestEnv, headers?: HeadersInit): Promise<Response> {
   return onRequestGet({
-    request: new Request(`https://example.com/api/snapshot${path}`, { headers }),
+    request: new Request(`https://example.com/api/snapshot${path}`, {
+      headers,
+    }),
     env,
+    waitUntil: (promise: Promise<unknown>) => {
+      waitUntilPromises.push(promise)
+    },
   } as Parameters<typeof onRequestGet>[0])
 }
 
+interface StubCache {
+  store: Map<string, Response>
+  matchKeys: string[]
+  putKeys: string[]
+  match: (request: Request) => Promise<Response | undefined>
+  put: (request: Request, response: Response) => Promise<void>
+}
+
+function createStubCache(options: { failPut?: boolean } = {}): StubCache {
+  const store = new Map<string, Response>()
+  const matchKeys: string[] = []
+  const putKeys: string[] = []
+  return {
+    store,
+    matchKeys,
+    putKeys,
+    match: async (request) => {
+      matchKeys.push(request.url)
+      return store.get(request.url)?.clone()
+    },
+    put: async (request, response) => {
+      putKeys.push(request.url)
+      if (options.failPut) {
+        throw new Error('cache put failed')
+      }
+      store.set(request.url, response)
+    },
+  }
+}
+
+const authHeaders = { Cookie: 'session_token=tok_1' }
+
+function envWithR2(body: unknown, onGet?: (key: string) => void): TestEnv {
+  return buildEnv({
+    dk_dashboard_data: {
+      get: async (key) => {
+        onGet?.(key)
+        return { text: async () => JSON.stringify(body) }
+      },
+    },
+  })
+}
+
 describe('/api/snapshot', () => {
+  let cache: StubCache
+  beforeEach(() => {
+    cache = createStubCache()
+    waitUntilPromises.length = 0
+    vi.stubGlobal('caches', { default: cache })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('returns 401 JSON error when session is missing', async () => {
     const response = await invoke('?path=snapshots/live.json', buildEnv())
 
@@ -97,7 +158,9 @@ describe('/api/snapshot', () => {
   })
 
   it('returns 400 JSON error when path is invalid', async () => {
-    const response = await invoke('?path=../secret.json', buildEnv(), { Cookie: 'session_token=tok_1' })
+    const response = await invoke('?path=../secret.json', buildEnv(), {
+      Cookie: 'session_token=tok_1',
+    })
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
@@ -123,7 +186,9 @@ describe('/api/snapshot', () => {
   })
 
   it('returns 404 JSON error when snapshot key is not found in R2', async () => {
-    const response = await invoke('?path=snapshots/live.json', buildEnv(), { Cookie: 'session_token=tok_1' })
+    const response = await invoke('?path=snapshots/live.json', buildEnv(), {
+      Cookie: 'session_token=tok_1',
+    })
 
     expect(response.status).toBe(404)
     expect(response.headers.get('cache-control')).toBe('no-store')
@@ -171,5 +236,105 @@ describe('/api/snapshot', () => {
     expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8')
     expect(response.headers.get('cache-control')).toBe('no-store')
     await expect(response.json()).resolves.toEqual({ date: '2026-02-22' })
+  })
+
+  it('stores a public 24-hour copy on a miss and reports miss', async () => {
+    const gets: string[] = []
+    const response = await invoke(
+      '?path=snapshots/a.json',
+      envWithR2({ n: 1 }, (k) => gets.push(k)),
+      authHeaders,
+    )
+    await Promise.all(waitUntilPromises)
+
+    expect(gets).toEqual(['snapshots/a.json'])
+    expect(response.headers.get('x-snapshot-cache')).toBe('miss')
+    expect(response.headers.get('cache-control')).toBe('private, max-age=31536000, immutable')
+    await expect(response.json()).resolves.toEqual({ n: 1 })
+    const stored = cache.store.get('https://example.com/api/snapshot?path=snapshots/a.json')
+    expect(stored?.headers.get('cache-control')).toBe('public, max-age=86400')
+    await expect(stored?.json()).resolves.toEqual({ n: 1 })
+  })
+
+  it('returns the stored copy on a hit without reading R2', async () => {
+    await invoke('?path=snapshots/a.json', envWithR2({ n: 1 }), authHeaders)
+    await Promise.all(waitUntilPromises)
+
+    const gets: string[] = []
+    const response = await invoke(
+      '?path=snapshots/a.json',
+      envWithR2({ n: 2 }, (k) => gets.push(k)),
+      authHeaders,
+    )
+
+    expect(gets).toEqual([])
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-snapshot-cache')).toBe('hit')
+    expect(response.headers.get('cache-control')).toBe('private, max-age=31536000, immutable')
+    expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8')
+    await expect(response.json()).resolves.toEqual({ n: 1 })
+  })
+
+  it('never reads the cache for an unauthenticated request', async () => {
+    cache.store.set('https://example.com/api/snapshot?path=snapshots/a.json', new Response('{"secret":true}'))
+
+    const response = await invoke('?path=snapshots/a.json', buildEnv())
+
+    expect(response.status).toBe(401)
+    expect(cache.matchKeys).toEqual([])
+    expect(cache.putKeys).toEqual([])
+  })
+
+  it('never touches the cache for manifest paths', async () => {
+    const response = await invoke('?path=manifest/2026-02-22.json', envWithR2({ date: 'x' }), authHeaders)
+    await Promise.all(waitUntilPromises)
+
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(response.headers.has('x-snapshot-cache')).toBe(false)
+    expect(cache.matchKeys).toEqual([])
+    expect(cache.putKeys).toEqual([])
+  })
+
+  it('does not store a 404 and a later snapshot is served', async () => {
+    const missing = await invoke('?path=snapshots/a.json', buildEnv(), authHeaders)
+    await Promise.all(waitUntilPromises)
+
+    expect(missing.status).toBe(404)
+    expect(cache.putKeys).toEqual([])
+
+    const found = await invoke('?path=snapshots/a.json', envWithR2({ n: 1 }), authHeaders)
+    expect(found.status).toBe(200)
+  })
+
+  it('does not store an invalid-path error', async () => {
+    const response = await invoke('?path=../secret.json', buildEnv(), authHeaders)
+
+    expect(response.status).toBe(400)
+    expect(cache.matchKeys).toEqual([])
+    expect(cache.putKeys).toEqual([])
+  })
+
+  it('still returns the snapshot when the cache write fails', async () => {
+    cache = createStubCache({ failPut: true })
+    vi.stubGlobal('caches', { default: cache })
+
+    const response = await invoke('?path=snapshots/a.json', envWithR2({ n: 1 }), authHeaders)
+    await expect(Promise.all(waitUntilPromises)).resolves.toBeDefined()
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-snapshot-cache')).toBe('miss')
+    await expect(response.json()).resolves.toEqual({ n: 1 })
+  })
+
+  it('falls back to R2 when the cache read fails', async () => {
+    cache.match = async () => {
+      throw new Error('cache match failed')
+    }
+
+    const response = await invoke('?path=snapshots/a.json', envWithR2({ n: 1 }), authHeaders)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-snapshot-cache')).toBe('miss')
+    await expect(response.json()).resolves.toEqual({ n: 1 })
   })
 })

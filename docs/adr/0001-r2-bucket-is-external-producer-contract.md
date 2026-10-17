@@ -26,3 +26,15 @@ send `Cache-Control: private, max-age=31536000, immutable`; `private` keeps
 shared caches from storing an authenticated response. Error responses (401, 400,
 404, 500) and `manifest/*` and `latest.json` responses stay `no-store`, because
 those keys or statuses can change or appear later.
+
+The browser header stays `private`, but after the session check passes the
+endpoint also keeps a **public** copy of each `snapshots/*` response in
+Cloudflare's per-data-center edge cache (`public, max-age=86400`; the cache API
+refuses to store `private` responses), so R2 is read about once per data center
+instead of once per friend. That is safe because the cache lookup happens only
+after authentication: no request without a valid session reaches it, and the
+cache key is the request URL with no cookies. The stored lifetime is 24 hours so
+a copy never outlives the 30-day R2 lifecycle rule that deletes old snapshots.
+`manifest/*`, `latest.json` and every error response are never read from or
+written to the cache. Responses for `snapshots/*` carry `x-snapshot-cache: hit`
+or `miss` so the behavior can be checked in DevTools.

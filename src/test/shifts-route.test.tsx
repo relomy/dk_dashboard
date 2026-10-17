@@ -541,13 +541,6 @@ describe('the Shifts tab shell', () => {
     expect(tab.className).toContain('focus-visible:ring')
   })
 
-  it('shows only the not-available message to a non-owner, with no tab strip', async () => {
-    await renderShifts(null)
-    expect(await screen.findByText('Shifts are not available.')).toBeTruthy()
-    expect(screen.queryByRole('tablist')).toBeNull()
-    expect(screen.queryByRole('tab')).toBeNull()
-  })
-
   it('shows the not-renderable message without a tab strip for a sport with nothing to follow', async () => {
     await renderShifts(stubFeed([]), undefined, 200, '/shifts/mlb')
     expect(await screen.findByText('There is nothing to follow live for this sport.')).toBeTruthy()

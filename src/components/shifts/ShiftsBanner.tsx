@@ -13,7 +13,7 @@ import { awayText, describeItem } from './shiftText'
 
 /**
  * The banner under the top bar: one row per High item not yet surfaced, plus one "while you were away" line after a
- * long absence. Renders nothing without a feed (anyone but the owner, or outside the shell) or without a model for `sport`.
+ * long absence. Renders nothing without a feed (outside the shell) or without a model for `sport`.
  */
 function ShiftsBanner({ sport }: { sport: string | null }) {
   const feed = useShiftsFeed()

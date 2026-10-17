@@ -158,8 +158,7 @@ function Shifts() {
       </PageMessage>
     )
   }
-  if (!feed) return <PageMessage>Shifts are not available.</PageMessage>
-  if (!result) return <PageMessage>Loading shifts...</PageMessage>
+  if (!feed || !result) return <PageMessage>Loading shifts...</PageMessage>
   if (result.kind === 'not-renderable')
     return <PageMessage>There is nothing to follow live for this sport.</PageMessage>
   return <ShiftsPage sport={sport} feed={feed} model={result.model} />

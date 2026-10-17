@@ -94,6 +94,8 @@ function golfCashedIn() {
 }
 
 async function poll(client: QueryClient, snapshot: unknown) {
+  // The feed exists as soon as the shell mounts, so let it record the first snapshot as its baseline before a poll.
+  await vi.waitFor(() => expect([...store.keys()].some((key) => key.startsWith('dk_dashboard_shifts_'))).toBe(true))
   const path = `snapshots/poll-${Math.random()}.json`
   served[path] = snapshot
   pointer = path
@@ -146,12 +148,13 @@ describe('the Shifts banner in the app shell', () => {
     expect(within(row).getByRole('link', { name: 'View' }).getAttribute('href')).toBe('/shifts/nfl')
   })
 
-  it('is left out for anyone but the owner', async () => {
+  it('is shown to a friend too', async () => {
     role = 'friend'
     const { client } = renderShell('/live/nfl')
     await screen.findByText('live page')
     await poll(client, cashedIn('EmpireMaker2'))
-    expect(banner()).toBeNull()
+    expect(await screen.findByRole('listitem')).toBeTruthy()
+    expect(banner()).not.toBeNull()
   })
 
   it('does not bring a dismissed row back after a reload, and brings back one that was never dismissed', async () => {
