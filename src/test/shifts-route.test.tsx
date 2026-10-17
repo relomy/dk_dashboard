@@ -464,11 +464,11 @@ describe('the lineup diff on a VIP card', () => {
 })
 
 describe('the Shifts tab shell', () => {
-  it('shows one selected Summary tab whose panel holds the Summary', async () => {
+  it('shows Summary selected, with Timeline beside it, and a panel that holds the Summary', async () => {
     await renderShifts(stubFeed([vipItem('empire')]))
     const tabs = within(screen.getByRole('tablist')).getAllByRole('tab')
-    expect(tabs.map((tab) => tab.textContent)).toEqual(['Summary'])
-    expect(tabs[0].getAttribute('aria-selected')).toBe('true')
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['Summary', 'Timeline'])
+    expect(tabs.map((tab) => tab.getAttribute('aria-selected'))).toEqual(['true', 'false'])
     const panel = screen.getByRole('tabpanel')
     expect(panel.getAttribute('aria-labelledby')).toBe(tabs[0].id)
     expect(within(panel).getByRole('button', { name: 'Mark as seen' })).toBeTruthy()

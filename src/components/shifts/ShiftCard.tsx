@@ -21,7 +21,7 @@ import { contestStateText, lineMoveText, PATH_TEXT } from './shiftText'
  * signed distance to cash (above the cash line is positive) are better when they rise. A zero or unknown move
  * shows no arrow.
  */
-function MoveRow({
+export function MoveRow({
   label,
   move,
   format,
@@ -91,7 +91,7 @@ function deltaTone(move: number | null): string {
 }
 
 /** The VIP's whole lineup diff behind a collapsed row. Rows keep the order the feed gives them. */
-function LineupDiff({ lineup }: { lineup: LineupSlotDiff[] }) {
+export function LineupDiff({ lineup }: { lineup: LineupSlotDiff[] }) {
   const [open, setOpen] = useState(false)
   const changed = lineup.filter(isChanged).length
   const Chevron = open ? ChevronDown : ChevronRight

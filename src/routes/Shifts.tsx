@@ -1,14 +1,16 @@
 import { useSyncExternalStore } from 'react'
-import { Link, Outlet, useOutletContext, useParams } from 'react-router-dom'
+import { Link, Outlet, useMatch, useOutletContext, useParams } from 'react-router-dom'
 import { Tabs } from 'radix-ui'
 import { Button } from '@/components/ui/button'
 import { CashLineShiftCard, ContestShiftCard, VipShiftCard } from '../components/shifts/ShiftCard'
 import { vipName } from '../components/shifts/shiftText'
 import PageMessage from '../components/PageMessage'
+import { TimelineRail } from '../components/shifts/TimelineRail'
 import { useProfiles } from '../context/ProfileContext'
 import { useLatest } from '../hooks/useLatest'
 import { useLiveModel } from '../hooks/useLiveModel'
 import { useShiftsFeed } from '../hooks/useShiftsFeed'
+import { useShiftsTimeline } from '../hooks/useShiftsTimeline'
 import type { LiveModel } from '../lib/liveModel'
 import type { ShiftsFeed } from '../lib/shifts'
 
@@ -51,12 +53,42 @@ export function ShiftsSummary() {
   )
 }
 
+/**
+ * The Timeline, the child route at `timeline`. It mounts only when the route is visited, so nothing is loaded
+ * before then. Rows are the active Profile's VIPs.
+ */
+export function ShiftsTimeline() {
+  const { model } = useOutletContext<ShiftsOutletContext>()
+  const { activeProfile } = useProfiles()
+  const { opening, error, loading, progress, retry } = useShiftsTimeline(model.sport)
+  if (error) {
+    return (
+      <PageMessage tone="error">
+        <p>{error instanceof Error ? error.message : 'The Timeline could not be loaded.'}</p>
+        <Button variant="outline" size="sm" onClick={retry}>
+          Retry
+        </Button>
+      </PageMessage>
+    )
+  }
+  if (loading || !opening) {
+    return (
+      <div role="status" aria-live="polite" className="py-8 text-center text-sm text-muted-foreground">
+        Loading the Timeline...{progress ? ` ${progress.done} of ${progress.total} snapshots` : ''}
+      </div>
+    )
+  }
+  if (opening.kind === 'not-renderable') return <PageMessage>There is nothing to follow live for this sport.</PageMessage>
+  return <TimelineRail timeline={opening.timeline} model={model} rules={activeProfile.rules} />
+}
+
 /** The page shell: the heading and tab strip above the nested tab routes, which share the feed and model. */
 function ShiftsPage({ sport, feed, model }: { sport: string | undefined; feed: ShiftsFeed; model: LiveModel }) {
+  const tab = useMatch('/shifts/:sport/timeline') ? 'timeline' : 'summary'
   return (
     <div className="mx-auto max-w-3xl space-y-3 p-4">
       <h1 className="text-lg font-semibold">Shifts</h1>
-      <Tabs.Root defaultValue="summary">
+      <Tabs.Root value={tab}>
         <Tabs.List className="flex items-center gap-1">
           <Tabs.Trigger value="summary" asChild>
             <Link
@@ -66,8 +98,16 @@ function ShiftsPage({ sport, feed, model }: { sport: string | undefined; feed: S
               Summary
             </Link>
           </Tabs.Trigger>
+          <Tabs.Trigger value="timeline" asChild>
+            <Link
+              to={`/shifts/${sport}/timeline`}
+              className="rounded-md px-2 py-1 font-mono text-xs uppercase text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=active]:bg-secondary data-[state=active]:text-foreground"
+            >
+              Timeline
+            </Link>
+          </Tabs.Trigger>
         </Tabs.List>
-        <Tabs.Content value="summary">
+        <Tabs.Content value={tab}>
           <Outlet context={{ feed, model } satisfies ShiftsOutletContext} />
         </Tabs.Content>
       </Tabs.Root>
