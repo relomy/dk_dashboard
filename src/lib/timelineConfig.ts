@@ -14,3 +14,6 @@ export const TIMELINE_CAP = 60
 
 /** The most snapshot fetches in flight at once. */
 export const TIMELINE_FETCH_BOUND = 4
+
+/** How often an open Timeline re-reads the manifest while the page is visible: the Live view's refetch interval. */
+export const TIMELINE_REFRESH_MS = 300_000

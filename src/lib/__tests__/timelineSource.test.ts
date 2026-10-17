@@ -179,3 +179,130 @@ describe('the Timeline source', () => {
     })
   })
 })
+
+describe('refreshing an open Timeline', () => {
+  const openOf = async (history: TimelineHistory, extra: Partial<Parameters<typeof createTimelineSource>[0]> = {}) => {
+    const opened = await sourceOf(history, extra).open('nfl')
+    if (opened.kind !== 'ready' || !opened.refresh) throw new Error('expected a refreshable opening')
+    return opened
+  }
+
+  it('fetches only the snapshots it has not seen and adds their Steps at the top, ids of the old ones unchanged', async () => {
+    const { history, calls, publish } = stubHistory()
+    const opened = await openOf(history)
+    const before = opened.timeline.entries.map((entry) => entry.id)
+    calls.snapshots.length = 0
+    publish(7)
+    const refreshed = await opened.refresh!()
+    if (refreshed.kind !== 'ready') throw new Error('expected ready')
+    expect(calls.snapshots).toEqual([pathOf(7)])
+    expect(refreshed.timeline.entries.map((entry) => entry.snapshotAt)).toEqual([7, 6, 5, 4, 3].map(stamp))
+    expect(refreshed.timeline.entries.slice(1).map((entry) => entry.id)).toEqual(before)
+  })
+
+  it('returns the same opening and fetches nothing when no snapshot is new', async () => {
+    const { history, calls } = stubHistory()
+    const opened = await openOf(history)
+    calls.snapshots.length = 0
+    expect(await opened.refresh!()).toBe(opened)
+    expect(calls.snapshots).toEqual([])
+  })
+
+  it('refreshes again from the refreshed opening', async () => {
+    const { history, calls, publish } = stubHistory()
+    const opened = await openOf(history)
+    publish(7)
+    const first = await opened.refresh!()
+    if (first.kind !== 'ready' || !first.refresh) throw new Error('expected a refreshable opening')
+    calls.snapshots.length = 0
+    publish(8)
+    const second = await first.refresh()
+    if (second.kind !== 'ready') throw new Error('expected ready')
+    expect(calls.snapshots).toEqual([pathOf(8)])
+    expect(second.timeline.entries.map((entry) => entry.snapshotAt)).toEqual([8, 7, 6, 5, 4, 3].map(stamp))
+  })
+
+  it('counts new arrivals toward the cap, dropping the oldest Steps and saying so in the range note', async () => {
+    const { history, publish } = stubHistory()
+    const opened = await openOf(history, { cap: 5 })
+    publish(7)
+    const refreshed = await opened.refresh!()
+    if (refreshed.kind !== 'ready') throw new Error('expected ready')
+    expect(refreshed.timeline.entries.map((entry) => entry.snapshotAt)).toEqual([7, 6, 5, 4].map(stamp))
+    expect(refreshed.timeline.rangeNote).toEqual({ kind: 'cap', snapshotAt: stamp(3) })
+  })
+
+  it('shows a new snapshot that fails to load as a gap with retry', async () => {
+    const failing = [7]
+    const { history, publish } = stubHistory({ failing })
+    const opened = await openOf(history)
+    publish(7)
+    const refreshed = await opened.refresh!()
+    if (refreshed.kind !== 'ready' || !refreshed.retryGap) throw new Error('expected a retryable opening')
+    expect(refreshed.timeline.entries[0]).toMatchObject({ kind: 'gap', reason: 'unavailable', snapshotAt: stamp(7) })
+    failing.length = 0
+    const retried = await refreshed.retryGap(stamp(7))
+    if (retried.kind !== 'ready') throw new Error('expected ready')
+    expect(retried.timeline.entries[0]).toMatchObject({ kind: 'step', snapshotAt: stamp(7) })
+  })
+
+  it('skips a new snapshot whose sport is not fresh without downloading it', async () => {
+    const { history, calls, publish, manifest } = stubHistory()
+    const opened = await openOf(history)
+    calls.snapshots.length = 0
+    publish(7)
+    manifest.snapshots[manifest.snapshots.length - 1].sports_status = { nfl: { status: 'stale', updated_at: stamp(7) } }
+    const refreshed = await opened.refresh!()
+    if (refreshed.kind !== 'ready') throw new Error('expected ready')
+    expect(calls.snapshots).toEqual([])
+    expect(refreshed.timeline.entries[0]).toMatchObject({ kind: 'gap', reason: 'not-fresh' })
+  })
+
+  it('starts a fresh Timeline when the primary contest rotates', async () => {
+    const { history, publish } = stubHistory({
+      mutate: { 7: (snapshot) => { snapshot.sports.nfl.contests[0].name = 'Tomorrow slate' } },
+    })
+    const opened = await openOf(history)
+    publish(7)
+    const refreshed = await opened.refresh!()
+    if (refreshed.kind !== 'ready') throw new Error('expected ready')
+    expect(refreshed.timeline.entries).toEqual([])
+    expect(refreshed.timeline.rangeNote).toEqual({ kind: 'from', snapshotAt: stamp(7) })
+  })
+
+  it('carries on across the UTC midnight manifest rollover, keeping the built Steps', async () => {
+    const { history, calls, publish, manifest } = stubHistory()
+    let rolled = false
+    const midnight: TimelineHistory = {
+      ...history,
+      latest: async () => {
+        const latest = await history.latest()
+        return rolled ? { ...latest, manifest_today_path: 'manifest/2026-10-05.json', manifest_yesterday_path: 'manifest/2026-10-04.json' } : latest
+      },
+      manifest: async (path) => {
+        const all = await history.manifest(path)
+        // After midnight, the new day's manifest holds only the newest snapshot and yesterday's holds the rest.
+        if (!rolled) return all
+        return path.includes('10-05') ? { ...all, snapshots: all.snapshots.slice(-1) } : { ...all, snapshots: all.snapshots.slice(0, -1) }
+      },
+    }
+    const opened = await openOf(midnight)
+    rolled = true
+    publish(7)
+    calls.snapshots.length = 0
+    const refreshed = await opened.refresh!()
+    if (refreshed.kind !== 'ready') throw new Error('expected ready')
+    expect(calls.snapshots).toEqual([pathOf(7)])
+    expect(refreshed.timeline.entries.map((entry) => entry.snapshotAt)).toEqual([7, 6, 5, 4, 3].map(stamp))
+    expect(manifest.snapshots).toHaveLength(8)
+  })
+
+  it('reads yesterday only when the new day alone cannot show every unseen snapshot', async () => {
+    const { history, calls, publish } = stubHistory()
+    const opened = await openOf(history)
+    publish(7)
+    calls.manifests.length = 0
+    await opened.refresh!()
+    expect(calls.manifests).toEqual(['manifest/2026-10-04.json'])
+  })
+})

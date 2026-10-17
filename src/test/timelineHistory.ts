@@ -78,6 +78,13 @@ export function stubHistory(options: StubOptions = {}) {
       return snapshotAt(slot, options.mutate?.[slot])
     },
   }
-  return { history, calls }
+  /** Publishes the snapshot at `slot` on top of the manifest and moves the latest pointer to it. */
+  const publish = (slot: number) => {
+    manifest.snapshots.push(entry(slot))
+    latest.latest_snapshot_path = pathOf(slot)
+    latest.snapshot_at = stamp(slot)
+    latest.generated_at = stamp(slot)
+  }
+  return { history, calls, publish, manifest, latest }
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */

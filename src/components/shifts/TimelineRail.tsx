@@ -115,9 +115,9 @@ function GapNode({ gap, onRetry }: { gap: TimelineGap; onRetry?: (snapshotAt: st
 }
 
 /** A rail row: the dot on the rail, then the node itself. */
-function RailRow({ children, dashed = false }: { children: React.ReactNode; dashed?: boolean }) {
+function RailRow({ children, dashed = false, arrived = false }: { children: React.ReactNode; dashed?: boolean; arrived?: boolean }) {
   return (
-    <li className="grid grid-cols-[1rem_minmax(0,1fr)] gap-x-2">
+    <li className={cn('grid grid-cols-[1rem_minmax(0,1fr)] gap-x-2', arrived && 'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-2')}>
       <div className="relative" aria-hidden="true">
         <span className="absolute inset-y-0 left-[7px] border-l-2 border-border" />
         <span className={cn('absolute left-[2px] top-3.5 size-3 rounded-full border-2 border-muted-foreground bg-background', dashed && 'border-dashed')} />
@@ -125,6 +125,34 @@ function RailRow({ children, dashed = false }: { children: React.ReactNode; dash
       <div className="py-1.5">{children}</div>
     </li>
   )
+}
+
+interface Arrivals {
+  /** The newest Step's time when last seen; Steps after it are arrivals. */
+  newestAt: string | null
+  /** The ids of Steps that arrived while the rail was open. */
+  ids: Set<string>
+  /** What the live region says; empty until something arrives. */
+  announcement: string
+}
+
+/**
+ * Tracks the Steps that arrive on top while the rail is open, so they can be announced and animated. Steps the rail
+ * opened with, and older ones that "Load more" adds, are not arrivals.
+ */
+function useArrivals(timeline: Timeline): Arrivals {
+  const steps = timeline.entries.filter((entry): entry is TimelineStep => entry.kind === 'step')
+  const newestAt = steps[0]?.snapshotAt ?? null
+  const [arrivals, setArrivals] = useState<Arrivals>({ newestAt, ids: new Set(), announcement: '' })
+  if (newestAt !== arrivals.newestAt) {
+    const fresh = steps.filter((step) => arrivals.newestAt === null || step.snapshotAt > arrivals.newestAt)
+    setArrivals({
+      newestAt: arrivals.newestAt !== null && newestAt !== null && newestAt < arrivals.newestAt ? arrivals.newestAt : newestAt,
+      ids: new Set([...arrivals.ids, ...fresh.map((step) => step.id)]),
+      announcement: fresh.length > 0 ? `${fresh.length} new ${fresh.length === 1 ? 'Step' : 'Steps'}` : '',
+    })
+  }
+  return arrivals
 }
 
 interface Row {
@@ -165,6 +193,7 @@ export function TimelineRail({
   /** The Seen mark's snapshot time: the divider sits above the first row at or before it, or at the tail note when the mark lies before the rail. */
   seenAt: string | null
 }) {
+  const arrivals = useArrivals(timeline)
   const followed = followedVipKeys(model, rules)
   const username = rules.username
   const rows = timeline.entries.flatMap((entry): Row[] => {
@@ -172,8 +201,18 @@ export function TimelineRail({
     const items = visibleItems(entry, followed)
     return items.length > 0 ? [{ entry, items }] : []
   })
+  const updates = (
+    <div role="status" aria-label="Timeline updates" aria-live="polite" className="sr-only">
+      {arrivals.announcement}
+    </div>
+  )
   if (!rows.some((row) => row.entry.kind === 'step')) {
-    return <p className="py-8 text-center text-sm text-muted-foreground">No VIP shifts yet</p>
+    return (
+      <>
+        {updates}
+        <p className="py-8 text-center text-sm text-muted-foreground">No VIP shifts yet</p>
+      </>
+    )
   }
   const seenMs = seenAt === null ? null : Date.parse(seenAt)
   const floor = rangeFloor(timeline)
@@ -183,6 +222,7 @@ export function TimelineRail({
   const divider = seenAt === null ? null : <SeenMark seenAt={seenAt} />
   return (
     <div className="space-y-2">
+      {updates}
       <ol aria-label="Timeline" className="flex flex-col">
         {rows.map(({ entry, items }, index) => (
           <Fragment key={entry.id}>
@@ -192,7 +232,7 @@ export function TimelineRail({
                 <GapNode gap={entry} onRetry={onRetryGap} />
               </RailRow>
             ) : (
-              <RailRow>
+              <RailRow arrived={arrivals.ids.has(entry.id)}>
                 <StepCard step={entry} items={items} model={model} followed={followed} username={username} />
               </RailRow>
             )}
