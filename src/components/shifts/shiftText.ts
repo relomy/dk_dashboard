@@ -70,3 +70,15 @@ export function awayText(minutes: number): string {
   const rest = minutes % 60
   return rest === 0 ? plural(hours, 'hour') : `${plural(hours, 'hour')} ${plural(rest, 'minute')}`
 }
+
+/** A place as an ordinal: 1st, 2nd, 3rd, 11th. */
+export function ordinal(place: number): string {
+  const lastTwo = place % 100
+  const suffix = lastTwo >= 11 && lastTwo <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[place % 10] ?? 'th'
+  return `${place}${suffix}`
+}
+
+/** One VIP's final standing as a line: "Final: You 3rd, cashing". */
+export function finalStandingText(name: string, place: number | null, cashing: boolean): string {
+  return `Final: ${name}${place === null ? '' : ` ${ordinal(place)}`}, ${cashing ? 'cashing' : 'not cashing'}`
+}

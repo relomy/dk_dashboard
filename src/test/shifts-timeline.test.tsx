@@ -12,6 +12,7 @@ import { load } from './liveHarness'
 import { stamp, stubHistory } from './timelineHistory'
 
 const NO_ITEMS: never[] = []
+const clockAt = (slot: number) => new Date(stamp(slot)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
 
 function stubFeed(): ShiftsFeed {
   return {
@@ -52,8 +53,8 @@ function seenFeed(seenAt: string | null) {
 /** The rail's order top to bottom: each Step's snapshot time, or 'seen-mark' for the divider. */
 function railOrder(): string[] {
   const list = screen.getByRole('list', { name: 'Timeline' })
-  return [...list.querySelectorAll('[role="separator"], time')].map((node) =>
-    node.getAttribute('role') === 'separator' ? 'seen-mark' : (node.getAttribute('datetime') ?? ''),
+  return [...list.querySelectorAll('hr, time')].map((node) =>
+    node.tagName === 'HR' ? 'seen-mark' : (node.getAttribute('datetime') ?? ''),
   )
 }
 
@@ -129,10 +130,26 @@ describe('the Timeline tab', () => {
     renderAt('/shifts/nfl')
     expect(await screen.findByRole('tab', { name: 'Summary', selected: true })).toBeTruthy()
     const tab = screen.getByRole('tab', { name: 'Timeline', selected: false })
-    expect(tab.getAttribute('href')).toBe('/shifts/nfl/timeline')
     fireEvent.click(tab)
     expect(screen.getByTestId('where').textContent).toBe('/shifts/nfl/timeline')
     expect(await screen.findByRole('tab', { name: 'Timeline', selected: true })).toBeTruthy()
+  })
+
+  it('follows the WAI-ARIA tabs pattern: arrow keys switch the panel, Space and Enter activate', async () => {
+    renderAt('/shifts/nfl')
+    const summary = await screen.findByRole('tab', { name: 'Summary', selected: true })
+    summary.focus()
+    fireEvent.keyDown(summary, { key: 'ArrowRight' })
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/shifts/nfl/timeline'))
+    const timeline = await screen.findByRole('tab', { name: 'Timeline', selected: true })
+    expect(document.activeElement).toBe(timeline)
+    fireEvent.keyDown(timeline, { key: 'ArrowLeft' })
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/shifts/nfl'))
+    expect(await screen.findByRole('tab', { name: 'Summary', selected: true })).toBeTruthy()
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Timeline' }), { key: ' ' })
+    expect(screen.getByTestId('where').textContent).toBe('/shifts/nfl/timeline')
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Summary' }), { key: 'Enter' })
+    expect(screen.getByTestId('where').textContent).toBe('/shifts/nfl')
   })
 
   it('fetches nothing for the Timeline until its tab is visited', async () => {
@@ -161,19 +178,19 @@ describe('the Timeline tab', () => {
     renderAt('/shifts/nfl/timeline', { rules: { exact: 'Cubbiesftw23' } })
     const steps = await screen.findAllByRole('article')
     for (const step of steps) {
-      expect(within(step).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Cubbiesftw23'])
+      expect(within(step).getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Cubbiesftw23'])
     }
     expect(screen.queryByText('cglenn91')).toBeNull()
     cleanup()
     renderAt('/shifts/nfl/timeline', { rules: { exact: 'cglenn91' } })
     const other = await screen.findAllByRole('article')
-    expect(within(other[0]).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['cglenn91'])
+    expect(within(other[0]).getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['cglenn91'])
   })
 
   it('follows every VIP when the active Profile has no rules', async () => {
     renderAt('/shifts/nfl/timeline', { rules: {} })
     const [newest] = await screen.findAllByRole('article')
-    const names = within(newest).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
+    const names = within(newest).getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
     expect(names).toEqual(expect.arrayContaining(['cglenn91', 'Cubbiesftw23']))
   })
 
@@ -187,7 +204,7 @@ describe('the Timeline tab', () => {
     expect(expander.getAttribute('aria-expanded')).toBe('true')
   })
 
-  it('announces loading politely with progress, then removes it', async () => {
+  it('announces loading once, shows the progress without announcing each tick, and announces completion', async () => {
     let finish: (value: Awaited<ReturnType<TimelineSource['open']>>) => void = () => {}
     const open: TimelineSource['open'] = (_sport, options) => {
       options?.onProgress?.(2, 5)
@@ -197,9 +214,12 @@ describe('the Timeline tab', () => {
     const status = await screen.findByText(/loading the timeline/i)
     expect(status.getAttribute('role')).toBe('status')
     expect(status.getAttribute('aria-live')).toBe('polite')
-    await waitFor(() => expect(status.textContent).toContain('2 of 5'))
+    const progress = await screen.findByText(/2 of 5/)
+    expect(progress.closest('[role="status"]')).toBeNull()
+    expect(status.textContent).not.toContain('2 of 5')
     finish({ kind: 'ready', completed: false, timeline: { entries: [], rangeNote: null }, range: { loaded: 0, cap: 60, reach: 'window' } })
     await waitFor(() => expect(screen.queryByText(/loading the timeline/i)).toBeNull())
+    expect(screen.getAllByRole('status').some((node) => node.textContent === 'Timeline loaded')).toBe(true)
   })
 
   it('shows an error with a retry when the source fails, and retries', async () => {
@@ -405,14 +425,14 @@ describe("the Seen mark's divider", () => {
 
   it('is a labelled separator across the rail', async () => {
     renderAt('/shifts/nfl/timeline', { feed: seenFeed(stamp(4)).feed })
-    expect(await screen.findByRole('separator', { name: /^Seen mark/ })).toBeTruthy()
+    expect(await screen.findByRole('separator', { name: /^You last looked at/ })).toBeTruthy()
   })
 
   it('is absent when nothing has been seen, with no tail note', async () => {
     renderAt('/shifts/nfl/timeline', { feed: seenFeed(null).feed })
     await screen.findAllByRole('article')
     expect(screen.queryByRole('separator')).toBeNull()
-    expect(screen.queryByText(/further back/)).toBeNull()
+    expect(screen.queryByText(/earlier than shown/)).toBeNull()
   })
 
   it('sits at the top when the Seen mark is the newest step', async () => {
@@ -435,7 +455,7 @@ describe("the Seen mark's divider", () => {
     const fetched = calls.snapshots.length
     act(() => seen.move(stamp(0)))
     expect(screen.queryByRole('separator')).toBeNull()
-    expect(screen.getByText('Unseen shifts exist further back than this Timeline reaches.')).toBeTruthy()
+    expect(screen.getByText(/^You last looked at .*, earlier than shown$/)).toBeTruthy()
     expect(calls.snapshots).toHaveLength(fetched)
   })
 
@@ -497,11 +517,11 @@ describe('a live Timeline', () => {
     expect(region.textContent).toBe('')
     stub.publish(7)
     await tick(REFRESH)
-    await waitFor(() => expect(region.textContent).toBe('1 new Step'))
+    await waitFor(() => expect(region.textContent).toBe(`New Step at ${clockAt(7)}`))
     stub.publish(8)
     stub.publish(9)
     await tick(REFRESH)
-    await waitFor(() => expect(region.textContent).toBe('2 new Steps'))
+    await waitFor(() => expect(region.textContent).toBe(`2 new Steps, newest ${clockAt(9)}`))
   })
 
   it('animates a new Step only when motion is allowed', async () => {

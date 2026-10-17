@@ -65,7 +65,7 @@ function Harness({ rules = TWO, timeline = TIMELINE }: { rules?: ProfileMatchRul
   return (
     <>
       <TimelineFilterBar view={view} model={MODEL} username={rules.username} />
-      <TimelineRail timeline={timeline} model={MODEL} rules={rules} view={view} seenAt={null} />
+      <TimelineRail timeline={timeline} model={MODEL} rules={rules} view={view} seenAt={null} range={{ loaded: 4, cap: 60, reach: 'window' }} onLoadMore={undefined} onRetryGap={() => {}} more={{ busy: false, progress: null, error: null, announcement: '' }} />
     </>
   )
 }
@@ -196,6 +196,24 @@ describe('when the filters hide everything', () => {
   it('still says "No VIP shifts yet" when nothing shifted and the filters are untouched', () => {
     render(<Harness timeline={{ entries: [], rangeNote: null }} />)
     expect(screen.getByText('No VIP shifts yet')).toBeTruthy()
+  })
+})
+
+describe('the Reset button', () => {
+  it('shows only while a filter is off its default, and resets everything but Compact', () => {
+    render(<Harness />)
+    expect(screen.queryByRole('button', { name: 'Reset' })).toBeNull()
+    fireEvent.click(chip('Compact'))
+    expect(screen.queryByRole('button', { name: 'Reset' })).toBeNull()
+    fireEvent.click(chip('Crossings'))
+    fireEvent.click(chip(THIRD.name))
+    fireEvent.click(chip('High priority only'))
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
+    expect(chip('Crossings').getAttribute('aria-pressed')).toBe('true')
+    expect(chip(THIRD.name).getAttribute('aria-pressed')).toBe('false')
+    expect(chip('High priority only').getAttribute('aria-pressed')).toBe('false')
+    expect(chip('Compact').getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByRole('button', { name: 'Reset' })).toBeNull()
   })
 })
 

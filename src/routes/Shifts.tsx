@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { Link, Outlet, useMatch, useOutletContext, useParams } from 'react-router-dom'
+import { Outlet, useMatch, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { Tabs } from 'radix-ui'
 import { Button } from '@/components/ui/button'
 import { CashLineShiftCard, ContestShiftCard, VipShiftCard } from '../components/shifts/ShiftCard'
@@ -40,7 +40,7 @@ export function ShiftsSummary() {
       {items.length === 0 ? (
         <div className="space-y-1 py-8 text-center text-sm text-muted-foreground">
           <p>Nothing has moved since you last looked.</p>
-          {autoAdvanced ? <p>The Seen mark moved on by itself because you were only away briefly.</p> : null}
+          {autoAdvanced ? <p>Moved on by itself because you were only away briefly.</p> : null}
         </div>
       ) : null}
       {items.map((item) => {
@@ -76,57 +76,61 @@ export function ShiftsTimeline() {
       </PageMessage>
     )
   }
-  if (loading || !opening) {
-    return (
-      <div role="status" aria-live="polite" className="py-8 text-center text-sm text-muted-foreground">
-        Loading the Timeline...{progress ? ` ${progress.done} of ${progress.total} snapshots` : ''}
-      </div>
-    )
-  }
-  if (opening.kind === 'not-renderable') return <PageMessage>There is nothing to follow live for this sport.</PageMessage>
+  if (opening?.kind === 'not-renderable') return <PageMessage>There is nothing to follow live for this sport.</PageMessage>
+  const ready = !loading && opening !== undefined
   return (
     <div className="space-y-3">
-      <TimelineFilterBar view={view} model={model} username={activeProfile.rules.username} />
-      <TimelineRail
-        timeline={opening.timeline}
-        model={model}
-        rules={activeProfile.rules}
-        view={view}
-        onRetryGap={retryGap}
-        seenAt={seenAt}
-        range={opening.range}
-        onLoadMore={opening.loadMore ? loadMore : undefined}
-        more={more}
-      />
+      {/* One live region for the whole load: it says when loading starts and when it is done, not every progress tick. */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {ready ? 'Timeline loaded' : 'Loading the Timeline...'}
+      </div>
+      {ready ? (
+        <>
+          <TimelineFilterBar view={view} model={model} username={activeProfile.rules.username} />
+          <TimelineRail
+            timeline={opening.timeline}
+            model={model}
+            rules={activeProfile.rules}
+            view={view}
+            onRetryGap={retryGap}
+            seenAt={seenAt}
+            range={opening.range}
+            onLoadMore={opening.loadMore ? loadMore : undefined}
+            more={more}
+          />
+        </>
+      ) : (
+        <p aria-hidden="true" className="py-8 text-center text-sm text-muted-foreground">
+          {progress ? `Loading... ${progress.done} of ${progress.total} snapshots` : 'Loading...'}
+        </p>
+      )}
     </div>
   )
 }
 
+const TAB_CLASS =
+  'rounded-md px-2 py-1 font-mono text-xs uppercase text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=active]:bg-secondary data-[state=active]:text-foreground'
+
 /** The page shell: the heading and tab strip above the nested tab routes, which share the feed and model. */
 function ShiftsPage({ sport, feed, model }: { sport: string | undefined; feed: ShiftsFeed; model: LiveModel }) {
   const tab = useMatch('/shifts/:sport/timeline') ? 'timeline' : 'summary'
+  const navigate = useNavigate()
   const { activeProfile } = useProfiles()
   const view = useTimelineView(model, activeProfile.rules)
+  // The route owns the selected tab: arrow keys, Space, Enter and clicks all end in a navigation.
+  const show = (value: string) => {
+    if (value !== tab) navigate(value === 'timeline' ? `/shifts/${sport}/timeline` : `/shifts/${sport}`)
+  }
   return (
     <div className="mx-auto max-w-3xl space-y-3 p-4">
       <h1 className="text-lg font-semibold">Shifts</h1>
-      <Tabs.Root value={tab}>
+      <Tabs.Root value={tab} onValueChange={show}>
         <Tabs.List className="flex items-center gap-1">
-          <Tabs.Trigger value="summary" asChild>
-            <Link
-              to={`/shifts/${sport}`}
-              className="rounded-md px-2 py-1 font-mono text-xs uppercase text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=active]:bg-secondary data-[state=active]:text-foreground"
-            >
-              Summary
-            </Link>
+          <Tabs.Trigger value="summary" onClick={() => show('summary')} className={TAB_CLASS}>
+            Summary
           </Tabs.Trigger>
-          <Tabs.Trigger value="timeline" asChild>
-            <Link
-              to={`/shifts/${sport}/timeline`}
-              className="rounded-md px-2 py-1 font-mono text-xs uppercase text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=active]:bg-secondary data-[state=active]:text-foreground"
-            >
-              Timeline
-            </Link>
+          <Tabs.Trigger value="timeline" onClick={() => show('timeline')} className={TAB_CLASS}>
+            Timeline
           </Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value={tab}>

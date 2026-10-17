@@ -44,6 +44,11 @@ export function TimelineFilterBar({ view, model, username }: { view: TimelineVie
         <Chip pressed={view.compact} onClick={() => view.setCompact(!view.compact)}>
           Compact
         </Chip>
+        {view.isDefault ? null : (
+          <Button type="button" variant="ghost" size="sm" onClick={view.reset}>
+            Reset
+          </Button>
+        )}
       </div>
     </div>
   )

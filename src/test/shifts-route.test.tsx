@@ -288,7 +288,7 @@ describe('the Shifts page', () => {
 
   it('notes that the Seen mark moved on by itself after a quick visit', async () => {
     await renderShifts(stubFeed([], { autoAdvanced: true }))
-    expect(await screen.findByText(/seen mark moved on by itself/i)).toBeTruthy()
+    expect(await screen.findByText(/^moved on by itself because you were only away briefly/i)).toBeTruthy()
   })
 
   it('shows the load error instead of loading forever when the snapshot fails', async () => {
