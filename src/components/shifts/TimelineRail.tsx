@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -132,18 +132,38 @@ interface Row {
   items: ShiftItem[]
 }
 
+/** The Seen mark's divider: a line across the rail, labelled with the Seen mark's snapshot time. */
+function SeenMark({ seenAt }: { seenAt: string }) {
+  return (
+    <li role="separator" aria-label={`Seen mark at ${clockOf(seenAt)}`} className="flex items-center gap-2 py-1 font-mono text-xs text-muted-foreground">
+      <span aria-hidden="true" className="h-px flex-1 bg-border" />
+      <span aria-hidden="true">Seen {clockOf(seenAt)}</span>
+      <span aria-hidden="true" className="h-px flex-1 bg-border" />
+    </li>
+  )
+}
+
+/** The oldest snapshot time the rail reaches, whether a step, a gap or the range note's digest. */
+function rangeFloor(timeline: Timeline): number | null {
+  const times = [...timeline.entries.map((entry) => entry.snapshotAt), ...(timeline.rangeNote ? [timeline.rangeNote.snapshotAt] : [])].map((at) => Date.parse(at))
+  return times.length > 0 ? Math.min(...times) : null
+}
+
 /** The step rail: one card per Step, newest first, one row per followed VIP. */
 export function TimelineRail({
   timeline,
   model,
   rules,
   onRetryGap,
+  seenAt,
 }: {
   timeline: Timeline
   model: LiveModel
   rules: ProfileMatchRules
   /** Refetches a failed snapshot; a gap offers its retry only when this is given. */
   onRetryGap?: (snapshotAt: string) => Promise<void> | void
+  /** The Seen mark's snapshot time: the divider sits above the first row at or before it, or at the tail note when the mark lies before the rail. */
+  seenAt: string | null
 }) {
   const followed = followedVipKeys(model, rules)
   const username = rules.username
@@ -155,24 +175,35 @@ export function TimelineRail({
   if (!rows.some((row) => row.entry.kind === 'step')) {
     return <p className="py-8 text-center text-sm text-muted-foreground">No VIP shifts yet</p>
   }
+  const seenMs = seenAt === null ? null : Date.parse(seenAt)
+  const floor = rangeFloor(timeline)
+  const beyondRange = seenMs !== null && floor !== null && seenMs < floor
+  const firstSeen = rows.findIndex(({ entry }) => seenMs !== null && Date.parse(entry.snapshotAt) <= seenMs)
+  const dividerAt = seenAt === null || beyondRange ? -1 : firstSeen === -1 ? rows.length : firstSeen
+  const divider = seenAt === null ? null : <SeenMark seenAt={seenAt} />
   return (
     <div className="space-y-2">
       <ol aria-label="Timeline" className="flex flex-col">
-        {rows.map(({ entry, items }) =>
-          entry.kind === 'gap' ? (
-            <RailRow key={entry.id} dashed>
-              <GapNode gap={entry} onRetry={onRetryGap} />
-            </RailRow>
-          ) : (
-            <RailRow key={entry.id}>
-              <StepCard step={entry} items={items} model={model} followed={followed} username={username} />
-            </RailRow>
-          ),
-        )}
+        {rows.map(({ entry, items }, index) => (
+          <Fragment key={entry.id}>
+            {index === dividerAt ? divider : null}
+            {entry.kind === 'gap' ? (
+              <RailRow dashed>
+                <GapNode gap={entry} onRetry={onRetryGap} />
+              </RailRow>
+            ) : (
+              <RailRow>
+                <StepCard step={entry} items={items} model={model} followed={followed} username={username} />
+              </RailRow>
+            )}
+          </Fragment>
+        ))}
+        {dividerAt === rows.length ? divider : null}
       </ol>
       {timeline.rangeNote?.kind === 'from' ? (
         <p className="text-center text-xs text-muted-foreground">From {clockOf(timeline.rangeNote.snapshotAt)}</p>
       ) : null}
+      {beyondRange ? <p className="text-center text-xs text-muted-foreground">Unseen shifts exist further back than this Timeline reaches.</p> : null}
     </div>
   )
 }

@@ -49,6 +49,7 @@ function stubFeed(initial: ShiftItem[], gap: ShiftsGap | null = null) {
     unsurfaced: () => items.filter((item) => item.priority === 'high' && !item.surfaced),
     gap: () => gap,
     autoAdvanced: () => false,
+    seenSnapshotAt: () => null,
     markSeen: vi.fn(),
     markSurfaced: vi.fn((ids: string[]) => {
       items = items.map((item) => (ids.includes(item.id) ? { ...item, surfaced: true } : item))

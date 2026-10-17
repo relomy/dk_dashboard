@@ -58,8 +58,9 @@ export function ShiftsSummary() {
  * before then. Rows are the active Profile's VIPs.
  */
 export function ShiftsTimeline() {
-  const { model } = useOutletContext<ShiftsOutletContext>()
+  const { feed, model } = useOutletContext<ShiftsOutletContext>()
   const { activeProfile } = useProfiles()
+  const seenAt = useSyncExternalStore(feed.subscribe, feed.seenSnapshotAt)
   const { opening, error, loading, progress, retry, retryGap } = useShiftsTimeline(model.sport)
   if (error) {
     return (
@@ -79,7 +80,7 @@ export function ShiftsTimeline() {
     )
   }
   if (opening.kind === 'not-renderable') return <PageMessage>There is nothing to follow live for this sport.</PageMessage>
-  return <TimelineRail timeline={opening.timeline} model={model} rules={activeProfile.rules} onRetryGap={retryGap} />
+  return <TimelineRail timeline={opening.timeline} model={model} rules={activeProfile.rules} onRetryGap={retryGap} seenAt={seenAt} />
 }
 
 /** The page shell: the heading and tab strip above the nested tab routes, which share the feed and model. */

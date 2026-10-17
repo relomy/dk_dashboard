@@ -156,6 +156,8 @@ export interface ShiftsFeed {
   autoAdvanced(): boolean
   /** Advances the Seen mark to now and clears the High priority log. */
   markSeen(): void
+  /** The Seen mark's snapshot time, or null before the feed is seeded. Read-only; `subscribe` follows its moves. */
+  seenSnapshotAt(): string | null
   /** Marks High items as shown; the items stay in the feed until `markSeen`. */
   markSurfaced(ids: string[]): void
   /** Calls `listener` after the feed changes; returns the function that stops it. */
@@ -747,6 +749,8 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
   let gap: ShiftsGap | null = null
   let autoAdvanced = false
   let currentKey: string | null = null
+  let seenAt: string | null = null
+  const readSeenAt = (): string | null => (currentKey ? (read(currentKey)?.seen.snapshotAt ?? null) : null)
   const listeners = new Set<() => void>()
   const notify = () => listeners.forEach((listener) => listener())
 
@@ -799,6 +803,7 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
       }
     },
     feed: () => items,
+    seenSnapshotAt: () => seenAt,
     unseenCount: () => items.length,
     unsurfaced: () => items.filter((item) => item.priority === 'high' && !item.surfaced),
     gap: () => gap,
@@ -842,10 +847,12 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
     ...feed,
     record(model, options) {
       feed.record(model, options)
+      seenAt = readSeenAt()
       notify()
     },
     markSeen() {
       feed.markSeen()
+      seenAt = readSeenAt()
       notify()
     },
     markSurfaced(ids) {

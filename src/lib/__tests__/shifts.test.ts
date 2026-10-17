@@ -1441,3 +1441,50 @@ describe('timeline', () => {
     })
   })
 })
+
+describe("the Seen mark's snapshot time", () => {
+  const SEEN_AT = '2026-10-04T18:41:34Z'
+  const LATER_AT = '2026-10-04T18:46:34Z'
+
+  it('is null before the feed has been recorded', () => {
+    expect(createShiftsFeed({ storage: memoryStorage(), now: () => T0 }).seenSnapshotAt()).toBeNull()
+  })
+
+  it('is the snapshot time of the build the Seen mark was seeded from', () => {
+    const { feed } = seededFeed()
+    expect(feed.seenSnapshotAt()).toBe(SEEN_AT)
+  })
+
+  it('stays put on a later build and moves to the newest build when marked seen', () => {
+    const { feed } = seededFeed()
+    feed.record(nflModel({}, (snapshot) => (snapshot.snapshot_at = LATER_AT)), { visit: false })
+    expect(feed.seenSnapshotAt()).toBe(SEEN_AT)
+    feed.markSeen()
+    expect(feed.seenSnapshotAt()).toBe(LATER_AT)
+  })
+
+  it('moves when a quick visit advances the Seen mark on its own', () => {
+    const { feed, at } = seededFeed()
+    at(T0 + 60_000)
+    feed.record(nflModel({}, (snapshot) => (snapshot.snapshot_at = LATER_AT)), { visit: true })
+    expect(feed.seenSnapshotAt()).toBe(LATER_AT)
+  })
+
+  it('is read-only: reading it writes nothing to storage', () => {
+    const storage = memoryStorage()
+    const feed = createShiftsFeed({ storage, now: () => T0 })
+    feed.record(nflModel(), { visit: true })
+    const before = [...storage.data.entries()]
+    feed.seenSnapshotAt()
+    feed.seenSnapshotAt()
+    expect([...storage.data.entries()]).toEqual(before)
+  })
+
+  it('notifies subscribers when the Seen mark moves', () => {
+    const { feed } = seededFeed()
+    let notified = 0
+    feed.subscribe(() => notified++)
+    feed.markSeen()
+    expect(notified).toBe(1)
+  })
+})

@@ -38,6 +38,7 @@ function stubFeed(initial: ShiftItem[], flags: { autoAdvanced?: boolean } = {}) 
     unsurfaced: () => items.filter((item) => item.priority === 'high' && !item.surfaced),
     gap: () => null,
     autoAdvanced: () => flags.autoAdvanced ?? false,
+    seenSnapshotAt: () => null,
     markSeen: vi.fn(() => {
       items = []
       listeners.forEach((listener) => listener())

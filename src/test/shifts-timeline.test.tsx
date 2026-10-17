@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ProfileContext } from '../context/ProfileContext'
@@ -21,10 +21,40 @@ function stubFeed(): ShiftsFeed {
     unsurfaced: () => [],
     gap: () => null,
     autoAdvanced: () => false,
+    seenSnapshotAt: () => null,
     markSeen: vi.fn(),
     markSurfaced: vi.fn(),
     subscribe: () => () => {},
   }
+}
+
+/** A feed whose Seen mark the test moves, notifying subscribers as the real feed does. */
+function seenFeed(seenAt: string | null) {
+  let seen = seenAt
+  const listeners = new Set<() => void>()
+  const feed: ShiftsFeed = {
+    ...stubFeed(),
+    seenSnapshotAt: () => seen,
+    subscribe: (listener) => {
+      listeners.add(listener)
+      return () => void listeners.delete(listener)
+    },
+  }
+  return {
+    feed,
+    move(next: string | null) {
+      seen = next
+      listeners.forEach((listener) => listener())
+    },
+  }
+}
+
+/** The rail's order top to bottom: each Step's snapshot time, or 'seen-mark' for the divider. */
+function railOrder(): string[] {
+  const list = screen.getByRole('list', { name: 'Timeline' })
+  return [...list.querySelectorAll('[role="separator"], time')].map((node) =>
+    node.getAttribute('role') === 'separator' ? 'seen-mark' : (node.getAttribute('datetime') ?? ''),
+  )
 }
 
 function stubApi() {
@@ -246,5 +276,64 @@ describe('the Timeline tab', () => {
       expect(retry.tagName).toBe('BUTTON')
       expect(retry.className).toMatch(/focus-visible:ring/)
     })
+  })
+})
+
+describe("the Seen mark's divider", () => {
+  it('sits between the unseen steps above and the seen steps below', async () => {
+    renderAt('/shifts/nfl/timeline', { feed: seenFeed(stamp(4)).feed })
+    await screen.findAllByRole('article')
+    expect(railOrder()).toEqual([stamp(6), stamp(5), 'seen-mark', stamp(4), stamp(3)])
+  })
+
+  it('is a labelled separator across the rail', async () => {
+    renderAt('/shifts/nfl/timeline', { feed: seenFeed(stamp(4)).feed })
+    expect(await screen.findByRole('separator', { name: /^Seen mark/ })).toBeTruthy()
+  })
+
+  it('is absent when nothing has been seen, with no tail note', async () => {
+    renderAt('/shifts/nfl/timeline', { feed: seenFeed(null).feed })
+    await screen.findAllByRole('article')
+    expect(screen.queryByRole('separator')).toBeNull()
+    expect(screen.queryByText(/further back/)).toBeNull()
+  })
+
+  it('sits at the top when the Seen mark is the newest step', async () => {
+    renderAt('/shifts/nfl/timeline', { feed: seenFeed(stamp(6)).feed })
+    await screen.findAllByRole('article')
+    expect(railOrder()).toEqual(['seen-mark', stamp(6), stamp(5), stamp(4), stamp(3)])
+  })
+
+  it('sits at the bottom when the Seen mark is the oldest loaded snapshot', async () => {
+    renderAt('/shifts/nfl/timeline', { feed: seenFeed(stamp(2)).feed })
+    await screen.findAllByRole('article')
+    expect(railOrder()).toEqual([stamp(6), stamp(5), stamp(4), stamp(3), 'seen-mark'])
+  })
+
+  it('gives a tail note and fetches nothing extra when the Seen mark lies before the loaded range', async () => {
+    const seen = seenFeed(stamp(4))
+    const { history, calls } = stubHistory()
+    renderAt('/shifts/nfl/timeline', { feed: seen.feed, source: realSource(history) })
+    await screen.findAllByRole('article')
+    const fetched = calls.snapshots.length
+    act(() => seen.move(stamp(0)))
+    expect(screen.queryByRole('separator')).toBeNull()
+    expect(screen.getByText('Unseen shifts exist further back than this Timeline reaches.')).toBeTruthy()
+    expect(calls.snapshots).toHaveLength(fetched)
+  })
+
+  it('moves when the Seen mark moves while the Timeline is open', async () => {
+    const seen = seenFeed(stamp(4))
+    renderAt('/shifts/nfl/timeline', { feed: seen.feed })
+    await screen.findAllByRole('article')
+    act(() => seen.move(stamp(5)))
+    expect(railOrder()).toEqual([stamp(6), 'seen-mark', stamp(5), stamp(4), stamp(3)])
+  })
+
+  it('never marks anything seen', async () => {
+    const seen = seenFeed(stamp(4))
+    renderAt('/shifts/nfl/timeline', { feed: seen.feed })
+    await screen.findAllByRole('article')
+    expect(seen.feed.markSeen).not.toHaveBeenCalled()
   })
 })
