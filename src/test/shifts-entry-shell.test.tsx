@@ -112,17 +112,17 @@ describe('the Shifts entry point in the app shell', () => {
     expect(screen.queryByRole('link', { name: /^Shifts/ })).toBeNull()
   })
 
-  it('is left out for anyone but the owner', async () => {
+  it('is shown to a friend too', async () => {
     role = 'friend'
     renderShell('/live/nfl')
-    await screen.findByText('live page')
-    expect(screen.queryByRole('link', { name: /^Shifts/ })).toBeNull()
+    expect(await screen.findByRole('link', { name: /^Shifts, \d+ unseen$/ })).toBeTruthy()
   })
 
   it('counts a poll’s new shifts without a page reload', async () => {
     const client = renderShell('/live/nfl')
     await screen.findByRole('link', { name: 'Shifts, 0 unseen' })
 
+    await vi.waitFor(() => expect([...store.keys()].some((key) => key.startsWith('dk_dashboard_shifts_'))).toBe(true))
     served['snapshots/second.json'] = pollWithMovedVip()
     pointer = 'snapshots/second.json'
     await act(async () => {

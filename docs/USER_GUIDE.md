@@ -15,7 +15,7 @@
 - `Live (/live/:sport)`: in-game sweat page for a single sport's primary contest. Prioritizes VIP board + player pool, then ownership/train, with standings kept secondary.
 - `Sport`: one sport view with contests grouped by state and player pool search/sort.
 - `History`: browsable list of past snapshots from manifest metadata; open a timestamp to view that snapshot. For what changed between snapshots, see the Shifts Timeline below.
-- `Shifts (/shifts/:sport)`: owner-only. The Summary tab shows what moved since you last looked; the Timeline tab is a log of the sport's primary contest (see below).
+- `Shifts (/shifts/:sport)`: the Summary tab shows what moved since you last looked; the Timeline tab is a log of the sport's primary contest (see below).
 - `Health`: snapshot freshness and per-sport status diagnostics.
 - `Settings`: manage local profiles used for VIP lineup filtering.
 
@@ -42,7 +42,7 @@
 - A snapshot whose `schema_version` is not 3 shows an unsupported-format message (ADR 0002).
 
 ## Shifts Timeline
-- Owner-only, like the rest of Shifts: anyone else sees "Shifts are not available". Open the `Timeline` tab on the Shifts page; it has its own address, `/shifts/:sport/timeline`, so you can reload straight into it.
+- Open the `Timeline` tab on the Shifts page; it has its own address, `/shifts/:sport/timeline`, so you can reload straight into it.
 - Nothing is loaded until you open the tab. Opening fetches the newest 5 snapshots of the day (today's History manifest, topped up from yesterday's when today is short) and shows the newest 4 Steps, newest first.
 - Each Step is a card on a vertical rail, timestamped with its snapshot time (shown in your local time). It has one row per VIP that shifted between that snapshot and the one before it: the rank, points and distance-to-cash moves, any cash crossing (with the cash line move that caused it) and a collapsed lineup diff you can expand (`Lineup · N of M changed`). A cash line move or a contest state change is listed in its own Step.
 - Rows start as your active Profile's VIPs (the VIP filter below). A Profile with no rules follows every VIP.

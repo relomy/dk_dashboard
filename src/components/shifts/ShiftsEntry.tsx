@@ -7,7 +7,7 @@ import type { ShiftsFeed } from '../../lib/shifts'
 
 /**
  * The top bar's way into the Shifts page for `sport`, carrying the unseen count as a quiet badge. Renders
- * nothing without a feed (anyone but the owner, or outside the shell) or without a sport to link to.
+ * nothing without a feed (outside the shell) or without a sport to link to.
  */
 function ShiftsEntry({ sport }: { sport: string | null }) {
   const feed = useShiftsFeed()
