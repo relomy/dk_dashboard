@@ -202,4 +202,49 @@ describe('the Timeline tab', () => {
     expect(await screen.findByText('Shifts are not available.')).toBeTruthy()
     expect(open).not.toHaveBeenCalled()
   })
+
+  describe('gaps', () => {
+    it('marks a failed snapshot as unavailable between the Steps, saying shifts inside it may be lost, with a retry', async () => {
+      renderAt('/shifts/nfl/timeline', { source: realSource(stubHistory({ failing: [4] }).history) })
+      const gap = await screen.findByRole('group', { name: /snapshot unavailable/i })
+      expect(within(gap).getByText(/shifts inside it may be lost/i)).toBeTruthy()
+      expect(within(gap).getByRole('button', { name: /retry/i })).toBeTruthy()
+      expect(screen.getAllByRole('article')).toHaveLength(3)
+    })
+
+    it('retries only the failed snapshot and fills the Step', async () => {
+      const failing = [4]
+      const { history, calls } = stubHistory({ failing })
+      renderAt('/shifts/nfl/timeline', { source: realSource(history) })
+      const gap = await screen.findByRole('group', { name: /snapshot unavailable/i })
+      failing.length = 0
+      calls.snapshots.length = 0
+      fireEvent.click(within(gap).getByRole('button', { name: /retry/i }))
+      await waitFor(() => expect(screen.queryByRole('group', { name: /snapshot unavailable/i })).toBeNull())
+      expect(calls.snapshots).toEqual(['snapshots/live-4.json'])
+      expect(screen.getAllByRole('article')).toHaveLength(4)
+    })
+
+    it('keeps the gap and its retry when the retry fails', async () => {
+      renderAt('/shifts/nfl/timeline', { source: realSource(stubHistory({ failing: [4] }).history) })
+      const gap = await screen.findByRole('group', { name: /snapshot unavailable/i })
+      fireEvent.click(within(gap).getByRole('button', { name: /retry/i }))
+      await waitFor(() => expect(within(screen.getByRole('group', { name: /snapshot unavailable/i })).getByRole('button', { name: /retry/i }).hasAttribute('disabled')).toBe(false))
+      expect(screen.getByRole('group', { name: /snapshot unavailable/i })).toBeTruthy()
+    })
+
+    it('marks a not-fresh snapshot with no retry', async () => {
+      renderAt('/shifts/nfl/timeline', { source: realSource(stubHistory({ stale: [4] }).history) })
+      const gap = await screen.findByRole('group', { name: /not fresh/i })
+      expect(within(gap).getByText(/shifts inside it may be lost/i)).toBeTruthy()
+      expect(within(gap).queryByRole('button')).toBeNull()
+    })
+
+    it('makes the retry keyboard operable with a visible focus ring', async () => {
+      renderAt('/shifts/nfl/timeline', { source: realSource(stubHistory({ failing: [4] }).history) })
+      const retry = within(await screen.findByRole('group', { name: /snapshot unavailable/i })).getByRole('button', { name: /retry/i })
+      expect(retry.tagName).toBe('BUTTON')
+      expect(retry.className).toMatch(/focus-visible:ring/)
+    })
+  })
 })

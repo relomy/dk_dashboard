@@ -95,4 +95,87 @@ describe('the Timeline source', () => {
     if (opened.kind !== 'ready') throw new Error('expected ready')
     expect(opened.timeline.entries).toHaveLength(1)
   })
+
+  describe('contest rotation', () => {
+    const rotated = (snapshot: { sports: { nfl: { contests: Array<{ name: string }> } } }) => {
+      snapshot.sports.nfl.contests[0].name = 'Yesterday slate'
+    }
+
+    it('drops snapshots whose primary contest differs from the latest one and starts a fresh Timeline', async () => {
+      const { history } = stubHistory({ mutate: { 2: rotated, 3: rotated } })
+      const opened = await sourceOf(history).open('nfl')
+      if (opened.kind !== 'ready') throw new Error('expected ready')
+      expect(opened.timeline.entries.map((entry) => [entry.kind, entry.snapshotAt])).toEqual([
+        ['step', stamp(6)],
+        ['step', stamp(5)],
+      ])
+      expect(opened.timeline.rangeNote).toEqual({ kind: 'from', snapshotAt: stamp(4) })
+    })
+
+    it('does not leave a gap behind the rotation, where no Step could be compared across it', async () => {
+      const { history } = stubHistory({ failing: [3], mutate: { 2: rotated } })
+      const opened = await sourceOf(history).open('nfl')
+      if (opened.kind !== 'ready') throw new Error('expected ready')
+      expect(opened.timeline.entries.map((entry) => entry.kind)).toEqual(['step', 'step'])
+    })
+
+    it('keeps a gap that sits between snapshots of the current contest', async () => {
+      const { history } = stubHistory({ failing: [5], mutate: { 2: rotated, 3: rotated } })
+      const opened = await sourceOf(history).open('nfl')
+      if (opened.kind !== 'ready') throw new Error('expected ready')
+      expect(opened.timeline.entries.map((entry) => entry.kind)).toEqual(['step', 'gap'])
+    })
+  })
+
+  describe('retrying a gap', () => {
+    it('refetches only that snapshot and fills the Step on success', async () => {
+      const failing = [4]
+      const { history, calls } = stubHistory({ failing })
+      const opened = await sourceOf(history).open('nfl')
+      if (opened.kind !== 'ready' || !opened.retryGap) throw new Error('expected a retryable opening')
+      failing.length = 0
+      calls.snapshots.length = 0
+      const retried = await opened.retryGap(stamp(4))
+      expect(calls.snapshots).toEqual([pathOf(4)])
+      if (retried.kind !== 'ready') throw new Error('expected ready')
+      expect(retried.timeline.entries.map((entry) => [entry.kind, entry.snapshotAt])).toEqual(
+        [6, 5, 4, 3].map((slot) => ['step', stamp(slot)]),
+      )
+    })
+
+    it('leaves the gap, and a further retry, when the snapshot fails again', async () => {
+      const { history } = stubHistory({ failing: [4] })
+      const opened = await sourceOf(history).open('nfl')
+      if (opened.kind !== 'ready' || !opened.retryGap) throw new Error('expected a retryable opening')
+      const retried = await opened.retryGap(stamp(4))
+      if (retried.kind !== 'ready' || !retried.retryGap) throw new Error('expected a retryable opening')
+      expect(retried.timeline.entries[2]).toMatchObject({ kind: 'gap', reason: 'unavailable' })
+    })
+
+    it('offers no retry for a not-fresh gap', async () => {
+      const { history, calls } = stubHistory({ stale: [4] })
+      const opened = await sourceOf(history).open('nfl')
+      if (opened.kind !== 'ready' || !opened.retryGap) throw new Error('expected a retryable opening')
+      calls.snapshots.length = 0
+      const retried = await opened.retryGap(stamp(4))
+      expect(calls.snapshots).toEqual([])
+      expect(retried).toBe(opened)
+    })
+
+    it('drops a retried snapshot that belongs to another contest', async () => {
+      const failing = [4]
+      const other = (snapshot: { sports: { nfl: { contests: Array<{ name: string }> } } }) => {
+        snapshot.sports.nfl.contests[0].name = 'Yesterday slate'
+      }
+      const { history } = stubHistory({ failing, mutate: { 4: other } })
+      const opened = await sourceOf(history).open('nfl')
+      if (opened.kind !== 'ready' || !opened.retryGap) throw new Error('expected a retryable opening')
+      failing.length = 0
+      const retried = await opened.retryGap(stamp(4))
+      if (retried.kind !== 'ready') throw new Error('expected ready')
+      expect(retried.timeline.entries.map((entry) => [entry.kind, entry.snapshotAt])).toEqual(
+        [6, 5, 3].map((slot) => ['step', stamp(slot)]),
+      )
+    })
+  })
 })

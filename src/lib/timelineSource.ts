@@ -1,7 +1,7 @@
 import { fetchJson } from './api'
 import { interpretSnapshot, isSupportedSnapshot } from './interpretedSnapshot'
 import { buildLiveModel, type LiveNotRenderableReason } from './liveModel'
-import { buildTimeline, digestOf, type Timeline, type TimelineInput } from './shifts'
+import { buildTimeline, digestOf, type Digest, type Timeline, type TimelineGapMarker, type TimelineInput } from './shifts'
 import { TIMELINE_FETCH_BOUND, TIMELINE_OPEN_SNAPSHOTS } from './timelineConfig'
 import type { DayManifest, LatestResponse, ManifestSnapshotSummary } from './types'
 
@@ -25,7 +25,16 @@ export interface TimelineOpenOptions {
 }
 
 export type TimelineOpening =
-  | { kind: 'ready'; timeline: Timeline; inputs: TimelineInput[] }
+  | {
+      kind: 'ready'
+      timeline: Timeline
+      inputs: TimelineInput[]
+      /**
+       * Refetches the one skipped snapshot at `snapshotAt` and rebuilds. Resolves with an opening that still shows
+       * the gap when the snapshot fails again, and with this opening itself for a snapshot that is not a failure.
+       */
+      retryGap?: (snapshotAt: string) => Promise<TimelineOpening>
+    }
   | { kind: 'not-renderable'; reason: LiveNotRenderableReason }
 
 export interface TimelineSource {
@@ -84,6 +93,22 @@ type Built =
   | { kind: 'not-renderable'; reason: LiveNotRenderableReason }
   | { kind: 'failed'; error: unknown }
 
+function isGap(input: TimelineInput): input is TimelineGapMarker {
+  return 'reason' in input
+}
+
+/**
+ * Drops the digests whose primary contest differs from the newest digest's, so a rotated slate starts a fresh
+ * Timeline, and the gaps left behind the rotation, which no Step could be compared across.
+ */
+function withoutRotation(inputs: TimelineInput[]): TimelineInput[] {
+  const newest = [...inputs].reverse().find((input): input is Digest => !isGap(input))
+  if (!newest) return inputs
+  const kept = inputs.filter((input) => isGap(input) || input.contestKey === newest.contestKey)
+  if (kept.length === inputs.length) return inputs
+  return kept.slice(kept.findIndex((input) => !isGap(input)))
+}
+
 export function createTimelineSource(options: TimelineSourceOptions): TimelineSource {
   const { history } = options
   const now = options.now ?? Date.now
@@ -130,12 +155,30 @@ export function createTimelineSource(options: TimelineSourceOptions): TimelineSo
     if (newest?.kind === 'failed') throw newest.error instanceof Error ? newest.error : new Error('The latest snapshot failed to load')
     if (newest?.kind === 'not-renderable') return { kind: 'not-renderable', reason: newest.reason }
 
-    const inputs: TimelineInput[] = [...page].reverse().map((entry): TimelineInput => {
+    const oldestFirst = [...page].reverse()
+    const inputs: TimelineInput[] = oldestFirst.map((entry): TimelineInput => {
       const built = fetched.get(entry.snapshot_at)
       if (!built) return { reason: 'not-fresh', snapshotAt: entry.snapshot_at }
       return built.kind === 'digest' ? built.input : { reason: 'unavailable', snapshotAt: entry.snapshot_at }
     })
-    return { kind: 'ready', timeline: buildTimeline(inputs), inputs }
+    const paths = new Map(oldestFirst.map((entry) => [entry.snapshot_at, entry.path]))
+    return ready(sport, inputs, paths)
+  }
+
+  /** The opening for `all` (oldest first): other contests dropped, and the gap retry wired to `paths`. */
+  function ready(sport: string, all: TimelineInput[], paths: Map<string, string>): TimelineOpening {
+    const inputs = withoutRotation(all)
+    const retryGap = async (snapshotAt: string): Promise<TimelineOpening> => {
+      const path = paths.get(snapshotAt)
+      const index = inputs.findIndex((input) => input.snapshotAt === snapshotAt)
+      const gap = inputs[index]
+      if (!path || !gap || !isGap(gap) || gap.reason !== 'unavailable') return opening
+      const built = await digestFor(sport, { path, snapshot_at: snapshotAt } as ManifestSnapshotSummary)
+      if (built.kind !== 'digest') return opening
+      return ready(sport, inputs.map((input, i) => (i === index ? built.input : input)), paths)
+    }
+    const opening: TimelineOpening = { kind: 'ready', timeline: buildTimeline(inputs), inputs, retryGap }
+    return opening
   }
 
   return { open }

@@ -60,7 +60,7 @@ export function ShiftsSummary() {
 export function ShiftsTimeline() {
   const { model } = useOutletContext<ShiftsOutletContext>()
   const { activeProfile } = useProfiles()
-  const { opening, error, loading, progress, retry } = useShiftsTimeline(model.sport)
+  const { opening, error, loading, progress, retry, retryGap } = useShiftsTimeline(model.sport)
   if (error) {
     return (
       <PageMessage tone="error">
@@ -79,7 +79,7 @@ export function ShiftsTimeline() {
     )
   }
   if (opening.kind === 'not-renderable') return <PageMessage>There is nothing to follow live for this sport.</PageMessage>
-  return <TimelineRail timeline={opening.timeline} model={model} rules={activeProfile.rules} />
+  return <TimelineRail timeline={opening.timeline} model={model} rules={activeProfile.rules} onRetryGap={retryGap} />
 }
 
 /** The page shell: the heading and tab strip above the nested tab routes, which share the feed and model. */

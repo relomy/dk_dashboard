@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { formatPoints, formatRank, formatSigned } from '../../lib/format'
@@ -87,11 +89,28 @@ function StepCard({ step, items, model, followed, username }: { step: TimelineSt
   )
 }
 
-function GapNode({ gap }: { gap: TimelineGap }) {
+/** A dashed rail node where a snapshot was skipped; only a failure offers a retry. */
+function GapNode({ gap, onRetry }: { gap: TimelineGap; onRetry?: (snapshotAt: string) => Promise<void> | void }) {
+  const [retrying, setRetrying] = useState(false)
+  const label = gap.reason === 'unavailable' ? 'Snapshot unavailable' : 'Not fresh'
+  const retry = async () => {
+    setRetrying(true)
+    try {
+      await onRetry?.(gap.snapshotAt)
+    } finally {
+      setRetrying(false)
+    }
+  }
   return (
-    <p className="rounded-xl border border-dashed border-border px-3 py-2 text-muted-foreground">
-      {gap.reason === 'unavailable' ? 'Snapshot unavailable' : 'Not fresh'}
-    </p>
+    <div role="group" aria-label={`${label} at ${clockOf(gap.snapshotAt)}`} className="space-y-1 rounded-xl border border-dashed border-border px-3 py-2 text-muted-foreground">
+      <p className="font-medium">{label}</p>
+      <p className="text-xs">Shifts inside it may be lost; the Steps either side are compared across it.</p>
+      {gap.reason === 'unavailable' && onRetry ? (
+        <Button variant="outline" size="sm" disabled={retrying} onClick={() => void retry()}>
+          Retry
+        </Button>
+      ) : null}
+    </div>
   )
 }
 
@@ -114,7 +133,18 @@ interface Row {
 }
 
 /** The step rail: one card per Step, newest first, one row per followed VIP. */
-export function TimelineRail({ timeline, model, rules }: { timeline: Timeline; model: LiveModel; rules: ProfileMatchRules }) {
+export function TimelineRail({
+  timeline,
+  model,
+  rules,
+  onRetryGap,
+}: {
+  timeline: Timeline
+  model: LiveModel
+  rules: ProfileMatchRules
+  /** Refetches a failed snapshot; a gap offers its retry only when this is given. */
+  onRetryGap?: (snapshotAt: string) => Promise<void> | void
+}) {
   const followed = followedVipKeys(model, rules)
   const username = rules.username
   const rows = timeline.entries.flatMap((entry): Row[] => {
@@ -131,7 +161,7 @@ export function TimelineRail({ timeline, model, rules }: { timeline: Timeline; m
         {rows.map(({ entry, items }) =>
           entry.kind === 'gap' ? (
             <RailRow key={entry.id} dashed>
-              <GapNode gap={entry} />
+              <GapNode gap={entry} onRetry={onRetryGap} />
             </RailRow>
           ) : (
             <RailRow key={entry.id}>
