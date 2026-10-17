@@ -8,7 +8,7 @@ import { useLatest } from '../../hooks/useLatest'
 import { useLiveModel } from '../../hooks/useLiveModel'
 import { useShiftsFeed } from '../../hooks/useShiftsFeed'
 import type { LiveModel } from '../../lib/liveModel'
-import type { ShiftsFeed, ShiftsGap } from '../../lib/shifts'
+import type { ShiftsFeed, AwaySummary } from '../../lib/shifts'
 import { awayText, describeItem } from './shiftText'
 
 /**
@@ -47,7 +47,7 @@ function BannerRows({ feed, model, sport, username }: { feed: ShiftsFeed; model:
   const gap = useSyncExternalStore(feed.subscribe, feed.gap)
   const [shownIds, setShownIds] = useState<string[]>([])
   const [dismissedIds, setDismissedIds] = useState<string[]>([])
-  const [dismissedGap, setDismissedGap] = useState<ShiftsGap | null>(null)
+  const [dismissedGap, setDismissedGap] = useState<AwaySummary | null>(null)
 
   const unsurfaced = items.filter((item) => item.priority === 'high' && !item.surfaced)
   const fresh = unsurfaced.filter((item) => !shownIds.includes(item.id))

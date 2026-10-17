@@ -61,9 +61,18 @@ export function useShiftsTimeline(sport: string) {
     setProgress(null)
     void query.refetch()
   }, [query])
-  /** Refetches one failed snapshot and swaps the rebuilt Timeline in; the rest of the rail is untouched. */
+  /** Refetches one failed snapshot and swaps the rebuilt Timeline in; resolves `{ ok: false }` when it still fails. */
   const retryGap = useCallback(
-    (snapshotAt: string) => enqueue(queryClient, queryKey, async (current) => (current.retryGap ? current.retryGap(snapshotAt) : null)),
+    async (snapshotAt: string): Promise<{ ok: boolean }> => {
+      let ok = false
+      await enqueue(queryClient, queryKey, async (current) => {
+        if (!current.retryGap) return null
+        const next = await current.retryGap(snapshotAt)
+        ok = next.kind === 'ready' && !next.timeline.entries.some((entry) => entry.kind === 'gap' && entry.snapshotAt === snapshotAt && entry.reason === 'unavailable')
+        return next
+      })
+      return { ok }
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [queryClient, sport],
   )

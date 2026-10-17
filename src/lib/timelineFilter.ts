@@ -1,4 +1,4 @@
-import type { ShiftItem, ShiftPart, TimelineEntry, TimelineGap, TimelineStep } from './shifts'
+import type { ShiftItem, ShiftPart, TimelineEntry, TimelineGapEntry, TimelineStep } from './shifts'
 
 /** The five kinds, in the order the filter bar lists them. */
 export const ALL_KINDS: readonly ShiftPart[] = ['rank-points', 'player-events', 'cash-line', 'crossings', 'contest-state']
@@ -36,12 +36,7 @@ export interface FilteredStep {
   items: FilteredItem[]
 }
 
-export type FilteredEntry = FilteredStep | TimelineGap
-
-function partsOf(item: ShiftItem): ShiftPart[] {
-  if (item.parts) return item.parts
-  return item.kind === 'vip' ? ['rank-points'] : [item.kind]
-}
+export type FilteredEntry = FilteredStep | TimelineGapEntry
 
 /**
  * Applies the filters to Timeline entries, newest first in and out. A row keeps the parts that pass the kind and
@@ -53,7 +48,7 @@ export function filterTimeline(entries: TimelineEntry[], filters: TimelineFilter
     if (entry.kind === 'gap') return [entry]
     const items = entry.items.flatMap((item): FilteredItem[] => {
       if (item.kind === 'vip' && !filters.vips.has(item.vipKey)) return []
-      const parts = partsOf(item)
+      const { parts } = item
       const passes = (part: ShiftPart) => filters.kinds.has(part) && (!filters.highOnly || HIGH_PARTS.has(part))
       const shown = parts.filter(passes)
       return shown.length > 0 ? [{ item, shown, hidden: parts.filter((part) => !passes(part)) }] : []

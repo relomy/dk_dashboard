@@ -65,7 +65,7 @@ export function ShiftsTimeline() {
   const { feed, model, view } = useOutletContext<ShiftsOutletContext>()
   const { activeProfile } = useProfiles()
   const seenAt = useSyncExternalStore(feed.subscribe, feed.seenSnapshotAt)
-  const { opening, error, loading, progress, retry, retryGap, loadMore, more } = useShiftsTimeline(model.sport)
+  const { opening, error, loading, progress, retry, retryGap, loadMore, more, refreshError } = useShiftsTimeline(model.sport)
   if (error) {
     return (
       <PageMessage tone="error">
@@ -97,6 +97,7 @@ export function ShiftsTimeline() {
             range={opening.range}
             onLoadMore={opening.loadMore ? loadMore : undefined}
             more={more}
+            refreshError={refreshError}
           />
         </>
       ) : (

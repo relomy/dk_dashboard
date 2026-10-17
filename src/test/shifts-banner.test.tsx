@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import ShiftsBanner from '../components/shifts/ShiftsBanner'
 import { ProfileContext } from '../context/ProfileContext'
 import { ShiftsContext } from '../context/ShiftsContext'
-import type { ContestShiftItem, ShiftItem, ShiftsFeed, ShiftsGap, VipShiftItem } from '../lib/shifts'
+import type { ContestShiftItem, ShiftItem, ShiftsFeed, AwaySummary, VipShiftItem } from '../lib/shifts'
 import { load } from './liveHarness'
 
 // Sample feed outputs over the NFL fixture's VIPs (provenance in public/mock/PRODUCER_FIXTURE.md).
@@ -42,7 +42,7 @@ function completedItem(): ContestShiftItem {
 }
 
 /** A feed stub holding fixed items. `markSurfaced` flags the items and notifies, as the real feed does. */
-function stubFeed(initial: ShiftItem[], gap: ShiftsGap | null = null) {
+function stubFeed(initial: ShiftItem[], gap: AwaySummary | null = null) {
   let items = initial
   const listeners = new Set<() => void>()
   const notify = () => listeners.forEach((listener) => listener())
@@ -261,7 +261,7 @@ describe('dismissing and surfacing', () => {
 })
 
 describe('the "while you were away" line', () => {
-  const gap = (overrides: Partial<ShiftsGap> = {}): ShiftsGap => ({
+  const gap = (overrides: Partial<AwaySummary> = {}): AwaySummary => ({
     unseenCount: 3,
     topItem: crossingItem('empire'),
     minutesAway: 45,

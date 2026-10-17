@@ -131,7 +131,7 @@ export interface FinalStanding {
 export type ShiftItem = VipShiftItem | CashLineShiftItem | ContestShiftItem
 
 /** Set when a visit follows a long absence and something is unseen. */
-export interface ShiftsGap {
+export interface AwaySummary {
   unseenCount: number
   topItem: ShiftItem
   minutesAway: number
@@ -151,7 +151,7 @@ export interface ShiftsFeed {
   /** High priority items not yet passed to `markSurfaced`. */
   unsurfaced(): ShiftItem[]
   /** The returned-after-a-gap data, or null. */
-  gap(): ShiftsGap | null
+  gap(): AwaySummary | null
   /** True after a quick visit moved the Seen mark on by itself; cleared by the next visit or by `markSeen`. */
   autoAdvanced(): boolean
   /** Advances the Seen mark to now and clears the High priority log. */
@@ -633,14 +633,14 @@ export interface TimelineStep {
 }
 
 /** A skipped snapshot, shown where its step would have been. */
-export interface TimelineGap {
+export interface TimelineGapEntry {
   kind: 'gap'
   id: string
   snapshotAt: string
   reason: GapReason
 }
 
-export type TimelineEntry = TimelineStep | TimelineGap
+export type TimelineEntry = TimelineStep | TimelineGapEntry
 
 export function isGapMarker(input: TimelineInput): input is TimelineGapMarker {
   return 'reason' in input
@@ -747,7 +747,7 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
   }
 
   let items: ShiftItem[] = []
-  let gap: ShiftsGap | null = null
+  let gap: AwaySummary | null = null
   let autoAdvanced = false
   let currentKey: string | null = null
   let seenAt: string | null = null

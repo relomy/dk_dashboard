@@ -70,6 +70,21 @@ describe('useShiftsTimeline', () => {
     expect(stepTimes(hook.result.current.opening)).toHaveLength(5)
   })
 
+  it('resolves retryGap with ok:false while the snapshot still fails, and ok:true once it loads', async () => {
+    const failing = [4]
+    const { mount } = setup({ failing })
+    const hook = mount()
+    await waitFor(() => expect(hook.result.current.opening?.kind).toBe('ready'))
+    let outcome: { ok: boolean } | undefined
+    await act(async () => { outcome = await hook.result.current.retryGap(stamp(4)) })
+    expect(outcome).toEqual({ ok: false })
+    expect(stepTimes(hook.result.current.opening)).toContain(`gap:${stamp(4)}`)
+    failing.length = 0
+    await act(async () => { outcome = await hook.result.current.retryGap(stamp(4)) })
+    expect(outcome).toEqual({ ok: true })
+    await waitFor(() => expect(stepTimes(hook.result.current.opening)).toContain(`step:${stamp(4)}`))
+  })
+
   it('does not drop a Retry made while Load more is in flight', async () => {
     const failing = [30]
     const { mount } = setup({ slots: many, failing })

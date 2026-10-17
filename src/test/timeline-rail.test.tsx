@@ -243,7 +243,7 @@ describe('the High badge', () => {
 
 describe('gaps the Timeline cannot show', () => {
   it('are labelled without a Retry', () => {
-    const odd = { kind: 'gap', id: 'g', snapshotAt: T(5), reason: 'not-renderable' } as unknown as TimelineEntry
+    const odd: TimelineEntry = { kind: 'gap', id: 'g', snapshotAt: T(5), reason: 'not-renderable' }
     render(<Harness timeline={{ entries: [step('s', T(10), [vip('a', FIRST.key)]), odd], rangeNote: null }} />)
     const gap = screen.getByRole('group', { name: `Snapshot can't be shown at ${clock(5)}` })
     expect(within(gap).queryByRole('button')).toBeNull()

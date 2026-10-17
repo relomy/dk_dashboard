@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { formatPoints, formatRank, formatSigned } from '../../lib/format'
 import type { LiveModel } from '../../lib/liveModel'
 import type { ProfileMatchRules } from '../../lib/profiles'
-import type { CashLineShiftItem, ContestShiftItem, FinalStanding, Timeline, TimelineGap, TimelineStep } from '../../lib/shifts'
+import type { CashLineShiftItem, ContestShiftItem, FinalStanding, GapReason, Timeline, TimelineGapEntry, TimelineStep } from '../../lib/shifts'
 import { ALL_KINDS, filterTimeline, type FilteredEntry, type FilteredItem } from '../../lib/timelineFilter'
 import type { TimelineView } from '../../hooks/useTimelineView'
 import type { LoadMoreState } from '../../hooks/useShiftsTimeline'
@@ -56,7 +56,7 @@ function VipRow({ row, name, filtered }: { row: FilteredItem; name: string; filt
   const { parts, toggleChip } = useRowParts(row)
   if (item.kind !== 'vip') return null
   const crossingCause = item.crossing?.cause ? lineMoveText(item.crossing.cause) : ''
-  const showLineup = parts.includes('player-events') || (!filtered && !item.parts?.includes('player-events') && shown.length > 0)
+  const showLineup = parts.includes('player-events') || (!filtered && !item.parts.includes('player-events') && shown.length > 0)
   return (
     <section aria-label={name} className="space-y-1 border-t border-border px-3 py-2 first:border-t-0">
       <h2 className="flex items-center gap-2 font-semibold">
@@ -165,14 +165,19 @@ function StepCard({ step, rows, model, followed, username, compact, filtered }: 
 /** What a retry resolves with; `ok: false` means the snapshot still could not be fetched. */
 export type RetryOutcome = { ok: boolean } | void
 
+const GAP_LABELS: Record<GapReason, string> = {
+  unavailable: 'Snapshot unavailable',
+  'not-fresh': 'Not fresh',
+  'not-renderable': "Snapshot can't be shown",
+}
+
 /** A dashed rail node where a snapshot was skipped; only a failure offers a retry, and a failed retry says so. */
-function GapNode({ gap, onRetry, onRetried }: { gap: TimelineGap; onRetry: (snapshotAt: string) => Promise<RetryOutcome> | RetryOutcome; onRetried: (snapshotAt: string) => void }) {
+function GapNode({ gap, onRetry, onRetried }: { gap: TimelineGapEntry; onRetry: (snapshotAt: string) => Promise<RetryOutcome> | RetryOutcome; onRetried: (snapshotAt: string) => void }) {
   const [retrying, setRetrying] = useState(false)
   const [failed, setFailed] = useState(false)
-  // Any reason other than a failed fetch (not fresh, or one the Timeline cannot show at all) offers no retry.
-  const reason: string = gap.reason
-  const label = reason === 'unavailable' ? 'Snapshot unavailable' : reason === 'not-fresh' ? 'Not fresh' : "Snapshot can't be shown"
-  const retriable = reason === 'unavailable'
+  // Only a failed fetch offers a retry; a snapshot that is not fresh or not renderable would fail the same way.
+  const label = GAP_LABELS[gap.reason]
+  const retriable = gap.reason === 'unavailable'
   const retry = async () => {
     setRetrying(true)
     setFailed(false)
@@ -399,7 +404,14 @@ export function TimelineRail({
       {updates}
       {loadMoreAnnouncement}
       {hasSteps ? null : (
-        <p className="py-8 text-center text-sm text-muted-foreground">{hasHiddenSteps ? 'No entries match these filters' : 'No VIP shifts yet'}</p>
+        <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground">
+          <p>{hasHiddenSteps ? 'No entries match these filters' : 'No VIP shifts yet'}</p>
+          {hasHiddenSteps ? (
+            <Button type="button" variant="outline" size="sm" onClick={view.reset}>
+              Reset
+            </Button>
+          ) : null}
+        </div>
       )}
       {rows.length > 0 ? (
         <ol ref={listRef} tabIndex={-1} aria-label="Timeline" className="flex flex-col outline-none">

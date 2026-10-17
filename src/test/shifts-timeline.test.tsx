@@ -283,6 +283,21 @@ describe('the Timeline tab', () => {
       expect(screen.getByRole('group', { name: /snapshot unavailable/i })).toBeTruthy()
     })
 
+    it('says the retry failed when the snapshot is still unavailable', async () => {
+      renderAt('/shifts/nfl/timeline', { source: realSource(stubHistory({ failing: [4] }).history) })
+      const gap = await screen.findByRole('group', { name: /snapshot unavailable/i })
+      fireEvent.click(within(gap).getByRole('button', { name: /retry/i }))
+      expect((await screen.findByText(/retry failed/i)).getAttribute('role')).toBe('status')
+      expect(screen.getByRole('group', { name: /snapshot unavailable/i })).toBeTruthy()
+    })
+
+    it('labels a snapshot the Timeline cannot render, with no retry', async () => {
+      const stub = stubHistory({ mutate: { 4: (snapshot) => delete snapshot.sports.nfl.primary_contest } })
+      renderAt('/shifts/nfl/timeline', { source: realSource(stub.history) })
+      const gap = await screen.findByRole('group', { name: `Snapshot can't be shown at ${clockAt(4)}` })
+      expect(within(gap).queryByRole('button')).toBeNull()
+    })
+
     it('marks a not-fresh snapshot with no retry', async () => {
       renderAt('/shifts/nfl/timeline', { source: realSource(stubHistory({ stale: [4] }).history) })
       const gap = await screen.findByRole('group', { name: /not fresh/i })
@@ -508,6 +523,22 @@ describe('a live Timeline', () => {
     expect(stub.calls.snapshots).toEqual(['snapshots/live-7.json'])
   })
 
+  it('keeps the rail and shows a non-blocking notice when a refresh fails, clearing it once one succeeds', async () => {
+    const stub = stubHistory()
+    renderAt('/shifts/nfl/timeline', { source: realSource(stub.history) })
+    await screen.findAllByRole('article')
+    const manifest = stub.history.manifest
+    stub.history.manifest = async () => { throw new Error('manifest down') }
+    await tick(REFRESH)
+    expect(await screen.findByText(/could not refresh the timeline/i)).toBeTruthy()
+    expect(screen.getAllByRole('article')).toHaveLength(4)
+    stub.history.manifest = manifest
+    stub.publish(7)
+    await tick(REFRESH)
+    await waitFor(() => expect(screen.queryByText(/could not refresh the timeline/i)).toBeNull())
+    expect(screen.getAllByRole('article')).toHaveLength(5)
+  })
+
   it('announces new Steps politely and not the ones it opened with', async () => {
     const stub = stubHistory()
     renderAt('/shifts/nfl/timeline', { source: realSource(stub.history) })
@@ -634,8 +665,9 @@ describe('Timeline filters and Compact', () => {
     renderAt('/shifts/nfl/timeline')
     await screen.findAllByRole('article')
     fireEvent.click(screen.getByRole('button', { name: 'High priority only' }))
-    expect(screen.getByText('No entries match these filters')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
+    const message = screen.getByText('No entries match these filters')
+    expect(screen.getAllByRole('button', { name: 'Reset' })).toHaveLength(2)
+    fireEvent.click(within(message.parentElement as HTMLElement).getByRole('button', { name: 'Reset' }))
     expect(await screen.findAllByRole('article')).toHaveLength(4)
   })
 })
