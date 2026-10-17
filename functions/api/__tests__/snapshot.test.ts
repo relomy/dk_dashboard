@@ -87,6 +87,7 @@ describe('/api/snapshot', () => {
     const response = await invoke('?path=snapshots/live.json', buildEnv())
 
     expect(response.status).toBe(401)
+    expect(response.headers.get('cache-control')).toBe('no-store')
     await expect(response.json()).resolves.toEqual({
       error: {
         code: 'unauthenticated',
@@ -125,6 +126,7 @@ describe('/api/snapshot', () => {
     const response = await invoke('?path=snapshots/live.json', buildEnv(), { Cookie: 'session_token=tok_1' })
 
     expect(response.status).toBe(404)
+    expect(response.headers.get('cache-control')).toBe('no-store')
     await expect(response.json()).resolves.toEqual({
       error: {
         code: 'snapshot_not_found',
@@ -148,7 +150,7 @@ describe('/api/snapshot', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8')
-    expect(response.headers.get('cache-control')).toBe('public, max-age=60')
+    expect(response.headers.get('cache-control')).toBe('private, max-age=31536000, immutable')
     await expect(response.json()).resolves.toEqual({ schema_version: 2 })
   })
 

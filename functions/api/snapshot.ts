@@ -23,7 +23,7 @@ export const onRequestGet: PagesFunction<EnvBindings> = async ({ request, env })
   return new Response(await snapshotObject.text(), {
     headers: {
       'content-type': 'application/json; charset=utf-8',
-      'cache-control': key.startsWith('snapshots/') ? 'public, max-age=60' : 'no-store',
+      'cache-control': key.startsWith('snapshots/') ? 'private, max-age=31536000, immutable' : 'no-store',
     },
   })
 }
