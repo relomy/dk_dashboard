@@ -3,7 +3,7 @@
 Before claiming completion:
 
 1. Run tests covering the changed behavior with `npm test` or a narrower Vitest command.
-2. Run `npm run lint` for source changes.
+2. Run `npm run lint` and `npm run format:check` for source changes; `npm run format` fixes style.
 3. Run `npm run build` for application source or build-configuration changes.
 4. Run `npm run check:functions` when changing `functions/` or shared worker types.
 5. For changes to the Live view (`src/routes/Live.tsx`, `src/lib/live*`) or snapshot handling (`src/lib/types.ts`, the snapshot model and its helpers), run the prod check and include its report in the PR (see below).
