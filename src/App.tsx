@@ -14,7 +14,7 @@ import Landing from './routes/Landing'
 import Live from './routes/Live'
 import Login from './routes/Login'
 import Settings from './routes/Settings'
-import Shifts from './routes/Shifts'
+import Shifts, { ShiftsSummary } from './routes/Shifts'
 import Sport from './routes/Sport'
 
 function RequireAuthenticatedLayout() {
@@ -83,7 +83,9 @@ function App() {
             <Route path="/settings" element={<Settings />} />
             <Route element={<RequireOwner />}>
               <Route path="/admin/users" element={<AdminUsers />} />
-              <Route path="/shifts/:sport" element={<Shifts />} />
+              <Route path="/shifts/:sport" element={<Shifts />}>
+                <Route index element={<ShiftsSummary />} />
+              </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

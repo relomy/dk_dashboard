@@ -53,6 +53,7 @@ describe('/shifts/:sport', () => {
     expect(await screen.findByRole('heading', { name: 'Shifts' })).toBeTruthy()
     expect(screen.getByText('DK/LIVE')).toBeTruthy()
     expect(await screen.findByText(/nothing has moved since you last looked/i)).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Summary', selected: true })).toBeTruthy()
   })
 
   it('sends a non-owner to the landing page, as for an unknown route', async () => {

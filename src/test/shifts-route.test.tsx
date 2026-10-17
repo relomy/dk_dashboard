@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ProfileContext } from '../context/ProfileContext'
 import { ShiftsContext } from '../context/ShiftsContext'
 import type { CashLineMove, CashLineShiftItem, ContestShiftItem, LineupSlotDiff, ShiftItem, ShiftsFeed, VipShiftItem } from '../lib/shifts'
-import Shifts from '../routes/Shifts'
+import Shifts, { ShiftsSummary } from '../routes/Shifts'
 import { load } from './liveHarness'
 
 // Sample feed outputs over the NFL fixture's VIPs (provenance in public/mock/PRODUCER_FIXTURE.md).
@@ -76,13 +76,13 @@ function stubApi(snapshotStatus = 200) {
   )
 }
 
-async function renderShifts(feed: ShiftsFeed, username?: string, snapshotStatus = 200) {
+async function renderShifts(feed: ShiftsFeed | null, username?: string, snapshotStatus = 200, path = '/shifts/nfl') {
   stubApi(snapshotStatus)
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const profile = { id: 'me', name: 'Me', rules: username ? { username } : {} }
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/shifts/nfl']}>
+      <MemoryRouter initialEntries={[path]}>
         <ProfileContext.Provider
           value={{
             profiles: [profile],
@@ -96,14 +96,18 @@ async function renderShifts(feed: ShiftsFeed, username?: string, snapshotStatus 
         >
           <ShiftsContext.Provider value={feed}>
             <Routes>
-              <Route path="/shifts/:sport" element={<Shifts />} />
+              <Route path="/shifts/:sport" element={<Shifts />}>
+                <Route index element={<ShiftsSummary />} />
+              </Route>
             </Routes>
           </ShiftsContext.Provider>
         </ProfileContext.Provider>
       </MemoryRouter>
     </QueryClientProvider>,
   )
-  if (snapshotStatus === 200) await screen.findByRole('heading', { name: /shifts/i })
+  if (snapshotStatus === 200 && feed) {
+    await waitFor(() => expect(screen.queryByRole('heading', { name: /shifts/i }) ?? screen.queryByText(/nothing to follow/i)).toBeTruthy())
+  }
 }
 
 afterEach(() => {
@@ -456,5 +460,39 @@ describe('the lineup diff on a VIP card', () => {
     const cards = await screen.findAllByRole('article')
     expect(cards).toHaveLength(2)
     expect(screen.queryByRole('button', { name: /lineup/i })).toBeNull()
+  })
+})
+
+describe('the Shifts tab shell', () => {
+  it('shows one selected Summary tab whose panel holds the Summary', async () => {
+    await renderShifts(stubFeed([vipItem('empire')]))
+    const tabs = within(screen.getByRole('tablist')).getAllByRole('tab')
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['Summary'])
+    expect(tabs[0].getAttribute('aria-selected')).toBe('true')
+    const panel = screen.getByRole('tabpanel')
+    expect(panel.getAttribute('aria-labelledby')).toBe(tabs[0].id)
+    expect(within(panel).getByRole('button', { name: 'Mark as seen' })).toBeTruthy()
+    expect(within(panel).getAllByRole('article')).toHaveLength(1)
+  })
+
+  it('keeps the tab focusable by keyboard and shows a visible focus ring on it', async () => {
+    await renderShifts(stubFeed([]))
+    const tab = await screen.findByRole('tab', { name: 'Summary' })
+    tab.focus()
+    expect(document.activeElement).toBe(tab)
+    expect(tab.className).toContain('focus-visible:ring')
+  })
+
+  it('shows only the not-available message to a non-owner, with no tab strip', async () => {
+    await renderShifts(null)
+    expect(await screen.findByText('Shifts are not available.')).toBeTruthy()
+    expect(screen.queryByRole('tablist')).toBeNull()
+    expect(screen.queryByRole('tab')).toBeNull()
+  })
+
+  it('shows the not-renderable message without a tab strip for a sport with nothing to follow', async () => {
+    await renderShifts(stubFeed([]), undefined, 200, '/shifts/mlb')
+    expect(await screen.findByText('There is nothing to follow live for this sport.')).toBeTruthy()
+    expect(screen.queryByRole('tablist')).toBeNull()
   })
 })
