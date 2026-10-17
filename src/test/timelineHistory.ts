@@ -37,6 +37,9 @@ function entry(index: number, status: 'ok' | 'stale' = 'ok'): ManifestSnapshotSu
 
 export interface StubOptions {
   slots?: number[]
+  /** Slots of the previous UTC day's manifest, oldest to newest; when given, `latest` points at it. */
+  yesterdaySlots?: number[]
+  yesterdayError?: boolean
   stale?: number[]
   failing?: number[]
   mutate?: Record<number, (snapshot: Json) => void>
@@ -47,24 +50,31 @@ export interface StubOptions {
 export function stubHistory(options: StubOptions = {}) {
   const slots = options.slots ?? [0, 1, 2, 3, 4, 5, 6]
   const calls = { snapshots: [] as string[], manifests: [] as string[], inFlight: 0, maxInFlight: 0 }
-  const manifest: DayManifest = {
+  const manifestOf = (date: string, of: number[]): DayManifest => ({
     manifest_version: 1,
-    date_utc: '2026-10-04',
-    generated_at: stamp(slots[slots.length - 1]),
-    snapshots: slots.map((slot) => entry(slot, options.stale?.includes(slot) ? 'stale' : 'ok')),
-  }
+    date_utc: date,
+    generated_at: stamp(of[of.length - 1]),
+    snapshots: of.map((slot) => entry(slot, options.stale?.includes(slot) ? 'stale' : 'ok')),
+  })
+  const manifest = manifestOf('2026-10-04', slots)
+  const yesterday = options.yesterdaySlots ? manifestOf('2026-10-03', options.yesterdaySlots) : null
   const latest: LatestResponse = {
     latest_snapshot_path: pathOf(slots[slots.length - 1]),
     snapshot_at: stamp(slots[slots.length - 1]),
     generated_at: stamp(slots[slots.length - 1]),
     available_sports: ['nfl'],
     manifest_today_path: 'manifest/2026-10-04.json',
+    ...(yesterday ? { manifest_yesterday_path: 'manifest/2026-10-03.json' } : {}),
   }
   const history: TimelineHistory = {
     latest: async () => latest,
     manifest: async (path) => {
       calls.manifests.push(path)
       if (options.manifestError) throw new Error('manifest down')
+      if (path.includes('10-03')) {
+        if (options.yesterdayError || !yesterday) throw new Error('yesterday down')
+        return yesterday
+      }
       return manifest
     },
     snapshot: async (path) => {
@@ -73,7 +83,7 @@ export function stubHistory(options: StubOptions = {}) {
       calls.maxInFlight = Math.max(calls.maxInFlight, calls.inFlight)
       await new Promise((resolve) => setTimeout(resolve, 1))
       calls.inFlight -= 1
-      const slot = Number(/live-(\d+)/.exec(path)![1])
+      const slot = Number(/live-(-?\d+)/.exec(path)![1])
       if (options.failing?.includes(slot)) throw new Error(`snapshot ${slot} down`)
       return snapshotAt(slot, options.mutate?.[slot])
     },

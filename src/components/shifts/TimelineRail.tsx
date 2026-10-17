@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -8,6 +8,8 @@ import type { LiveModel } from '../../lib/liveModel'
 import type { ProfileMatchRules } from '../../lib/profiles'
 import type { CashLineShiftItem, ContestShiftItem, ShiftItem, Timeline, TimelineEntry, TimelineGap, TimelineStep, VipShiftItem } from '../../lib/shifts'
 import { followedVipKeys } from '../../lib/followedVips'
+import type { LoadMoreState } from '../../hooks/useShiftsTimeline'
+import type { TimelineRange } from '../../lib/timelineSource'
 import { LineupDiff, MoveRow } from './ShiftCard'
 import { contestStateText, lineMoveText, PATH_TEXT, vipName } from './shiftText'
 
@@ -177,6 +179,40 @@ function rangeFloor(timeline: Timeline): number | null {
   return times.length > 0 ? Math.min(...times) : null
 }
 
+/** The sticky header: snapshots loaded out of the cap, which also shows the progress of a Load more. */
+function RangeMeter({ range, more }: { range: TimelineRange; more: LoadMoreState }) {
+  const text = `${range.loaded} of ${range.cap} snapshots`
+  return (
+    <div className="sticky top-0 z-10 -mx-1 space-y-1 bg-background/95 px-1 py-2 backdrop-blur">
+      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>{text}</span>
+        {more.busy ? <span>{more.progress ? `Loading ${more.progress.done} of ${more.progress.total}...` : 'Loading...'}</span> : null}
+      </div>
+      <div
+        role="progressbar"
+        aria-label="Snapshots loaded"
+        aria-valuemin={0}
+        aria-valuemax={range.cap}
+        aria-valuenow={range.loaded}
+        aria-valuetext={text}
+        aria-busy={more.busy}
+        className="h-1.5 overflow-hidden rounded-full bg-muted"
+      >
+        <div className={cn('h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none', more.busy && 'animate-pulse motion-reduce:animate-none')} style={{ width: `${Math.min(100, (range.loaded / range.cap) * 100)}%` }} />
+      </div>
+    </div>
+  )
+}
+
+/** Why loading stopped, at the rail's tail. */
+function rangeNoteText(range: TimelineRange, rangeNote: Timeline['rangeNote']): string | null {
+  if (!range.reach || !rangeNote) return null
+  const at = clockOf(rangeNote.snapshotAt)
+  if (range.reach === 'contest-start') return `Contest start: the first snapshot is at ${at}.`
+  if (range.reach === 'cap') return `Stopped at the cap of ${range.cap} snapshots. Older Steps are not loaded.`
+  return `From ${at}. The loaded history ends here.`
+}
+
 /** The step rail: one card per Step, newest first, one row per followed VIP. */
 export function TimelineRail({
   timeline,
@@ -184,6 +220,9 @@ export function TimelineRail({
   rules,
   onRetryGap,
   seenAt,
+  range,
+  onLoadMore,
+  more = { busy: false, progress: null, error: null, announcement: '' },
 }: {
   timeline: Timeline
   model: LiveModel
@@ -192,58 +231,109 @@ export function TimelineRail({
   onRetryGap?: (snapshotAt: string) => Promise<void> | void
   /** The Seen mark's snapshot time: the divider sits above the first row at or before it, or at the tail note when the mark lies before the rail. */
   seenAt: string | null
+  /** How much is loaded and why loading stopped; without it the rail has no meter and no Range note. */
+  range?: TimelineRange
+  /** Loads further back; the Load more node shows only when this is given. */
+  onLoadMore?: () => Promise<void> | void
+  more?: LoadMoreState
 }) {
   const arrivals = useArrivals(timeline)
   const followed = followedVipKeys(model, rules)
   const username = rules.username
+  const noteRef = useRef<HTMLParagraphElement>(null)
+  const hadLoadMore = useRef(false)
+  useEffect(() => {
+    // The Load more button leaves the page when loading stops; keep keyboard focus by moving it to the note.
+    if (hadLoadMore.current && !onLoadMore) noteRef.current?.focus()
+    hadLoadMore.current = Boolean(onLoadMore)
+  }, [onLoadMore])
   const rows = timeline.entries.flatMap((entry): Row[] => {
     if (entry.kind === 'gap') return [{ entry, items: [] }]
     const items = visibleItems(entry, followed)
     return items.length > 0 ? [{ entry, items }] : []
   })
+  const noteText = range ? rangeNoteText(range, timeline.rangeNote) : null
+  const hasSteps = rows.some((row) => row.entry.kind === 'step')
   const updates = (
     <div role="status" aria-label="Timeline updates" aria-live="polite" className="sr-only">
       {arrivals.announcement}
     </div>
   )
-  if (!rows.some((row) => row.entry.kind === 'step')) {
-    return (
-      <>
-        {updates}
-        <p className="py-8 text-center text-sm text-muted-foreground">No VIP shifts yet</p>
-      </>
-    )
-  }
+  const loadMoreAnnouncement = (
+    <div role="status" aria-label="Loading more" aria-live="polite" className="sr-only">
+      {more.announcement}
+    </div>
+  )
   const seenMs = seenAt === null ? null : Date.parse(seenAt)
   const floor = rangeFloor(timeline)
   const beyondRange = seenMs !== null && floor !== null && seenMs < floor
   const firstSeen = rows.findIndex(({ entry }) => seenMs !== null && Date.parse(entry.snapshotAt) <= seenMs)
-  const dividerAt = seenAt === null || beyondRange ? -1 : firstSeen === -1 ? rows.length : firstSeen
+  const dividerAt = !hasSteps || seenAt === null || beyondRange ? -1 : firstSeen === -1 ? rows.length : firstSeen
   const divider = seenAt === null ? null : <SeenMark seenAt={seenAt} />
   return (
     <div className="space-y-2">
+      {range ? <RangeMeter range={range} more={more} /> : null}
       {updates}
-      <ol aria-label="Timeline" className="flex flex-col">
-        {rows.map(({ entry, items }, index) => (
-          <Fragment key={entry.id}>
-            {index === dividerAt ? divider : null}
-            {entry.kind === 'gap' ? (
-              <RailRow dashed>
-                <GapNode gap={entry} onRetry={onRetryGap} />
-              </RailRow>
-            ) : (
-              <RailRow arrived={arrivals.ids.has(entry.id)}>
-                <StepCard step={entry} items={items} model={model} followed={followed} username={username} />
-              </RailRow>
-            )}
-          </Fragment>
-        ))}
-        {dividerAt === rows.length ? divider : null}
-      </ol>
-      {timeline.rangeNote?.kind === 'from' ? (
-        <p className="text-center text-xs text-muted-foreground">From {clockOf(timeline.rangeNote.snapshotAt)}</p>
+      {loadMoreAnnouncement}
+      {hasSteps ? (
+        <ol aria-label="Timeline" className="flex flex-col">
+          {rows.map(({ entry, items }, index) => (
+            <Fragment key={entry.id}>
+              {index === dividerAt ? divider : null}
+              {entry.kind === 'gap' ? (
+                <RailRow dashed>
+                  <GapNode gap={entry} onRetry={onRetryGap} />
+                </RailRow>
+              ) : (
+                <RailRow arrived={arrivals.ids.has(entry.id)}>
+                  <StepCard step={entry} items={items} model={model} followed={followed} username={username} />
+                </RailRow>
+              )}
+            </Fragment>
+          ))}
+          {dividerAt === rows.length ? divider : null}
+          {onLoadMore ? (
+            <RailRow dashed>
+              <LoadMoreNode busy={more.busy} error={more.error} onLoadMore={onLoadMore} />
+            </RailRow>
+          ) : null}
+        </ol>
+      ) : (
+        <>
+          <p className="py-8 text-center text-sm text-muted-foreground">No VIP shifts yet</p>
+          {onLoadMore ? <LoadMoreNode busy={more.busy} error={more.error} onLoadMore={onLoadMore} /> : null}
+        </>
+      )}
+      {noteText ? (
+        <p ref={noteRef} tabIndex={-1} className="text-center text-xs text-muted-foreground outline-none">
+          {noteText}
+        </p>
       ) : null}
       {beyondRange ? <p className="text-center text-xs text-muted-foreground">Unseen shifts exist further back than this Timeline reaches.</p> : null}
+    </div>
+  )
+}
+
+/** The rail's "Load more" node; while loading it stays in place, marked busy and inert so focus is not lost. */
+function LoadMoreNode({ busy, error, onLoadMore }: { busy: boolean; error: string | null; onLoadMore: () => Promise<void> | void }) {
+  return (
+    <div className="space-y-1">
+      <Button
+        variant="outline"
+        size="sm"
+        aria-busy={busy}
+        aria-disabled={busy}
+        onClick={() => {
+          if (!busy) void onLoadMore()
+        }}
+      >
+        {busy ? 'Loading more...' : 'Load more'}
+      </Button>
+      {error ? (
+        <p role="alert" className="text-xs text-destructive">
+          Could not load more: {error}
+        </p>
+      ) : null}
     </div>
   )
 }

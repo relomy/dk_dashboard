@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { TIMELINE_FETCH_BOUND, TIMELINE_OPEN_SNAPSHOTS } from '../timelineConfig'
+import { TIMELINE_CAP, TIMELINE_FETCH_BOUND, TIMELINE_LOAD_MORE_SNAPSHOTS, TIMELINE_OPEN_SNAPSHOTS } from '../timelineConfig'
 import { createTimelineSource, type TimelineHistory } from '../timelineSource'
 import { pathOf, stamp, stubHistory } from '../../test/timelineHistory'
+import type { TimelineOpening } from '../timelineSource'
 import type { VipShiftItem } from '../shifts'
 
 const noYield = async () => {}
@@ -109,7 +110,7 @@ describe('the Timeline source', () => {
         ['step', stamp(6)],
         ['step', stamp(5)],
       ])
-      expect(opened.timeline.rangeNote).toEqual({ kind: 'from', snapshotAt: stamp(4) })
+      expect(opened.timeline.rangeNote).toEqual({ kind: 'contest-start', snapshotAt: stamp(4) })
     })
 
     it('does not leave a gap behind the rotation, where no Step could be compared across it', async () => {
@@ -176,6 +177,154 @@ describe('the Timeline source', () => {
       expect(retried.timeline.entries.map((entry) => [entry.kind, entry.snapshotAt])).toEqual(
         [6, 5, 3].map((slot) => ['step', stamp(slot)]),
       )
+    })
+  })
+
+  describe('loading more', () => {
+    const ready = (opening: TimelineOpening) => {
+      if (opening.kind !== 'ready') throw new Error('expected ready')
+      return opening
+    }
+    const slotsOf = (opening: TimelineOpening) => ready(opening).timeline.entries.map((entry) => entry.snapshotAt)
+    const many = Array.from({ length: 40 }, (_, i) => i)
+
+    it('fetches the next 10 snapshots back and adds Steps at the tail, joined to the oldest Step', async () => {
+      const { history, calls } = stubHistory({ slots: many })
+      const opened = ready(await sourceOf(history).open('nfl'))
+      expect(opened.range).toEqual({ loaded: 5, cap: TIMELINE_CAP, reach: null })
+      calls.snapshots.length = 0
+      const more = ready(await opened.loadMore!())
+      expect(TIMELINE_LOAD_MORE_SNAPSHOTS).toBe(10)
+      expect(calls.snapshots.sort()).toEqual(Array.from({ length: 10 }, (_, i) => pathOf(25 + i)).sort())
+      expect(slotsOf(more)).toEqual(Array.from({ length: 14 }, (_, i) => stamp(39 - i)))
+      expect(more.range).toEqual({ loaded: 15, cap: TIMELINE_CAP, reach: null })
+    })
+
+    it('keeps the fetches in flight within the bound and reports progress', async () => {
+      const { history, calls } = stubHistory({ slots: many })
+      const opened = ready(await sourceOf(history, { fetchBound: 3 }).open('nfl'))
+      calls.maxInFlight = 0
+      const progress: Array<[number, number]> = []
+      await opened.loadMore!({ onProgress: (done, total) => progress.push([done, total]) })
+      expect(calls.maxInFlight).toBe(3)
+      expect(progress).toHaveLength(10)
+      expect(progress[9]).toEqual([10, 10])
+    })
+
+    it('can load again from the result, and a gap in the new page keeps its retry', async () => {
+      const { history } = stubHistory({ slots: many, failing: [30] })
+      const opened = ready(await sourceOf(history).open('nfl'))
+      const more = ready(await opened.loadMore!())
+      expect(more.timeline.entries.find((entry) => entry.snapshotAt === stamp(30))).toMatchObject({ kind: 'gap', reason: 'unavailable' })
+      const again = ready(await more.loadMore!())
+      expect(again.range.loaded).toBe(25)
+      expect(again.retryGap).toBeDefined()
+    })
+
+    it('counts not-fresh snapshots in the page and toward the cap without downloading them', async () => {
+      const { history, calls } = stubHistory({ slots: many, stale: [27, 28] })
+      const opened = ready(await sourceOf(history).open('nfl'))
+      calls.snapshots.length = 0
+      const more = ready(await opened.loadMore!())
+      expect(calls.snapshots).toHaveLength(8)
+      expect(more.range.loaded).toBe(15)
+    })
+
+    describe('where it stops', () => {
+      it('stops at the end of the loaded manifest window, with no Load more', async () => {
+        const { history } = stubHistory({ slots: Array.from({ length: 12 }, (_, i) => i) })
+        const opened = ready(await sourceOf(history).open('nfl'))
+        const more = ready(await opened.loadMore!())
+        expect(more.range).toEqual({ loaded: 12, cap: TIMELINE_CAP, reach: 'window' })
+        expect(more.loadMore).toBeUndefined()
+        expect(more.timeline.rangeNote).toEqual({ kind: 'from', snapshotAt: stamp(0) })
+      })
+
+      it('stops at the window already at open when the day is short and offers no Load more', async () => {
+        const { history } = stubHistory({ slots: [4, 5, 6] })
+        const opened = ready(await sourceOf(history).open('nfl'))
+        expect(opened.range.reach).toBe('window')
+        expect(opened.loadMore).toBeUndefined()
+      })
+
+      it('stops at the contest start, the first loaded snapshot of the current contest, with its own note', async () => {
+        const rotated = (snapshot: { sports: { nfl: { contests: Array<{ name: string }> } } }) => {
+          snapshot.sports.nfl.contests[0].name = 'Yesterday slate'
+        }
+        const before = Object.fromEntries(Array.from({ length: 30 }, (_, i) => [i, rotated]))
+        const { history } = stubHistory({ slots: many, mutate: before })
+        const opened = ready(await sourceOf(history).open('nfl'))
+        const more = ready(await opened.loadMore!())
+        expect(more.range.reach).toBe('contest-start')
+        expect(more.loadMore).toBeUndefined()
+        expect(more.timeline.rangeNote).toEqual({ kind: 'contest-start', snapshotAt: stamp(30) })
+        expect(slotsOf(more).at(-1)).toBe(stamp(31))
+      })
+
+      it('stops at the cap, clamping the last page, with its own note', async () => {
+        const { history, calls } = stubHistory({ slots: Array.from({ length: 100 }, (_, i) => i) })
+        let opened = ready(await sourceOf(history).open('nfl'))
+        while (opened.loadMore) opened = ready(await opened.loadMore())
+        expect(opened.range).toEqual({ loaded: TIMELINE_CAP, cap: TIMELINE_CAP, reach: 'cap' })
+        expect(calls.snapshots).toHaveLength(TIMELINE_CAP)
+        expect(opened.timeline.rangeNote).toEqual({ kind: 'cap', snapshotAt: stamp(100 - TIMELINE_CAP) })
+      })
+
+      it('counts not-fresh snapshots toward the cap', async () => {
+        const slots = Array.from({ length: 100 }, (_, i) => i)
+        const { history, calls } = stubHistory({ slots, stale: slots.slice(40, 70) })
+        let opened = ready(await sourceOf(history).open('nfl'))
+        while (opened.loadMore) opened = ready(await opened.loadMore())
+        expect(opened.range.reach).toBe('cap')
+        expect(opened.range.loaded).toBe(TIMELINE_CAP)
+        expect(calls.snapshots.length).toBeLessThan(TIMELINE_CAP)
+      })
+
+      it('prefers the contest start over the cap when both are reached', async () => {
+        const rotated = (snapshot: { sports: { nfl: { contests: Array<{ name: string }> } } }) => {
+          snapshot.sports.nfl.contests[0].name = 'Yesterday slate'
+        }
+        const { history } = stubHistory({ slots: many, mutate: Object.fromEntries([25, 26, 27, 28, 29].map((i) => [i, rotated])) })
+        const opened = ready(await sourceOf(history, { cap: 15 }).open('nfl'))
+        const more = ready(await opened.loadMore!())
+        expect(more.range.reach).toBe('contest-start')
+      })
+    })
+
+    describe('across the UTC midnight manifest rollover', () => {
+      it('reads yesterday only once today runs out, and carries on into it', async () => {
+        const { history, calls } = stubHistory({ slots: [10, 11, 12, 13, 14, 15, 16], yesterdaySlots: Array.from({ length: 20 }, (_, i) => i - 20) })
+        const opened = ready(await sourceOf(history).open('nfl'))
+        expect(calls.manifests).toEqual(['manifest/2026-10-04.json'])
+        const more = ready(await opened.loadMore!())
+        expect(calls.manifests).toContain('manifest/2026-10-03.json')
+        expect(more.range).toEqual({ loaded: 15, cap: TIMELINE_CAP, reach: null })
+        expect(slotsOf(more)).toContain(stamp(-1))
+        expect(slotsOf(more).indexOf(stamp(10))).toBeLessThan(slotsOf(more).indexOf(stamp(-1)))
+        expect(slotsOf(more)).toHaveLength(14)
+      })
+
+      it('reads yesterday just once and ends at the window when it too is exhausted', async () => {
+        const { history, calls } = stubHistory({ slots: [10, 11, 12, 13, 14, 15, 16], yesterdaySlots: [-3, -2, -1] })
+        const opened = ready(await sourceOf(history).open('nfl'))
+        const more = ready(await opened.loadMore!())
+        expect(more.range).toEqual({ loaded: 10, cap: TIMELINE_CAP, reach: 'window' })
+        expect(calls.manifests.filter((path) => path.includes('10-03'))).toHaveLength(1)
+      })
+
+      it('does not read yesterday again when open already topped up from it', async () => {
+        const { history, calls } = stubHistory({ slots: [5, 6], yesterdaySlots: Array.from({ length: 20 }, (_, i) => i - 20) })
+        const opened = ready(await sourceOf(history).open('nfl'))
+        await opened.loadMore!()
+        expect(calls.manifests.filter((path) => path.includes('10-03'))).toHaveLength(1)
+      })
+
+      it('rejects Load more when yesterday cannot be read, leaving the Timeline as it was', async () => {
+        const { history } = stubHistory({ slots: [10, 11, 12, 13, 14, 15, 16], yesterdaySlots: [-1], yesterdayError: true })
+        const opened = ready(await sourceOf(history).open('nfl'))
+        await expect(opened.loadMore!()).rejects.toThrow('yesterday down')
+        expect(opened.loadMore).toBeDefined()
+      })
     })
   })
 })
@@ -267,7 +416,7 @@ describe('refreshing an open Timeline', () => {
     const refreshed = await opened.refresh!()
     if (refreshed.kind !== 'ready') throw new Error('expected ready')
     expect(refreshed.timeline.entries).toEqual([])
-    expect(refreshed.timeline.rangeNote).toEqual({ kind: 'from', snapshotAt: stamp(7) })
+    expect(refreshed.timeline.rangeNote).toEqual({ kind: 'contest-start', snapshotAt: stamp(7) })
   })
 
   it('carries on across the UTC midnight manifest rollover, keeping the built Steps', async () => {
@@ -304,5 +453,53 @@ describe('refreshing an open Timeline', () => {
     calls.manifests.length = 0
     await opened.refresh!()
     expect(calls.manifests).toEqual(['manifest/2026-10-04.json'])
+  })
+
+  describe('with Load more', () => {
+    const many = Array.from({ length: 40 }, (_, i) => i)
+    const ready = (opening: TimelineOpening) => {
+      if (opening.kind !== 'ready') throw new Error('expected ready')
+      return opening
+    }
+
+    it('keeps the loaded count and Load more after a refresh, and refreshes after Load more', async () => {
+      const { history, publish } = stubHistory({ slots: many })
+      const opened = ready(await sourceOf(history).open('nfl'))
+      const more = ready(await opened.loadMore!())
+      expect(more.refresh).toBeDefined()
+      publish(40)
+      const refreshed = ready(await more.refresh!())
+      expect(refreshed.range).toEqual({ loaded: 16, cap: TIMELINE_CAP, reach: null })
+      expect(refreshed.timeline.entries).toHaveLength(15)
+      expect(refreshed.loadMore).toBeDefined()
+      expect(refreshed.retryGap).toBeDefined()
+      const again = ready(await refreshed.loadMore!())
+      expect(again.range).toEqual({ loaded: 26, cap: TIMELINE_CAP, reach: null })
+      expect(again.timeline.entries.map((entry) => entry.snapshotAt)).toEqual(Array.from({ length: 25 }, (_, i) => stamp(40 - i)))
+      expect(again.refresh).toBeDefined()
+    })
+
+    it('stops Load more with the cap reach when a refresh pushes the oldest past the cap', async () => {
+      const { history, publish } = stubHistory({ slots: many })
+      const opened = ready(await sourceOf(history, { cap: 5 }).open('nfl'))
+      expect(opened.range.reach).toBe('cap')
+      expect(opened.loadMore).toBeUndefined()
+      publish(40)
+      const refreshed = ready(await opened.refresh!())
+      expect(refreshed.range).toEqual({ loaded: 5, cap: 5, reach: 'cap' })
+      expect(refreshed.loadMore).toBeUndefined()
+      expect(refreshed.refresh).toBeDefined()
+    })
+
+    it('ends Load more at the cap after a refresh used up room', async () => {
+      const { history, publish } = stubHistory({ slots: many })
+      const opened = ready(await sourceOf(history, { cap: 8 }).open('nfl'))
+      publish(40)
+      const refreshed = ready(await opened.refresh!())
+      expect(refreshed.range).toEqual({ loaded: 6, cap: 8, reach: null })
+      const more = ready(await refreshed.loadMore!())
+      expect(more.range).toEqual({ loaded: 8, cap: 8, reach: 'cap' })
+      expect(more.loadMore).toBeUndefined()
+    })
   })
 })

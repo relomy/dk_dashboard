@@ -6,7 +6,7 @@ import { ProfileContext } from '../context/ProfileContext'
 import { ShiftsContext } from '../context/ShiftsContext'
 import { TimelineSourceContext } from '../context/TimelineSourceContext'
 import type { ShiftsFeed } from '../lib/shifts'
-import { createTimelineSource, type TimelineSource } from '../lib/timelineSource'
+import { createTimelineSource, type TimelineOpening, type TimelineSource } from '../lib/timelineSource'
 import Shifts, { ShiftsSummary, ShiftsTimeline } from '../routes/Shifts'
 import { load } from './liveHarness'
 import { stamp, stubHistory } from './timelineHistory'
@@ -198,14 +198,14 @@ describe('the Timeline tab', () => {
     expect(status.getAttribute('role')).toBe('status')
     expect(status.getAttribute('aria-live')).toBe('polite')
     await waitFor(() => expect(status.textContent).toContain('2 of 5'))
-    finish({ kind: 'ready', inputs: [], timeline: { entries: [], rangeNote: null } })
+    finish({ kind: 'ready', inputs: [], timeline: { entries: [], rangeNote: null }, range: { loaded: 0, cap: 60, reach: 'window' } })
     await waitFor(() => expect(screen.queryByText(/loading the timeline/i)).toBeNull())
   })
 
   it('shows an error with a retry when the source fails, and retries', async () => {
     const open = vi.fn<TimelineSource['open']>()
     open.mockRejectedValueOnce(new Error('manifest down'))
-    open.mockResolvedValueOnce({ kind: 'ready', inputs: [], timeline: { entries: [], rangeNote: null } })
+    open.mockResolvedValueOnce({ kind: 'ready', inputs: [], timeline: { entries: [], rangeNote: null }, range: { loaded: 0, cap: 60, reach: 'window' } })
     renderAt('/shifts/nfl/timeline', { source: { open } })
     expect((await screen.findByRole('alert')).textContent).toContain('manifest down')
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
@@ -275,6 +275,123 @@ describe('the Timeline tab', () => {
       const retry = within(await screen.findByRole('group', { name: /snapshot unavailable/i })).getByRole('button', { name: /retry/i })
       expect(retry.tagName).toBe('BUTTON')
       expect(retry.className).toMatch(/focus-visible:ring/)
+    })
+  })
+
+  describe('range and Load more', () => {
+    const clock = (slot: number) => new Date(stamp(slot)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+    const sourceFor = (slots: number[], extra: Partial<Parameters<typeof createTimelineSource>[0]> = {}, stub: Parameters<typeof stubHistory>[0] = {}) =>
+      createTimelineSource({ history: stubHistory({ slots, ...stub }).history, now: () => 1, yieldToMain: async () => {}, ...extra })
+    const long = Array.from({ length: 30 }, (_, i) => i)
+
+    it('shows a sticky range meter of snapshots loaded out of the cap, as a labelled progressbar', async () => {
+      renderAt('/shifts/nfl/timeline', { source: sourceFor(long) })
+      const meter = await screen.findByRole('progressbar', { name: /snapshots loaded/i })
+      expect(meter.getAttribute('aria-valuenow')).toBe('5')
+      expect(meter.getAttribute('aria-valuemin')).toBe('0')
+      expect(meter.getAttribute('aria-valuemax')).toBe('60')
+      expect(meter.getAttribute('aria-valuetext')).toBe('5 of 60 snapshots')
+      expect(meter.closest('[class*="sticky"]')).not.toBeNull()
+      expect(screen.getByText('5 of 60 snapshots')).toBeTruthy()
+    })
+
+    it('offers Load more at the tail of the rail while there is more, with no range note yet', async () => {
+      renderAt('/shifts/nfl/timeline', { source: sourceFor(long) })
+      const button = await screen.findByRole('button', { name: 'Load more' })
+      expect(button.className).toMatch(/focus-visible:ring/)
+      expect(screen.queryByText(/loaded history ends/i)).toBeNull()
+    })
+
+    it('adds older Steps at the tail on click and updates the meter', async () => {
+      renderAt('/shifts/nfl/timeline', { source: sourceFor(long) })
+      await screen.findAllByRole('article')
+      expect(screen.getAllByRole('article')).toHaveLength(4)
+      fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
+      await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(14))
+      expect(screen.getByRole('progressbar', { name: /snapshots loaded/i }).getAttribute('aria-valuenow')).toBe('15')
+      expect(screen.getByRole('button', { name: 'Load more' })).toBeTruthy()
+    })
+
+    it('is busy while loading: the button is aria-busy and inert, and the meter shows the progress', async () => {
+      let finish: (opening: TimelineOpening) => void = () => {}
+      const loadMore = vi.fn((options?: { onProgress?: (done: number, total: number) => void }) => {
+        options?.onProgress?.(3, 10)
+        return new Promise<TimelineOpening>((resolve) => (finish = resolve))
+      })
+      const real = sourceFor(long)
+      const source: TimelineSource = {
+        open: async (sport, options) => {
+          const opened = await real.open(sport, options)
+          return opened.kind === 'ready' ? { ...opened, loadMore } : opened
+        },
+      }
+      renderAt('/shifts/nfl/timeline', { source })
+      fireEvent.click(await screen.findByRole('button', { name: 'Load more' }))
+      const busy = await screen.findByRole('button', { name: /loading more/i })
+      expect(busy.getAttribute('aria-busy')).toBe('true')
+      expect(busy.getAttribute('aria-disabled')).toBe('true')
+      fireEvent.click(busy)
+      expect(loadMore).toHaveBeenCalledTimes(1)
+      expect(screen.getByRole('progressbar', { name: /snapshots loaded/i }).getAttribute('aria-busy')).toBe('true')
+      expect(screen.getByText(/loading 3 of 10/i)).toBeTruthy()
+      const opened = await real.open('nfl')
+      finish(opened)
+      await waitFor(() => expect(screen.queryByRole('button', { name: /loading more/i })).toBeNull())
+    })
+
+    it('announces loading and the result through the polite live region', async () => {
+      renderAt('/shifts/nfl/timeline', { source: sourceFor(long) })
+      fireEvent.click(await screen.findByRole('button', { name: 'Load more' }))
+      await waitFor(() => expect(screen.getAllByRole('status').some((node) => /loaded 10 more snapshots/i.test(node.textContent ?? ''))).toBe(true))
+      const live = screen.getAllByRole('status').find((node) => /loaded 10 more/i.test(node.textContent ?? ''))
+      expect(live?.getAttribute('aria-live')).toBe('polite')
+    })
+
+    it('ends at the loaded history with a "From HH:MM" note and no Load more', async () => {
+      renderAt('/shifts/nfl/timeline', { source: sourceFor([0, 1, 2, 3, 4, 5, 6]) })
+      fireEvent.click(await screen.findByRole('button', { name: 'Load more' }))
+      expect(await screen.findByText(new RegExp(`From ${clock(0)}`))).toBeTruthy()
+      expect(screen.queryByRole('button', { name: /load more/i })).toBeNull()
+    })
+
+    it('ends at the contest start with its own note', async () => {
+      const rotated = (snapshot: { sports: { nfl: { contests: Array<{ name: string }> } } }) => {
+        snapshot.sports.nfl.contests[0].name = 'Yesterday slate'
+      }
+      renderAt('/shifts/nfl/timeline', { source: sourceFor([0, 1, 2, 3, 4, 5, 6], {}, { mutate: { 0: rotated, 1: rotated } }) })
+      fireEvent.click(await screen.findByRole('button', { name: 'Load more' }))
+      expect(await screen.findByText(new RegExp(`contest start.*${clock(2)}`, 'i'))).toBeTruthy()
+      expect(screen.queryByRole('button', { name: /load more/i })).toBeNull()
+    })
+
+    it('ends at the cap with its own note', async () => {
+      renderAt('/shifts/nfl/timeline', { source: sourceFor(long, { cap: 8 }) })
+      fireEvent.click(await screen.findByRole('button', { name: 'Load more' }))
+      expect(await screen.findByText(/cap of 8 snapshots/i)).toBeTruthy()
+      expect(screen.queryByRole('button', { name: /load more/i })).toBeNull()
+      expect(screen.getByRole('progressbar', { name: /snapshots loaded/i }).getAttribute('aria-valuenow')).toBe('8')
+    })
+
+    it('shows an alert and keeps Load more usable when loading fails', async () => {
+      const real = sourceFor(long)
+      const loadMore = vi.fn()
+      const source: TimelineSource = {
+        open: async (sport, options) => {
+          const opened = await real.open(sport, options)
+          if (opened.kind !== 'ready') return opened
+          loadMore.mockImplementation(opened.loadMore!)
+          loadMore.mockRejectedValueOnce(new Error('yesterday down'))
+          return { ...opened, loadMore }
+        },
+      }
+      renderAt('/shifts/nfl/timeline', { source })
+      fireEvent.click(await screen.findByRole('button', { name: 'Load more' }))
+      expect((await screen.findByRole('alert')).textContent).toContain('yesterday down')
+      const again = screen.getByRole('button', { name: 'Load more' })
+      expect(again.getAttribute('aria-busy')).not.toBe('true')
+      fireEvent.click(again)
+      await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(14))
+      expect(screen.queryByRole('alert')).toBeNull()
     })
   })
 })
