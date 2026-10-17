@@ -298,29 +298,16 @@ describe('useShiftsFeed', () => {
   })
 })
 
-describe('the owner-only gate', () => {
-  it('records nothing, builds nothing and writes no Shifts state for a friend', async () => {
+describe('for a friend', () => {
+  it('gives pages under the shell the feed', async () => {
     role = 'friend'
     renderShell('/settings')
-    await screen.findByTestId('feed-probe')
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50))
-    })
-    expect(calls.records).toHaveLength(0)
-    expect(calls.builds).toHaveLength(0)
-    expect([...store.keys()].filter((key) => key.startsWith('dk_dashboard_shifts_'))).toEqual([])
+    await vi.waitFor(() => expect(screen.getByTestId('feed-probe')).toHaveTextContent('feed:0'))
   })
 
-  it('gives a friend no feed', async () => {
-    role = 'friend'
-    renderShell('/sport/nfl')
-    expect((await screen.findByTestId('feed-probe')).textContent).toBe('no-feed')
-  })
-
-  it('still renders the Live view for a friend', async () => {
+  it('records each Live model build', async () => {
     role = 'friend'
     renderShell('/live/nfl')
-    await vi.waitFor(() => expect(calls.builds.length).toBeGreaterThan(0))
-    expect(calls.records).toHaveLength(0)
+    await vi.waitFor(() => expect(calls.records.length).toBeGreaterThan(0))
   })
 })

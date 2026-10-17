@@ -246,13 +246,6 @@ describe('the Timeline tab', () => {
     expect(screen.queryAllByRole('article')).toHaveLength(0)
   })
 
-  it('gives a non-owner the same "Shifts are not available" message and loads nothing', async () => {
-    const open = vi.fn<TimelineSource['open']>()
-    renderAt('/shifts/nfl/timeline', { feed: null, source: { open } })
-    expect(await screen.findByText('Shifts are not available.')).toBeTruthy()
-    expect(open).not.toHaveBeenCalled()
-  })
-
   describe('gaps', () => {
     it('marks a failed snapshot as unavailable between the Steps, saying shifts inside it may be lost, with a retry', async () => {
       renderAt('/shifts/nfl/timeline', { source: realSource(stubHistory({ failing: [4] }).history) })

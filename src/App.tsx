@@ -81,12 +81,12 @@ function App() {
             <Route path="/sport/:sport" element={<Sport />} />
             <Route path="/health" element={<Health />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/shifts/:sport" element={<Shifts />}>
+              <Route index element={<ShiftsSummary />} />
+              <Route path="timeline" element={<ShiftsTimeline />} />
+            </Route>
             <Route element={<RequireOwner />}>
               <Route path="/admin/users" element={<AdminUsers />} />
-              <Route path="/shifts/:sport" element={<Shifts />}>
-                <Route index element={<ShiftsSummary />} />
-                <Route path="timeline" element={<ShiftsTimeline />} />
-              </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
