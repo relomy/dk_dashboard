@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { CashLineShiftCard, ContestShiftCard, VipShiftCard } from '../components/shifts/ShiftCard'
+import { vipName } from '../components/shifts/shiftText'
 import PageMessage from '../components/PageMessage'
 import { useProfiles } from '../context/ProfileContext'
 import { useLatest } from '../hooks/useLatest'
@@ -9,16 +10,6 @@ import { useLiveModel } from '../hooks/useLiveModel'
 import { useShiftsFeed } from '../hooks/useShiftsFeed'
 import type { LiveModel } from '../lib/liveModel'
 import type { ShiftsFeed } from '../lib/shifts'
-
-/**
- * "You" only for the VIP the active Profile's `username` rule matches (an exact match on the lineup's display
- * name, as the Profile matcher does); every other VIP is shown by name.
- */
-function vipName(model: LiveModel, vipKey: string, username: string | undefined): string {
-  const name = model.vips.find((vip) => vip.key === vipKey)?.name ?? 'VIP'
-  const rule = (username ?? '').trim().toLowerCase()
-  return rule && name.trim().toLowerCase() === rule ? 'You' : name
-}
 
 function ShiftsFeedView({ feed, model }: { feed: ShiftsFeed; model: LiveModel }) {
   const items = useSyncExternalStore(feed.subscribe, feed.feed)

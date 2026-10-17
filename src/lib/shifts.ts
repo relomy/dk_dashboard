@@ -592,6 +592,11 @@ export function createShiftsFeed(options: ShiftsFeedOptions = {}): ShiftsFeed {
       }
       try {
         const storageKey = `${STORAGE_KEY_PREFIX}${model.sport}`
+        if (storageKey !== currentKey) {
+          // The flags describe the sport the feed followed before, not this one.
+          gap = null
+          autoAdvanced = false
+        }
         currentKey = storageKey
         const stored = read(storageKey)
         const digest = digestOf(model, now())

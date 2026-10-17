@@ -4,6 +4,7 @@ import { ShiftsProvider } from '../context/ShiftsProvider'
 import { TopBarSlotContext } from '../context/TopBarSlotContext'
 import { useLatest } from '../hooks/useLatest'
 import { readLastViewedSport } from '../lib/landing'
+import ShiftsBanner from './shifts/ShiftsBanner'
 import ShiftsEntry from './shifts/ShiftsEntry'
 import SportTabs, { type SportTab } from './SportTabs'
 import UserMenu from './UserMenu'
@@ -44,6 +45,7 @@ function AppShell() {
             </div>
           </div>
         </header>
+        <ShiftsBanner sport={shiftsSport} />
         <TopBarSlotContext.Provider value={slot}>
           <main className="flex-1">
             <Outlet />

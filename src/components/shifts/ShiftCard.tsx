@@ -7,36 +7,14 @@ import { cn } from '@/lib/utils'
 import { DASH, formatPoints, formatRank, formatSigned } from '../../lib/format'
 import type { GameStatus } from '../../lib/liveModel'
 import type {
-  CashLineMove,
   CashLineShiftItem,
   ContestShiftItem,
-  CrossingPath,
   LineupSlotDiff,
   Move,
   VipShiftItem,
 } from '../../lib/shifts'
 import type { ReactNode } from 'react'
-
-const PATH_TEXT: Record<CrossingPath, string> = {
-  in: 'Moved into cashing',
-  out: 'Fell out of cashing',
-  'in then out': 'Crossed into cashing and back out',
-  'out then in': 'Fell out of cashing and back in',
-}
-
-/** Words for a cash line move: its points and, when it shifted, its rank. */
-function lineMoveText(move: CashLineMove): string {
-  const parts: string[] = []
-  const { points, rank } = move
-  if (points.from !== null && points.to !== null && points.to !== points.from) {
-    parts.push(`${formatSigned(points.to - points.from)} pts`)
-  }
-  if (rank.from !== null && rank.to !== null && rank.to !== rank.from) {
-    const places = rank.to - rank.from
-    parts.push(`${places > 0 ? 'down' : 'up'} ${Math.abs(places)} places`)
-  }
-  return parts.join(' and ')
-}
+import { contestStateText, lineMoveText, PATH_TEXT } from './shiftText'
 
 /**
  * One figure as `from → to` with an arrow for the direction it moved. Rank is better when it falls; points and the
@@ -225,7 +203,7 @@ export function CashLineShiftCard({ item }: { item: CashLineShiftItem }) {
 export function ContestShiftCard({ item }: { item: ContestShiftItem }) {
   return (
     <ShiftCardFrame title="Contest" high={item.priority === 'high'}>
-      <p>{item.state.to === 'completed' ? 'The contest is complete: the final standings are in.' : `The contest is now ${item.state.to}.`}</p>
+      <p>{contestStateText(item.state.to)}.</p>
     </ShiftCardFrame>
   )
 }
