@@ -6,32 +6,60 @@ import { cn } from '@/lib/utils'
 import { formatPoints, formatRank, formatSigned } from '../../lib/format'
 import type { LiveModel } from '../../lib/liveModel'
 import type { ProfileMatchRules } from '../../lib/profiles'
-import type { CashLineShiftItem, ContestShiftItem, ShiftItem, Timeline, TimelineEntry, TimelineGap, TimelineStep, VipShiftItem } from '../../lib/shifts'
-import { followedVipKeys } from '../../lib/followedVips'
+import type { CashLineShiftItem, ContestShiftItem, Timeline, TimelineGap, TimelineStep } from '../../lib/shifts'
+import { ALL_KINDS, filterTimeline, type FilteredItem } from '../../lib/timelineFilter'
+import type { TimelineView } from '../../hooks/useTimelineView'
 import type { LoadMoreState } from '../../hooks/useShiftsTimeline'
 import type { TimelineRange } from '../../lib/timelineSource'
+import { compactVipLine } from './compactText'
 import { LineupDiff, MoveRow } from './ShiftCard'
-import { contestStateText, lineMoveText, PATH_TEXT, vipName } from './shiftText'
+import { contestStateText, describeItem, lineMoveText, PATH_TEXT, vipName } from './shiftText'
 
 function clockOf(snapshotAt: string): string {
   const date = new Date(snapshotAt)
   return Number.isNaN(date.getTime()) ? snapshotAt : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
-function VipRow({ item, name }: { item: VipShiftItem; name: string }) {
+/** The "+N hidden" chip: reveals the parts of a row the filters hid. */
+function HiddenToggle({ count, revealed, onToggle }: { count: number; revealed: boolean; onToggle: () => void }) {
+  if (count === 0) return null
+  return (
+    <Button type="button" variant="outline" size="xs" aria-expanded={revealed} onClick={onToggle}>
+      +{count} hidden
+    </Button>
+  )
+}
+
+/** The parts of a row to show: what the filters pass, plus what the user revealed, in kind order. */
+function useRowParts({ shown, hidden }: FilteredItem) {
+  const [revealed, setRevealed] = useState(false)
+  const parts = revealed ? ALL_KINDS.filter((kind) => shown.includes(kind) || hidden.includes(kind)) : shown
+  return { parts, toggleChip: <HiddenToggle count={hidden.length} revealed={revealed} onToggle={() => setRevealed((value) => !value)} /> }
+}
+
+function VipRow({ row, name, filtered }: { row: FilteredItem; name: string; filtered: boolean }) {
+  const { item, shown } = row
+  const { parts, toggleChip } = useRowParts(row)
+  if (item.kind !== 'vip') return null
   const crossingCause = item.crossing?.cause ? lineMoveText(item.crossing.cause) : ''
+  const showLineup = parts.includes('player-events') || (!filtered && !item.parts?.includes('player-events') && shown.length > 0)
   return (
     <section aria-label={name} className="space-y-1 border-t border-border px-3 py-2 first:border-t-0">
       <h3 className="flex items-center gap-2 font-semibold">
         {name}
         {item.priority === 'high' ? <Badge variant="destructive">High</Badge> : null}
       </h3>
-      {item.crossing ? <p>{PATH_TEXT[item.crossing.path]}</p> : null}
-      {crossingCause ? <p className="text-muted-foreground">The cash line moved {crossingCause}. Their lineup did not cause this.</p> : null}
-      <MoveRow label="Rank" move={item.rank} format={formatRank} lowerIsBetter places />
-      <MoveRow label="Points" move={item.points} format={formatPoints} />
-      <MoveRow label="To cash" move={item.distanceToCashPoints} format={formatSigned} />
-      {item.lineup && item.lineup.length > 0 ? <LineupDiff lineup={item.lineup} /> : null}
+      {parts.includes('crossings') && item.crossing ? <p>{PATH_TEXT[item.crossing.path]}</p> : null}
+      {parts.includes('crossings') && crossingCause ? <p className="text-muted-foreground">The cash line moved {crossingCause}. Their lineup did not cause this.</p> : null}
+      {parts.includes('rank-points') ? (
+        <>
+          <MoveRow label="Rank" move={item.rank} format={formatRank} lowerIsBetter places />
+          <MoveRow label="Points" move={item.points} format={formatPoints} />
+          <MoveRow label="To cash" move={item.distanceToCashPoints} format={formatSigned} />
+        </>
+      ) : null}
+      {showLineup && item.lineup && item.lineup.length > 0 ? <LineupDiff lineup={item.lineup} /> : null}
+      {toggleChip}
     </section>
   )
 }
@@ -40,8 +68,8 @@ function CashLineRow({ item }: { item: CashLineShiftItem }) {
   return <p className="bg-cash-line-muted px-3 py-2 text-cash-line">The cash line moved {lineMoveText(item)}</p>
 }
 
-function ContestRow({ item, model, followed, username }: { item: ContestShiftItem; model: LiveModel; followed: Set<string>; username: string | undefined }) {
-  const standings = (item.standings ?? []).filter((standing) => followed.has(standing.vipKey))
+function ContestRow({ item, model, selected, username }: { item: ContestShiftItem; model: LiveModel; selected: ReadonlySet<string>; username: string | undefined }) {
+  const standings = (item.standings ?? []).filter((standing) => selected.has(standing.vipKey))
   return (
     <div className="space-y-1 border-t border-border px-3 py-2 first:border-t-0">
       <p className="flex items-center gap-2 font-semibold">
@@ -64,28 +92,52 @@ function ContestRow({ item, model, followed, username }: { item: ContestShiftIte
   )
 }
 
-/** What a Step shows for the followed VIPs: their rows, plus the contest-level items, which no VIP filter hides. */
-function visibleItems(step: TimelineStep, followed: Set<string>): ShiftItem[] {
-  return step.items.filter((item) => item.kind !== 'vip' || followed.has(item.vipKey))
+/** Compact: one short line per change, with the row's "+N hidden" chip after its last line. */
+function CompactItem({ row, model, username }: { row: FilteredItem; model: LiveModel; username: string | undefined }) {
+  const { item } = row
+  const { parts, toggleChip } = useRowParts(row)
+  const lines: string[] =
+    item.kind === 'vip'
+      ? parts.flatMap((part) => compactVipLine(item, part, vipName(model, item.vipKey, username)) ?? [])
+      : [describeItem(item, model, username)]
+  return (
+    <>
+      {lines.map((line, index) => (
+        <li key={index} className="px-3 py-1">
+          {line}
+        </li>
+      ))}
+      {row.hidden.length > 0 ? <li className="px-3 py-1">{toggleChip}</li> : null}
+    </>
+  )
 }
 
-function StepCard({ step, items, model, followed, username }: { step: TimelineStep; items: ShiftItem[]; model: LiveModel; followed: Set<string>; username: string | undefined }) {
+function StepCard({ step, rows, model, selected, username, compact, filtered }: { step: TimelineStep; rows: FilteredItem[]; model: LiveModel; selected: ReadonlySet<string>; username: string | undefined; compact: boolean; filtered: boolean }) {
   return (
     <article aria-label={`Step at ${clockOf(step.snapshotAt)}`} className="min-w-0">
       <Card size="sm" className="gap-0 py-0">
         <header className="flex items-center justify-between border-b border-border px-3 py-1.5 font-mono text-xs text-muted-foreground">
           <time dateTime={step.snapshotAt}>{clockOf(step.snapshotAt)}</time>
         </header>
-        {items.map((item) => {
-          switch (item.kind) {
-            case 'vip':
-              return <VipRow key={item.id} item={item} name={vipName(model, item.vipKey, username)} />
-            case 'cash-line':
-              return <CashLineRow key={item.id} item={item} />
-            case 'contest-state':
-              return <ContestRow key={item.id} item={item} model={model} followed={followed} username={username} />
-          }
-        })}
+        {compact ? (
+          <ul aria-label="Changes" className="divide-y divide-border">
+            {rows.map((row) => (
+              <CompactItem key={row.item.id} row={row} model={model} username={username} />
+            ))}
+          </ul>
+        ) : (
+          rows.map((row) => {
+            const { item } = row
+            switch (item.kind) {
+              case 'vip':
+                return <VipRow key={item.id} row={row} name={vipName(model, item.vipKey, username)} filtered={filtered} />
+              case 'cash-line':
+                return <CashLineRow key={item.id} item={item} />
+              case 'contest-state':
+                return <ContestRow key={item.id} item={item} model={model} selected={selected} username={username} />
+            }
+          })
+        )}
       </Card>
     </article>
   )
@@ -157,11 +209,6 @@ function useArrivals(timeline: Timeline): Arrivals {
   return arrivals
 }
 
-interface Row {
-  entry: TimelineEntry
-  items: ShiftItem[]
-}
-
 /** The Seen mark's divider: a line across the rail, labelled with the Seen mark's snapshot time. */
 function SeenMark({ seenAt }: { seenAt: string }) {
   return (
@@ -213,11 +260,12 @@ function rangeNoteText(range: TimelineRange, rangeNote: Timeline['rangeNote']): 
   return `From ${at}. The loaded history ends here.`
 }
 
-/** The step rail: one card per Step, newest first, one row per followed VIP. */
+/** The step rail: one card per Step, newest first, filtered by the view's filters and condensed under Compact. */
 export function TimelineRail({
   timeline,
   model,
   rules,
+  view,
   onRetryGap,
   seenAt,
   range,
@@ -227,6 +275,7 @@ export function TimelineRail({
   timeline: Timeline
   model: LiveModel
   rules: ProfileMatchRules
+  view: TimelineView
   /** Refetches a failed snapshot; a gap offers its retry only when this is given. */
   onRetryGap?: (snapshotAt: string) => Promise<void> | void
   /** The Seen mark's snapshot time: the divider sits above the first row at or before it, or at the tail note when the mark lies before the rail. */
@@ -237,8 +286,8 @@ export function TimelineRail({
   onLoadMore?: () => Promise<void> | void
   more?: LoadMoreState
 }) {
+  const { filters, compact } = view
   const arrivals = useArrivals(timeline)
-  const followed = followedVipKeys(model, rules)
   const username = rules.username
   const noteRef = useRef<HTMLParagraphElement>(null)
   const hadLoadMore = useRef(false)
@@ -247,13 +296,9 @@ export function TimelineRail({
     if (hadLoadMore.current && !onLoadMore) noteRef.current?.focus()
     hadLoadMore.current = Boolean(onLoadMore)
   }, [onLoadMore])
-  const rows = timeline.entries.flatMap((entry): Row[] => {
-    if (entry.kind === 'gap') return [{ entry, items: [] }]
-    const items = visibleItems(entry, followed)
-    return items.length > 0 ? [{ entry, items }] : []
-  })
+  const rows = filterTimeline(timeline.entries, filters)
   const noteText = range ? rangeNoteText(range, timeline.rangeNote) : null
-  const hasSteps = rows.some((row) => row.entry.kind === 'step')
+  const hasSteps = rows.some((row) => row.kind === 'step')
   const updates = (
     <div role="status" aria-label="Timeline updates" aria-live="polite" className="sr-only">
       {arrivals.announcement}
@@ -264,12 +309,14 @@ export function TimelineRail({
       {more.announcement}
     </div>
   )
+  const filtered = filters.kinds.size < ALL_KINDS.length || filters.highOnly
   const seenMs = seenAt === null ? null : Date.parse(seenAt)
   const floor = rangeFloor(timeline)
   const beyondRange = seenMs !== null && floor !== null && seenMs < floor
-  const firstSeen = rows.findIndex(({ entry }) => seenMs !== null && Date.parse(entry.snapshotAt) <= seenMs)
+  const firstSeen = rows.findIndex((entry) => seenMs !== null && Date.parse(entry.kind === 'gap' ? entry.snapshotAt : entry.step.snapshotAt) <= seenMs)
   const dividerAt = !hasSteps || seenAt === null || beyondRange ? -1 : firstSeen === -1 ? rows.length : firstSeen
   const divider = seenAt === null ? null : <SeenMark seenAt={seenAt} />
+  const filteredOut = !view.isDefault && timeline.entries.some((entry) => entry.kind === 'step')
   return (
     <div className="space-y-2">
       {range ? <RangeMeter range={range} more={more} /> : null}
@@ -277,16 +324,16 @@ export function TimelineRail({
       {loadMoreAnnouncement}
       {hasSteps ? (
         <ol aria-label="Timeline" className="flex flex-col">
-          {rows.map(({ entry, items }, index) => (
-            <Fragment key={entry.id}>
+          {rows.map((entry, index) => (
+            <Fragment key={entry.kind === 'gap' ? entry.id : entry.step.id}>
               {index === dividerAt ? divider : null}
               {entry.kind === 'gap' ? (
                 <RailRow dashed>
                   <GapNode gap={entry} onRetry={onRetryGap} />
                 </RailRow>
               ) : (
-                <RailRow arrived={arrivals.ids.has(entry.id)}>
-                  <StepCard step={entry} items={items} model={model} followed={followed} username={username} />
+                <RailRow arrived={arrivals.ids.has(entry.step.id)}>
+                  <StepCard step={entry.step} rows={entry.items} model={model} selected={filters.vips} username={username} compact={compact} filtered={filtered} />
                 </RailRow>
               )}
             </Fragment>
@@ -300,7 +347,16 @@ export function TimelineRail({
         </ol>
       ) : (
         <>
-          <p className="py-8 text-center text-sm text-muted-foreground">No VIP shifts yet</p>
+          {filteredOut ? (
+            <div className="space-y-2 py-8 text-center text-sm text-muted-foreground">
+              <p>No entries match these filters</p>
+              <Button variant="outline" size="sm" onClick={view.reset}>
+                Reset
+              </Button>
+            </div>
+          ) : (
+            <p className="py-8 text-center text-sm text-muted-foreground">No VIP shifts yet</p>
+          )}
           {onLoadMore ? <LoadMoreNode busy={more.busy} error={more.error} onLoadMore={onLoadMore} /> : null}
         </>
       )}

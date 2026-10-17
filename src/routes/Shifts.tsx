@@ -11,12 +11,16 @@ import { useLatest } from '../hooks/useLatest'
 import { useLiveModel } from '../hooks/useLiveModel'
 import { useShiftsFeed } from '../hooks/useShiftsFeed'
 import { useShiftsTimeline } from '../hooks/useShiftsTimeline'
+import { useTimelineView, type TimelineView } from '../hooks/useTimelineView'
+import { TimelineFilterBar } from '../components/shifts/TimelineFilterBar'
 import type { LiveModel } from '../lib/liveModel'
 import type { ShiftsFeed } from '../lib/shifts'
 
 interface ShiftsOutletContext {
   feed: ShiftsFeed
   model: LiveModel
+  /** Filters and Compact, held above the tabs so they survive switching between them. */
+  view: TimelineView
 }
 
 /** The "since you looked" Summary, the child route at a sport's address. */
@@ -58,7 +62,7 @@ export function ShiftsSummary() {
  * before then. Rows are the active Profile's VIPs.
  */
 export function ShiftsTimeline() {
-  const { feed, model } = useOutletContext<ShiftsOutletContext>()
+  const { feed, model, view } = useOutletContext<ShiftsOutletContext>()
   const { activeProfile } = useProfiles()
   const seenAt = useSyncExternalStore(feed.subscribe, feed.seenSnapshotAt)
   const { opening, error, loading, progress, retry, retryGap, loadMore, more } = useShiftsTimeline(model.sport)
@@ -81,22 +85,28 @@ export function ShiftsTimeline() {
   }
   if (opening.kind === 'not-renderable') return <PageMessage>There is nothing to follow live for this sport.</PageMessage>
   return (
-    <TimelineRail
-      timeline={opening.timeline}
-      model={model}
-      rules={activeProfile.rules}
-      onRetryGap={retryGap}
-      seenAt={seenAt}
-      range={opening.range}
-      onLoadMore={opening.loadMore ? loadMore : undefined}
-      more={more}
-    />
+    <div className="space-y-3">
+      <TimelineFilterBar view={view} model={model} username={activeProfile.rules.username} />
+      <TimelineRail
+        timeline={opening.timeline}
+        model={model}
+        rules={activeProfile.rules}
+        view={view}
+        onRetryGap={retryGap}
+        seenAt={seenAt}
+        range={opening.range}
+        onLoadMore={opening.loadMore ? loadMore : undefined}
+        more={more}
+      />
+    </div>
   )
 }
 
 /** The page shell: the heading and tab strip above the nested tab routes, which share the feed and model. */
 function ShiftsPage({ sport, feed, model }: { sport: string | undefined; feed: ShiftsFeed; model: LiveModel }) {
   const tab = useMatch('/shifts/:sport/timeline') ? 'timeline' : 'summary'
+  const { activeProfile } = useProfiles()
+  const view = useTimelineView(model, activeProfile.rules)
   return (
     <div className="mx-auto max-w-3xl space-y-3 p-4">
       <h1 className="text-lg font-semibold">Shifts</h1>
@@ -120,7 +130,7 @@ function ShiftsPage({ sport, feed, model }: { sport: string | undefined; feed: S
           </Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value={tab}>
-          <Outlet context={{ feed, model } satisfies ShiftsOutletContext} />
+          <Outlet context={{ feed, model, view } satisfies ShiftsOutletContext} />
         </Tabs.Content>
       </Tabs.Root>
     </div>

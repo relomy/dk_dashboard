@@ -45,7 +45,14 @@
 - Owner-only, like the rest of Shifts: anyone else sees "Shifts are not available". Open the `Timeline` tab on the Shifts page; it has its own address, `/shifts/:sport/timeline`, so you can reload straight into it.
 - Nothing is loaded until you open the tab. Opening fetches the newest 5 snapshots of the day (today's History manifest, topped up from yesterday's when today is short) and shows the newest 4 Steps, newest first.
 - Each Step is a card on a vertical rail, timestamped with its snapshot time (shown in your local time). It has one row per VIP that shifted between that snapshot and the one before it: the rank, points and distance-to-cash moves, any cash crossing (with the cash line move that caused it) and a collapsed lineup diff you can expand (`Lineup · N of M changed`). A cash line move or a contest state change is listed in its own Step.
-- Rows show your active Profile's VIPs. A Profile with no rules follows every VIP.
+- Rows start as your active Profile's VIPs (the VIP filter below). A Profile with no rules follows every VIP.
+- The filter bar above the rail is always visible, with no collapsed form. Its strips scroll sideways on a phone. Chips are toggles:
+  - VIP: any VIP can be turned on or off. It is left out when your Profile follows a single VIP. It never hides contest-level items (the cash line move, contest state changes and the completed standings).
+  - Kind: Rank & points, Player events, Cash line, Crossings and Contest state. A kind that is off hides that part of a row.
+  - High priority only: shows only cash crossings and contest state changes.
+  - Where a row keeps some parts and hides others, a `+N hidden` chip counts the hidden parts and reveals them when tapped. Rows and Steps with nothing left to show disappear. If nothing matches you get "No entries match these filters" and a Reset, which puts the VIPs back to your Profile, every kind on and High priority only off.
+- Compact shows the same Steps as one short line per change under the Step time, with no per-VIP block or lineup expander.
+- Filters and Compact are kept while you switch between the Summary and Timeline tabs and start over when you reload. They are not saved in the address or in browser storage.
 - Loading shows progress; if the manifest or the latest snapshot cannot be fetched you get an error with Retry. A snapshot that fails to load or is not fresh is marked on the rail, and the Steps either side are compared across it. A sport with no primary contest shows "There is nothing to follow live for this sport." and a rail with nothing to show says "No VIP shifts yet".
 - The Timeline never changes your Seen mark; it has no unseen state.
 

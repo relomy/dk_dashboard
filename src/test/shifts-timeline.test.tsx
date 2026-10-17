@@ -569,3 +569,53 @@ describe('a live Timeline', () => {
     await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(5))
   })
 })
+
+describe('Timeline filters and Compact', () => {
+  it('keeps the filters and Compact across the Summary and Timeline tabs', async () => {
+    renderAt('/shifts/nfl/timeline')
+    await screen.findAllByRole('article')
+    fireEvent.click(screen.getByRole('button', { name: 'Compact' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Crossings' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Summary' }))
+    expect(screen.queryByRole('button', { name: 'Compact' })).toBeNull()
+    fireEvent.click(screen.getByRole('tab', { name: 'Timeline' }))
+    await screen.findAllByRole('article')
+    expect(screen.getByRole('button', { name: 'Compact' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Crossings' }).getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('starts from the defaults on a fresh load and writes nothing to the URL or storage', async () => {
+    const write = vi.spyOn(Storage.prototype, 'setItem')
+    renderAt('/shifts/nfl/timeline')
+    await screen.findAllByRole('article')
+    fireEvent.click(screen.getByRole('button', { name: 'Compact' }))
+    fireEvent.click(screen.getByRole('button', { name: 'High priority only' }))
+    expect(screen.getByTestId('where').textContent).toBe('/shifts/nfl/timeline')
+    expect(write).not.toHaveBeenCalled()
+    cleanup()
+    renderAt('/shifts/nfl/timeline')
+    await screen.findAllByRole('article')
+    expect(screen.getByRole('button', { name: 'Compact' }).getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByRole('button', { name: 'High priority only' }).getAttribute('aria-pressed')).toBe('false')
+    write.mockRestore()
+  })
+
+  it('omits the VIP strip when the Profile follows a single VIP and shows it otherwise', async () => {
+    renderAt('/shifts/nfl/timeline', { rules: { exact: 'Cubbiesftw23' } })
+    await screen.findAllByRole('article')
+    expect(screen.queryByRole('group', { name: 'VIPs' })).toBeNull()
+    cleanup()
+    renderAt('/shifts/nfl/timeline', { rules: {} })
+    await screen.findAllByRole('article')
+    expect(screen.getByRole('group', { name: 'VIPs' })).toBeTruthy()
+  })
+
+  it('shows "No entries match these filters" with Reset when the filters hide every Step', async () => {
+    renderAt('/shifts/nfl/timeline')
+    await screen.findAllByRole('article')
+    fireEvent.click(screen.getByRole('button', { name: 'High priority only' }))
+    expect(screen.getByText('No entries match these filters')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
+    expect(await screen.findAllByRole('article')).toHaveLength(4)
+  })
+})
