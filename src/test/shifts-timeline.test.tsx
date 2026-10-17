@@ -198,14 +198,14 @@ describe('the Timeline tab', () => {
     expect(status.getAttribute('role')).toBe('status')
     expect(status.getAttribute('aria-live')).toBe('polite')
     await waitFor(() => expect(status.textContent).toContain('2 of 5'))
-    finish({ kind: 'ready', inputs: [], timeline: { entries: [], rangeNote: null }, range: { loaded: 0, cap: 60, reach: 'window' } })
+    finish({ kind: 'ready', completed: false, timeline: { entries: [], rangeNote: null }, range: { loaded: 0, cap: 60, reach: 'window' } })
     await waitFor(() => expect(screen.queryByText(/loading the timeline/i)).toBeNull())
   })
 
   it('shows an error with a retry when the source fails, and retries', async () => {
     const open = vi.fn<TimelineSource['open']>()
     open.mockRejectedValueOnce(new Error('manifest down'))
-    open.mockResolvedValueOnce({ kind: 'ready', inputs: [], timeline: { entries: [], rangeNote: null }, range: { loaded: 0, cap: 60, reach: 'window' } })
+    open.mockResolvedValueOnce({ kind: 'ready', completed: false, timeline: { entries: [], rangeNote: null }, range: { loaded: 0, cap: 60, reach: 'window' } })
     renderAt('/shifts/nfl/timeline', { source: { open } })
     expect((await screen.findByRole('alert')).textContent).toContain('manifest down')
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))

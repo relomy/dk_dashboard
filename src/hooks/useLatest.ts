@@ -2,13 +2,14 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { fetchJson } from '../lib/api'
 import type { LatestResponse } from '../lib/types'
 import { interpretSnapshot } from '../lib/interpretedSnapshot'
+import { SNAPSHOT_POLL_MS } from '../lib/pollInterval'
 
 export function useLatest() {
   const latestQuery = useQuery({
     queryKey: ['latest'],
     queryFn: () => fetchJson<LatestResponse>('/api/latest'),
     staleTime: 60_000,
-    refetchInterval: 300_000,
+    refetchInterval: SNAPSHOT_POLL_MS,
   })
 
   const snapshotQuery = useQuery({

@@ -35,10 +35,10 @@ interface ShiftItemBase {
   priority: ShiftPriority
   /** Epoch milliseconds of the build that detected the item (the build clock, not the snapshot's time). */
   detectedAt: number
-  /** The `snapshot_at` of the snapshot the item was built from. Set on every item this module builds. */
-  snapshotAt?: string
-  /** The kinds of change in the item that passed their thresholds. Set on every item this module builds. */
-  parts?: ShiftPart[]
+  /** The `snapshot_at` of the snapshot the item was built from. */
+  snapshotAt: string
+  /** The kinds of change in the item that passed their thresholds. */
+  parts: ShiftPart[]
   /** High items only: whether the UI has already shown the item (see `markSurfaced`). */
   surfaced?: boolean
 }
@@ -196,7 +196,7 @@ export const AUTO_ADVANCE_MS = 10 * 60_000
 export const SUMMARY_MS = 30 * 60_000
 // ----------------------------------------------------------------------------------------------------------------
 
-export interface PlayerDigest {
+interface PlayerDigest {
   key: string
   playerKey: string | null
   name: string
@@ -207,7 +207,7 @@ export interface PlayerDigest {
   stats: string | null
 }
 
-export interface VipDigest {
+interface VipDigest {
   key: string
   rank: number | null
   points: number | null
@@ -611,7 +611,8 @@ export function diffDigests(before: Digest, after: Digest): ShiftItem[] {
   })
 }
 
-export type GapReason = 'unavailable' | 'not-fresh'
+/** Why a snapshot is skipped: it failed to load (retryable), the producer's sport data was not fresh, or it is not renderable. */
+export type GapReason = 'unavailable' | 'not-fresh' | 'not-renderable'
 
 /** Stands in the input where a snapshot was skipped: it failed to load or interpret, or its sport was not fresh. */
 export interface TimelineGapMarker {
@@ -641,7 +642,7 @@ export interface TimelineGap {
 
 export type TimelineEntry = TimelineStep | TimelineGap
 
-function isGapMarker(input: TimelineInput): input is TimelineGapMarker {
+export function isGapMarker(input: TimelineInput): input is TimelineGapMarker {
   return 'reason' in input
 }
 

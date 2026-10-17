@@ -1,8 +1,8 @@
-import { fetchJson } from './api'
+import { ApiError, fetchJson } from './api'
 import { interpretSnapshot, isSupportedSnapshot } from './interpretedSnapshot'
 import { buildLiveModel, type LiveNotRenderableReason } from './liveModel'
 import { manifestWindowPaths, snapshotsNewestFirst } from './manifestWindow'
-import { buildTimeline, digestOf, type Digest, type Timeline, type TimelineGapMarker, type TimelineInput, type TimelineReach } from './shifts'
+import { buildTimeline, digestOf, isGapMarker, type Digest, type Timeline, type TimelineInput, type TimelineReach } from './shifts'
 import { TIMELINE_CAP, TIMELINE_FETCH_BOUND, TIMELINE_LOAD_MORE_SNAPSHOTS, TIMELINE_OPEN_SNAPSHOTS } from './timelineConfig'
 import type { DayManifest, LatestResponse, ManifestSnapshotSummary } from './types'
 
@@ -37,7 +37,8 @@ export type TimelineOpening =
   | {
       kind: 'ready'
       timeline: Timeline
-      inputs: TimelineInput[]
+      /** The newest snapshot shows a completed contest, so nothing more will arrive and polling can stop. */
+      completed: boolean
       range: TimelineRange
       /**
        * Loads the next page of snapshots further back and resolves with the longer Timeline. Absent once loading has
@@ -90,18 +91,21 @@ export const apiTimelineHistory: TimelineHistory = {
 
 const defaultYield = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
 
-/** Runs `task` over `items` with at most `bound` in flight, keeping the results in item order. */
-async function mapBounded<T, R>(items: T[], bound: number, task: (item: T, index: number) => Promise<R>): Promise<R[]> {
-  const results = new Array<R>(items.length)
-  let next = 0
-  const worker = async () => {
-    while (next < items.length) {
-      const index = next++
-      results[index] = await task(items[index], index)
+/** Runs tasks with at most `bound` in flight at once, across every caller sharing the limiter. */
+function createLimiter(bound: number): <T>(task: () => Promise<T>) => Promise<T> {
+  const limit = Math.max(bound, 1)
+  let active = 0
+  const waiting: Array<() => void> = []
+  return async (task) => {
+    if (active >= limit) await new Promise<void>((resolve) => waiting.push(resolve))
+    active += 1
+    try {
+      return await task()
+    } finally {
+      active -= 1
+      waiting.shift()?.()
     }
   }
-  await Promise.all(Array.from({ length: Math.min(Math.max(bound, 1), items.length) }, worker))
-  return results
 }
 
 type Built =
@@ -109,20 +113,16 @@ type Built =
   | { kind: 'not-renderable'; reason: LiveNotRenderableReason }
   | { kind: 'failed'; error: unknown }
 
-function isGap(input: TimelineInput): input is TimelineGapMarker {
-  return 'reason' in input
-}
-
 /**
  * Drops the digests whose primary contest differs from the newest digest's, so a rotated slate starts a fresh
  * Timeline, and the gaps left behind the rotation, which no Step could be compared across.
  */
 function withoutRotation(inputs: TimelineInput[]): TimelineInput[] {
-  const newest = [...inputs].reverse().find((input): input is Digest => !isGap(input))
+  const newest = [...inputs].reverse().find((input): input is Digest => !isGapMarker(input))
   if (!newest) return inputs
-  const kept = inputs.filter((input) => isGap(input) || input.contestKey === newest.contestKey)
+  const kept = inputs.filter((input) => isGapMarker(input) || input.contestKey === newest.contestKey)
   if (kept.length === inputs.length) return inputs
-  return kept.slice(kept.findIndex((input) => !isGap(input)))
+  return kept.slice(kept.findIndex((input) => !isGapMarker(input)))
 }
 
 /** Everything a later "Load more" or gap retry needs; replaced, never mutated, so each opening stays valid. */
@@ -137,23 +137,24 @@ interface Loaded {
   consumed: number
   yesterdayPath: string | undefined
   yesterdayRead: boolean
-  /** An older snapshot of another contest was dropped, so the oldest kept one is the contest's start. */
-  rotated: boolean
+  /** Snapshots of another contest dropped from `all`: when above zero the oldest kept one is the contest's start. */
+  hidden: number
 }
 
 export function createTimelineSource(options: TimelineSourceOptions): TimelineSource {
   const { history } = options
   const now = options.now ?? Date.now
-  const bound = options.fetchBound ?? TIMELINE_FETCH_BOUND
   const cap = options.cap ?? TIMELINE_CAP
   const openSnapshots = Math.min(options.openSnapshots ?? TIMELINE_OPEN_SNAPSHOTS, cap)
   const loadMoreSnapshots = options.loadMoreSnapshots ?? TIMELINE_LOAD_MORE_SNAPSHOTS
   const yieldToMain = options.yieldToMain ?? defaultYield
+  // One limiter per source, so overlapping calls (Load more, a poll, a retry) share the bound.
+  const limited = createLimiter(options.fetchBound ?? TIMELINE_FETCH_BOUND)
 
   /** One snapshot to its digest; the raw snapshot is out of scope as soon as this returns. */
-  async function digestFor(sport: string, entry: ManifestSnapshotSummary): Promise<Built> {
+  async function digestFor(sport: string, entry: { path: string }): Promise<Built> {
     try {
-      const interpreted = interpretSnapshot(await history.snapshot(entry.path))
+      const interpreted = interpretSnapshot(await limited(() => history.snapshot(entry.path)))
       if (!isSupportedSnapshot(interpreted)) throw new Error('Unsupported snapshot')
       const result = buildLiveModel(interpreted, sport)
       if (result.kind === 'not-renderable') return { kind: 'not-renderable', reason: result.reason }
@@ -171,20 +172,23 @@ export function createTimelineSource(options: TimelineSourceOptions): TimelineSo
     const toFetch = page.filter(fresh)
     let done = 0
     const fetched = new Map<string, Built>()
-    await mapBounded(toFetch, bound, async (entry) => {
+    await Promise.all(toFetch.map(async (entry) => {
       fetched.set(entry.snapshot_at, await digestFor(sport, entry))
       onProgress?.(++done, toFetch.length)
-    })
+    }))
     return fetched
+  }
+
+  /** One entry as an input: its digest, or a gap saying why there is none (no build means it was not fresh). */
+  function inputOf(entry: ManifestSnapshotSummary, built: Built | undefined): TimelineInput {
+    if (!built) return { reason: 'not-fresh', snapshotAt: entry.snapshot_at }
+    if (built.kind === 'digest') return built.input
+    return { reason: built.kind === 'not-renderable' ? 'not-renderable' : 'unavailable', snapshotAt: entry.snapshot_at }
   }
 
   /** The page as inputs, oldest first: a digest, or a gap for a snapshot that was skipped or failed. */
   function inputsOf(page: ManifestSnapshotSummary[], fetched: Map<string, Built>): TimelineInput[] {
-    return [...page].reverse().map((entry): TimelineInput => {
-      const built = fetched.get(entry.snapshot_at)
-      if (!built) return { reason: 'not-fresh', snapshotAt: entry.snapshot_at }
-      return built.kind === 'digest' ? built.input : { reason: 'unavailable', snapshotAt: entry.snapshot_at }
-    })
+    return [...page].reverse().map((entry) => inputOf(entry, fetched.get(entry.snapshot_at)))
   }
 
   async function open(sport: string, openOptions: TimelineOpenOptions = {}): Promise<TimelineOpening> {
@@ -219,12 +223,12 @@ export function createTimelineSource(options: TimelineSourceOptions): TimelineSo
       consumed: page.length,
       yesterdayPath: window.yesterday,
       yesterdayRead,
-      rotated: false,
+      hidden: 0,
     })
   }
 
   /** The snapshots newer than `after` (oldest first) as inputs: fetched when fresh, a gap when not or when they fail. */
-  async function newerThan(sport: string, after: string): Promise<{ inputs: TimelineInput[]; paths: Map<string, string> }> {
+  async function newerThan(sport: string, after: string): Promise<{ inputs: TimelineInput[]; paths: Map<string, string>; skipped: number }> {
     const latest = await history.latest()
     const window = manifestWindowPaths(latest)
     const today = await history.manifest(window.today)
@@ -236,26 +240,37 @@ export function createTimelineSource(options: TimelineSourceOptions): TimelineSo
       const yesterday = await history.manifest(window.yesterday).catch(() => null)
       listed = [...listed, ...(yesterday?.snapshots.filter(isNew) ?? [])]
     }
-    const entries = snapshotsNewestFirst(listed).reverse()
-    const built = await mapBounded(entries, bound, (entry) =>
-      entry.sports_status?.[sport]?.status === 'ok' ? digestFor(sport, entry) : Promise.resolve(null),
+    const all = snapshotsNewestFirst(listed).reverse()
+    // The cap keeps no more than `cap` snapshots, so after a long absence the older arrivals are not worth fetching.
+    const skipped = Math.max(all.length - cap, 0)
+    const entries = all.slice(skipped)
+    const built = await Promise.all(
+      entries.map((entry) => (entry.sports_status?.[sport]?.status === 'ok' ? digestFor(sport, entry) : Promise.resolve(null))),
     )
-    const inputs = entries.map((entry, i): TimelineInput => {
-      const result = built[i]
-      if (!result) return { reason: 'not-fresh', snapshotAt: entry.snapshot_at }
-      return result.kind === 'digest' ? result.input : { reason: 'unavailable', snapshotAt: entry.snapshot_at }
-    })
-    return { inputs, paths: new Map(entries.map((entry) => [entry.snapshot_at, entry.path])) }
+    const inputs = entries.map((entry, i) => inputOf(entry, built[i] ?? undefined))
+    return { inputs, paths: new Map(entries.map((entry) => [entry.snapshot_at, entry.path])), skipped }
   }
 
   /** Takes in the next page of older snapshots, reading yesterday's manifest first when today's has run out. */
   async function loadMore(state: Loaded, loadOptions: TimelineOpenOptions = {}): Promise<TimelineOpening> {
     const count = Math.min(loadMoreSnapshots, cap - state.consumed)
     let { remaining, yesterdayRead } = state
-    if (remaining.length < count && !yesterdayRead && state.yesterdayPath) {
-      const yesterday = await history.manifest(state.yesterdayPath)
-      const taken = new Set(state.paths.keys())
-      remaining = snapshotsNewestFirst(remaining, yesterday.snapshots.filter((item) => !taken.has(item.snapshot_at)))
+    let yesterdayPath = state.yesterdayPath
+    if (remaining.length < count && !yesterdayRead) {
+      // Asked again each time: a page left open across UTC midnight must read the day that is now yesterday.
+      yesterdayPath = manifestWindowPaths(await history.latest()).yesterday
+    }
+    if (remaining.length < count && !yesterdayRead && yesterdayPath) {
+      // No manifest for yesterday (a new deployment, a first day) means the window ends here; any other failure
+      // rejects and Load more stays available to retry.
+      const yesterday = await history.manifest(yesterdayPath).catch((error: unknown) => {
+        if (error instanceof ApiError && error.status === 404) return null
+        throw error
+      })
+      if (yesterday) {
+        const taken = new Set(state.paths.keys())
+        remaining = snapshotsNewestFirst(remaining, yesterday.snapshots.filter((item) => !taken.has(item.snapshot_at)))
+      }
       yesterdayRead = true
     }
     const page = remaining.slice(0, count)
@@ -266,6 +281,7 @@ export function createTimelineSource(options: TimelineSourceOptions): TimelineSo
       paths: new Map([...state.paths, ...page.map((entry): [string, string] => [entry.snapshot_at, entry.path])]),
       remaining: remaining.slice(page.length),
       consumed: state.consumed + page.length,
+      yesterdayPath,
       yesterdayRead,
     })
   }
@@ -276,15 +292,16 @@ export function createTimelineSource(options: TimelineSourceOptions): TimelineSo
     const fresh = await newerThan(state.sport, newest.snapshotAt)
     if (fresh.inputs.length === 0) return opening
     let held = [...state.all, ...fresh.inputs]
-    let consumed = state.consumed + fresh.inputs.length
-    let hidden = state.consumed - state.all.length
+    let consumed = state.consumed + fresh.skipped + fresh.inputs.length
+    let hidden = state.hidden
     const excess = consumed - cap
     if (excess > 0) {
-      // Rotated-out snapshots are the oldest, so they leave first; a leading gap has nothing to compare across.
+      // Oldest first: rotated-out snapshots, then the held ones, then (fetched past the cap) the skipped arrivals.
       const hiddenDropped = Math.min(excess, hidden)
       hidden -= hiddenDropped
-      held = held.slice(excess - hiddenDropped)
-      held = held.slice(Math.max(held.findIndex((input) => !isGap(input)), 0))
+      held = held.slice(Math.min(excess - hiddenDropped, state.all.length))
+      // A leading gap has nothing to compare across.
+      held = held.slice(Math.max(held.findIndex((input) => !isGapMarker(input)), 0))
       consumed = cap
     }
     return ready({
@@ -292,13 +309,13 @@ export function createTimelineSource(options: TimelineSourceOptions): TimelineSo
       all: held,
       paths: new Map([...state.paths, ...fresh.paths]),
       consumed,
-      rotated: hidden > 0,
+      hidden,
     })
   }
 
   /** Why loading has stopped, in the order the note should name it, or null while more can be loaded. */
   function reachOf(state: Loaded): TimelineReach | null {
-    if (state.rotated) return 'contest-start'
+    if (state.hidden > 0) return 'contest-start'
     if (state.consumed >= cap) return 'cap'
     if (state.remaining.length === 0 && (state.yesterdayRead || !state.yesterdayPath)) return 'window'
     return null
@@ -307,21 +324,22 @@ export function createTimelineSource(options: TimelineSourceOptions): TimelineSo
   /** The opening for `state`: other contests dropped, and Load more, refresh and the gap retry wired to it. */
   function ready(state: Loaded): TimelineOpening {
     const inputs = withoutRotation(state.all)
-    const current: Loaded = { ...state, all: inputs, rotated: state.rotated || inputs !== state.all }
+    const current: Loaded = { ...state, all: inputs, hidden: state.hidden + state.all.length - inputs.length }
     const reach = reachOf(current)
+    const lastDigest = [...inputs].reverse().find((input): input is Digest => !isGapMarker(input))
     const retryGap = async (snapshotAt: string): Promise<TimelineOpening> => {
       const path = current.paths.get(snapshotAt)
       const index = inputs.findIndex((input) => input.snapshotAt === snapshotAt)
       const gap = inputs[index]
-      if (!path || !gap || !isGap(gap) || gap.reason !== 'unavailable') return opening
-      const built = await digestFor(current.sport, { path, snapshot_at: snapshotAt } as ManifestSnapshotSummary)
+      if (!path || !gap || !isGapMarker(gap) || gap.reason !== 'unavailable') return opening
+      const built = await digestFor(current.sport, { path })
       if (built.kind !== 'digest') return opening
       return ready({ ...current, all: inputs.map((input, i) => (i === index ? built.input : input)) })
     }
     const opening: TimelineOpening = {
       kind: 'ready',
       timeline: buildTimeline(inputs, { reach: reach ?? 'window' }),
-      inputs,
+      completed: lastDigest?.contestState === 'completed',
       range: { loaded: current.consumed, cap, reach },
       ...(reach === null ? { loadMore: (loadOptions?: TimelineOpenOptions) => loadMore(current, loadOptions) } : {}),
       retryGap,

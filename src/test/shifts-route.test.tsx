@@ -18,6 +18,8 @@ function vipItem(key: keyof typeof VIP, overrides: Partial<VipShiftItem> = {}): 
     kind: 'vip',
     priority: 'normal',
     detectedAt: 0,
+    snapshotAt: '2026-10-04T18:00:00Z',
+    parts: ['rank-points'],
     vipKey: VIP[key],
     rank: { from: 600, to: 580 },
     points: { from: 30, to: 34.5 },
@@ -198,6 +200,8 @@ describe('the Shifts page', () => {
       kind: 'cash-line',
       priority: 'normal',
       detectedAt: 0,
+      snapshotAt: '2026-10-04T18:00:00Z',
+      parts: ['cash-line'],
       points: { from: 400.5, to: 405.25 },
       rank: { from: 500, to: 520 },
     }
@@ -216,6 +220,8 @@ describe('the Shifts page', () => {
       kind: 'contest-state',
       priority: 'high',
       detectedAt: 0,
+      snapshotAt: '2026-10-04T18:00:00Z',
+      parts: ['contest-state'],
       state: { from: 'live', to: 'completed' },
     }
     await renderShifts(stubFeed([state]))
@@ -307,7 +313,7 @@ describe('the Shifts page', () => {
   })
 
   it('points a neutral cash line arrow by the way the figure moved', async () => {
-    const line: CashLineShiftItem = { id: 'cl', kind: 'cash-line', priority: 'normal', detectedAt: 0, points: { from: 400, to: 405 }, rank: { from: 520, to: 500 } }
+    const line: CashLineShiftItem = { id: 'cl', kind: 'cash-line', priority: 'normal', detectedAt: 0, snapshotAt: '2026-10-04T18:00:00Z', parts: ['cash-line'], points: { from: 400, to: 405 }, rank: { from: 520, to: 500 } }
     await renderShifts(stubFeed([line]))
     const card = (await screen.findAllByRole('article'))[0]
     expect(within(within(card).getByRole('group', { name: 'Points' })).getByRole('img').getAttribute('data-direction')).toBe('up')

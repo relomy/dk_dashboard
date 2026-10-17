@@ -17,6 +17,8 @@ function crossingItem(key: keyof typeof VIP, overrides: Partial<VipShiftItem> = 
     kind: 'vip',
     priority: 'high',
     detectedAt: 0,
+    snapshotAt: '2026-10-04T18:00:00Z',
+    parts: ['rank-points'],
     vipKey: VIP[key],
     rank: { from: 600, to: 580 },
     points: { from: 30, to: 34.5 },
@@ -33,6 +35,8 @@ function completedItem(): ContestShiftItem {
     kind: 'contest-state',
     priority: 'high',
     detectedAt: 0,
+    snapshotAt: '2026-10-04T18:00:00Z',
+    parts: ['contest-state'],
     state: { from: 'live', to: 'completed' },
   }
 }

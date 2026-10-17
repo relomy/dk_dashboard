@@ -11,6 +11,7 @@ function vip(id: string, vipKey: string, parts: ShiftPart[]): VipShiftItem {
     vipKey,
     priority: parts.includes('crossings') ? 'high' : 'normal',
     detectedAt: 0,
+    snapshotAt: '2026-10-04T18:00:00Z',
     parts,
     rank: move(10, 8),
     points: move(100, 110),
@@ -18,8 +19,8 @@ function vip(id: string, vipKey: string, parts: ShiftPart[]): VipShiftItem {
     distanceToCashRank: move(null, null),
   }
 }
-const cashLine = (id: string): CashLineShiftItem => ({ kind: 'cash-line', id, priority: 'normal', detectedAt: 0, parts: ['cash-line'], points: move(1, 2), rank: move(1, 2) })
-const contest = (id: string): ContestShiftItem => ({ kind: 'contest-state', id, priority: 'high', detectedAt: 0, parts: ['contest-state'], state: move('live', 'completed') })
+const cashLine = (id: string): CashLineShiftItem => ({ kind: 'cash-line', id, priority: 'normal', detectedAt: 0, snapshotAt: '2026-10-04T18:00:00Z', parts: ['cash-line'], points: move(1, 2), rank: move(1, 2) })
+const contest = (id: string): ContestShiftItem => ({ kind: 'contest-state', id, priority: 'high', detectedAt: 0, snapshotAt: '2026-10-04T18:00:00Z', parts: ['contest-state'], state: move('live', 'completed') })
 
 function step(id: string, items: TimelineStep['items']): TimelineStep {
   return { kind: 'step', id, snapshotAt: `2026-10-04T18:0${id}:00Z`, items }

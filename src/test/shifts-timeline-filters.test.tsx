@@ -32,6 +32,7 @@ function vip(id: string, vipKey: string, parts: ShiftPart[]): VipShiftItem {
     vipKey,
     priority: parts.includes('crossings') ? 'high' : 'normal',
     detectedAt: 0,
+    snapshotAt: '2026-10-04T18:00:00Z',
     parts,
     rank: move(20, 12),
     points: move(100, 110),
@@ -41,8 +42,8 @@ function vip(id: string, vipKey: string, parts: ShiftPart[]): VipShiftItem {
     ...(parts.includes('crossings') ? { crossing: { path: 'in' as const, cause: null } } : {}),
   }
 }
-const cashLine: CashLineShiftItem = { kind: 'cash-line', id: 'cash', priority: 'normal', detectedAt: 0, parts: ['cash-line'], points: move(90, 95), rank: move(500, 490) }
-const completed: ContestShiftItem = { kind: 'contest-state', id: 'state', priority: 'high', detectedAt: 0, parts: ['contest-state'], state: move('live', 'completed') }
+const cashLine: CashLineShiftItem = { kind: 'cash-line', id: 'cash', priority: 'normal', detectedAt: 0, snapshotAt: '2026-10-04T18:00:00Z', parts: ['cash-line'], points: move(90, 95), rank: move(500, 490) }
+const completed: ContestShiftItem = { kind: 'contest-state', id: 'state', priority: 'high', detectedAt: 0, snapshotAt: '2026-10-04T18:00:00Z', parts: ['contest-state'], state: move('live', 'completed') }
 
 /** Newest first: 18:15 a mixed row for the first VIP; 18:10 the second VIP's rank move; 18:05 the cash line; 18:00 completion. */
 const TIMELINE: Timeline = {

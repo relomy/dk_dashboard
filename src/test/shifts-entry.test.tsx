@@ -13,6 +13,8 @@ function item(id: string, priority: ShiftItem['priority']): CashLineShiftItem {
     kind: 'cash-line',
     priority,
     detectedAt: 0,
+    snapshotAt: '2026-10-04T18:00:00Z',
+    parts: ['cash-line'],
     points: { from: 100, to: 103 },
     rank: { from: 40, to: 44 },
   }
