@@ -22,6 +22,9 @@ export function liveModelFor(snapshot: object, sportKey: string): LiveModelResul
 }
 
 /** The Live model for the snapshot and sport, or null while either is missing. */
-export function useLiveModel(snapshot: object | undefined, sportKey: string | null | undefined): LiveModelResult | null {
+export function useLiveModel(
+  snapshot: object | undefined,
+  sportKey: string | null | undefined,
+): LiveModelResult | null {
   return useMemo(() => (snapshot && sportKey ? liveModelFor(snapshot, sportKey) : null), [snapshot, sportKey])
 }

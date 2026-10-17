@@ -15,5 +15,10 @@ export function vipColorClass(vipIndex: number): string {
 
 /** Up to two letters for a VIP avatar. */
 export function vipInitials(name: string): string {
-  return name.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || '?'
+  return (
+    name
+      .replace(/[^a-zA-Z]/g, '')
+      .slice(0, 2)
+      .toUpperCase() || '?'
+  )
 }

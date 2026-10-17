@@ -47,9 +47,9 @@ describe('refreshFixture', () => {
   it('prints the exact login command and reads nothing when the Cloudflare login is missing', () => {
     const snapshots = source({ isLoggedIn: () => false })
 
-    expect(() =>
-      refreshFixture(KEY, { source: snapshots, writeFixture: () => undefined, env: {} }),
-    ).toThrow('Cloudflare login missing. Run: npx wrangler login')
+    expect(() => refreshFixture(KEY, { source: snapshots, writeFixture: () => undefined, env: {} })).toThrow(
+      'Cloudflare login missing. Run: npx wrangler login',
+    )
     expect(snapshots.reads).toEqual([])
   })
 

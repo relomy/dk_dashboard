@@ -2,7 +2,12 @@ import { LOCKED_SLOT_DETAIL, resolvePrimaryContest, type LiveModel, type LiveVip
 import { haveOrFade } from './livePresentation'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from './perVipKeys'
 import type { VipLineupRow as VipLineup } from './generated/snapshot'
-import { interpretSnapshot, isSupportedSnapshot, type LiveContest as Contest, type LiveSnapshot as Snapshot } from './interpretedSnapshot'
+import {
+  interpretSnapshot,
+  isSupportedSnapshot,
+  type LiveContest as Contest,
+  type LiveSnapshot as Snapshot,
+} from './interpretedSnapshot'
 
 /**
  * The Live contract's invariants (#37): hand-written checks on what the Live view would show for one
@@ -44,7 +49,10 @@ const vipCardHasFigures: Invariant = (model, { contest }) => {
 }
 
 /** Each feed VIP lineup with its index and the model's card for it: the cards follow the feed's VIP order. */
-function feedVips(model: LiveModel, contest: Contest | null): Array<{ lineup: VipLineup; index: number; vip: LiveVip | undefined }> {
+function feedVips(
+  model: LiveModel,
+  contest: Contest | null,
+): Array<{ lineup: VipLineup; index: number; vip: LiveVip | undefined }> {
   return (contest?.vip_lineups ?? []).map((lineup, index) => ({ lineup, index, vip: model.vips[index] }))
 }
 
@@ -79,7 +87,9 @@ const leverageRowsAreRead: Invariant = (model, { contest }) => {
       continue
     }
     if (leverage.data.uniquenessDeltaPct !== (row.uniqueness_delta_pct ?? null)) {
-      violations.push(`VIP ${vip.name}: uniqueness delta ${String(leverage.data.uniquenessDeltaPct)}, feed ${String(row.uniqueness_delta_pct)}`)
+      violations.push(
+        `VIP ${vip.name}: uniqueness delta ${String(leverage.data.uniquenessDeltaPct)}, feed ${String(row.uniqueness_delta_pct)}`,
+      )
     }
     if (leverage.data.partial !== (row.is_partial === true)) {
       violations.push(`VIP ${vip.name}: partial ${String(leverage.data.partial)}, feed ${String(row.is_partial)}`)
@@ -113,7 +123,8 @@ const vipOwnershipRemainingIsShown: Invariant = (model, { contest }) => {
       isFiniteNumber(standingsByKey.get(key)?.ownership_remaining_total_pct) ||
       isFiniteNumber(leverageByKey.get(key)?.vip_remaining_pct)
     const own = vip?.ownershipRemainingPct
-    if (hasSource && !isFiniteNumber(own)) violations.push(`VIP ${lineup.display_name}: ownership remaining is ${String(own)}`)
+    if (hasSource && !isFiniteNumber(own))
+      violations.push(`VIP ${lineup.display_name}: ownership remaining is ${String(own)}`)
   }
   return violations
 }

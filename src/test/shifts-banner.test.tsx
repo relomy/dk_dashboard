@@ -140,7 +140,10 @@ afterEach(() => {
 
 describe('the Shifts banner rows', () => {
   it('shows nothing when no High item is unsurfaced', async () => {
-    const { feed } = stubFeed([crossingItem('empire', { priority: 'normal', crossing: undefined }), crossingItem('cubbies', { surfaced: true })])
+    const { feed } = stubFeed([
+      crossingItem('empire', { priority: 'normal', crossing: undefined }),
+      crossingItem('cubbies', { surfaced: true }),
+    ])
     await renderBanner(feed)
     expect(screen.queryByRole('region', { name: 'Shifts banner' })).toBeNull()
   })
@@ -181,7 +184,9 @@ describe('the Shifts banner rows', () => {
     const { feed } = stubFeed([crossingItem('empire', { crossing: { path: 'out', cause } })])
     await renderBanner(feed)
     const [row] = await screen.findAllByRole('listitem')
-    expect(row.textContent).toContain('EmpireMaker2 fell out of cashing because the cash line moved +2.26 pts and down 5 places')
+    expect(row.textContent).toContain(
+      'EmpireMaker2 fell out of cashing because the cash line moved +2.26 pts and down 5 places',
+    )
   })
 
   it('says "You" only for the VIP the active Profile\'s username rule matches', async () => {

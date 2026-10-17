@@ -193,8 +193,14 @@ describe('/api/auth/login', () => {
       csrfHeader: 'abc',
     }
 
-    const inactiveResp = await invoke(loginRequest({ username: 'friend', password: 'secret' }, baseReq), buildEnv({ AUTH_DB: createMockDb(inactiveUser) }))
-    const expiredResp = await invoke(loginRequest({ username: 'friend', password: 'secret' }, baseReq), buildEnv({ AUTH_DB: createMockDb(expiredTempUser) }))
+    const inactiveResp = await invoke(
+      loginRequest({ username: 'friend', password: 'secret' }, baseReq),
+      buildEnv({ AUTH_DB: createMockDb(inactiveUser) }),
+    )
+    const expiredResp = await invoke(
+      loginRequest({ username: 'friend', password: 'secret' }, baseReq),
+      buildEnv({ AUTH_DB: createMockDb(expiredTempUser) }),
+    )
 
     expect(inactiveResp.status).toBe(401)
     expect(expiredResp.status).toBe(401)

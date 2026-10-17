@@ -25,9 +25,7 @@ interface MockD1 {
   calls: Array<{ kind: QueryKind; sql: string; args: unknown[] }>
 }
 
-function createMockD1(
-  handler: (kind: QueryKind, sql: string, args: unknown[]) => unknown,
-): MockD1 {
+function createMockD1(handler: (kind: QueryKind, sql: string, args: unknown[]) => unknown): MockD1 {
   const calls: Array<{ kind: QueryKind; sql: string; args: unknown[] }> = []
 
   return {

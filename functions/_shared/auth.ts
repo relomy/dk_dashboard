@@ -1,9 +1,6 @@
 import type { AuthResult, EnvBindings } from './types'
 
-export function authorizeRequest(
-  headers: Headers,
-  env: Partial<Pick<EnvBindings, 'DASHBOARD_API_KEY'>>,
-): AuthResult {
+export function authorizeRequest(headers: Headers, env: Partial<Pick<EnvBindings, 'DASHBOARD_API_KEY'>>): AuthResult {
   const configuredKey = env.DASHBOARD_API_KEY?.trim()
   if (!configuredKey) {
     return {

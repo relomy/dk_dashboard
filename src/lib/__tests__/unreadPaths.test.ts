@@ -35,7 +35,11 @@ function syntheticSnapshot(): Snapshot {
     snapshot_at: '2026-10-04T18:41:34Z',
     sports: {
       nfl: { primary_contest: { contest_key: 'c1' }, contests: [contest], players: [] },
-      golf: { primary_contest: { contest_key: 'g1' }, contests: [{ ...contest, contest_key: 'g1', golf_only: 1 }], players: [] },
+      golf: {
+        primary_contest: { contest_key: 'g1' },
+        contests: [{ ...contest, contest_key: 'g1', golf_only: 1 }],
+        players: [],
+      },
     },
   } as unknown as Snapshot
 }

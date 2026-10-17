@@ -241,17 +241,20 @@ it('measures the Final age to the current time when the snapshot time is unusabl
   }
 })
 
-it.each(['players', 'vips', 'trains', 'leverage'])('renders a completed contest on the %s view without errors', async (view) => {
-  const snapshot = load()
-  snapshot.sports.cfb.contests[0].state = 'completed'
-  stubApi(snapshot)
-  const error = vi.spyOn(console, 'error')
-  renderApp(`/live/cfb?view=${view}`)
+it.each(['players', 'vips', 'trains', 'leverage'])(
+  'renders a completed contest on the %s view without errors',
+  async (view) => {
+    const snapshot = load()
+    snapshot.sports.cfb.contests[0].state = 'completed'
+    stubApi(snapshot)
+    const error = vi.spyOn(console, 'error')
+    renderApp(`/live/cfb?view=${view}`)
 
-  expect(await screen.findByLabelText(/contest state/i, undefined, APP_READY)).toBeInTheDocument()
-  expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument()
-  expect(error).not.toHaveBeenCalled()
-})
+    expect(await screen.findByLabelText(/contest state/i, undefined, APP_READY)).toBeInTheDocument()
+    expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument()
+    expect(error).not.toHaveBeenCalled()
+  },
+)
 
 it.each(['live', 'upcoming', 'cancelled'] as const)('does not mark a %s primary contest as Final', async (state) => {
   const snapshot = load()

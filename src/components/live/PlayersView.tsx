@@ -37,9 +37,7 @@ function PlayersView({ model, isPhone, vipHref }: PlayersViewProps) {
 
   const toggleSort = (key: PoolSortKey) =>
     setSort((current) =>
-      current.key === key
-        ? { key, dir: current.dir === 'asc' ? 'desc' : 'asc' }
-        : { key, dir: defaultSortDir(key) },
+      current.key === key ? { key, dir: current.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: defaultSortDir(key) },
     )
 
   const vipsOf = (player: LivePoolPlayer): AvatarVip[] =>
@@ -59,7 +57,11 @@ function PlayersView({ model, isPhone, vipHref }: PlayersViewProps) {
           aria-label="Search player or team"
           className="h-8 w-full bg-card sm:w-56"
         />
-        <div role="group" aria-label="Filter players" className="flex rounded-md bg-card p-0.5 text-xs ring-1 ring-border">
+        <div
+          role="group"
+          aria-label="Filter players"
+          className="flex rounded-md bg-card p-0.5 text-xs ring-1 ring-border"
+        >
           {FILTERS.map(([key, label]) => (
             <button
               key={key}
@@ -122,7 +124,11 @@ function SortHeader({
   return (
     <th
       aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
-      className={cn('px-3 py-2 font-semibold whitespace-nowrap', align === 'right' ? 'text-right' : 'text-left', className)}
+      className={cn(
+        'px-3 py-2 font-semibold whitespace-nowrap',
+        align === 'right' ? 'text-right' : 'text-left',
+        className,
+      )}
     >
       <button type="button" onClick={() => onSort(sortKey)} className={cn('uppercase', active && 'text-foreground')}>
         {label}
@@ -177,7 +183,9 @@ function PlayersTable({ rows, sort, onSort, vipsOf, avatarHref }: RowsProps) {
               <td className="px-1 py-1">
                 <OwnCell own={player.ownershipPct} />
               </td>
-              <td className="px-3 py-1.5 text-right font-mono font-semibold tabular-nums">{formatPoints(player.points)}</td>
+              <td className="px-3 py-1.5 text-right font-mono font-semibold tabular-nums">
+                {formatPoints(player.points)}
+              </td>
               <td className="px-3 py-1.5 text-right">
                 <ValuePill value={visibleValue(player)} />
               </td>
@@ -243,7 +251,10 @@ function PhoneList({ rows, sort, onSort, vipsOf, avatarHref }: RowsProps) {
             >
               <span className="min-w-0">
                 <span
-                  className={cn('flex min-w-0 items-center gap-1 text-sm', player.gameStatus === 'final' && 'text-muted-foreground')}
+                  className={cn(
+                    'flex min-w-0 items-center gap-1 text-sm',
+                    player.gameStatus === 'final' && 'text-muted-foreground',
+                  )}
                 >
                   <span className="truncate">{player.name}</span>
                   <ValueIconMark icon={player.valueIcon} className="text-xs" />
@@ -255,7 +266,9 @@ function PhoneList({ rows, sort, onSort, vipsOf, avatarHref }: RowsProps) {
                 </span>
               </span>
               <OwnCell own={player.ownershipPct} />
-              <span className="text-right font-mono text-sm font-semibold tabular-nums">{formatPoints(player.points)}</span>
+              <span className="text-right font-mono text-sm font-semibold tabular-nums">
+                {formatPoints(player.points)}
+              </span>
               <span className="text-right">
                 <ValuePill value={visibleValue(player)} />
               </span>
@@ -264,14 +277,11 @@ function PhoneList({ rows, sort, onSort, vipsOf, avatarHref }: RowsProps) {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 bg-card/60 px-3 py-2 text-xs text-muted-foreground">
                 <span>{formatSalary(player.salary)}</span>
                 <span>{player.matchup}</span>
-                {player.gameStatus && GAME_STATUS_LABEL[player.gameStatus].toLowerCase() !== player.matchup.toLowerCase() ? (
+                {player.gameStatus &&
+                GAME_STATUS_LABEL[player.gameStatus].toLowerCase() !== player.matchup.toLowerCase() ? (
                   <span>{GAME_STATUS_LABEL[player.gameStatus]}</span>
                 ) : null}
-                {vips.length ? (
-                  <VipLinks vips={vips} avatarHref={avatarHref} />
-                ) : (
-                  <span>No VIPs</span>
-                )}
+                {vips.length ? <VipLinks vips={vips} avatarHref={avatarHref} /> : <span>No VIPs</span>}
               </div>
             ) : null}
           </li>

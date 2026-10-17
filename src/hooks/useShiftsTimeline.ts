@@ -55,7 +55,10 @@ function enqueue(
     if (next) client.setQueryData(queryKey, next)
   }
   const result = (tails.get(id) ?? Promise.resolve()).then(run)
-  tails.set(id, result.catch(() => {}))
+  tails.set(
+    id,
+    result.catch(() => {}),
+  )
   return result
 }
 
@@ -89,7 +92,11 @@ export function useShiftsTimeline(sport: string) {
       await enqueue(queryClient, queryKey, async (current) => {
         if (!current.retryGap) return null
         const next = await current.retryGap(snapshotAt)
-        ok = next.kind === 'ready' && !next.timeline.entries.some((entry) => entry.kind === 'gap' && entry.snapshotAt === snapshotAt && entry.reason === 'unavailable')
+        ok =
+          next.kind === 'ready' &&
+          !next.timeline.entries.some(
+            (entry) => entry.kind === 'gap' && entry.snapshotAt === snapshotAt && entry.reason === 'unavailable',
+          )
         return next
       })
       return { ok }
@@ -157,7 +164,9 @@ export function useShiftsTimeline(sport: string) {
     const running = loadsInFlight.get(queryClient)?.get(loadKey)
     if (!running) return
     setMore((prev) => (prev.busy ? prev : { ...prev, busy: true, announcement: 'Loading more snapshots' }))
-    void running.then(() => setMore((prev) => (prev.busy ? { busy: false, progress: null, error: null, announcement: '' } : prev)))
+    void running.then(() =>
+      setMore((prev) => (prev.busy ? { busy: false, progress: null, error: null, announcement: '' } : prev)),
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryClient, loadKey])
   /** Loads the next page further back and swaps the longer Timeline in; a failure leaves the rail as it was. */
@@ -171,14 +180,21 @@ export function useShiftsTimeline(sport: string) {
         let added = 0
         await enqueue(queryClient, queryKey, async (current) => {
           if (!current.loadMore) return null
-          const next = await current.loadMore({ onProgress: (done, total) => setMore((prev) => ({ ...prev, progress: { done, total } })) })
+          const next = await current.loadMore({
+            onProgress: (done, total) => setMore((prev) => ({ ...prev, progress: { done, total } })),
+          })
           added = next.kind === 'ready' ? next.range.loaded - current.range.loaded : 0
           return next
         })
         setMore({ busy: false, progress: null, error: null, announcement: `Loaded ${added} more snapshots` })
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Could not load more snapshots.'
-        setMore({ busy: false, progress: null, error: message, announcement: `Could not load more snapshots: ${message}` })
+        setMore({
+          busy: false,
+          progress: null,
+          error: message,
+          announcement: `Could not load more snapshots: ${message}`,
+        })
       } finally {
         running.delete(loadKey)
       }

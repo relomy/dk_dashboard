@@ -7,9 +7,9 @@ export type StorageMode = 'local' | 'session'
 function canUseStorage(storage: Storage | undefined): storage is Storage {
   return Boolean(
     storage &&
-      typeof storage.getItem === 'function' &&
-      typeof storage.setItem === 'function' &&
-      typeof storage.removeItem === 'function',
+    typeof storage.getItem === 'function' &&
+    typeof storage.setItem === 'function' &&
+    typeof storage.removeItem === 'function',
   )
 }
 
@@ -26,9 +26,7 @@ function safeSessionStorage(): Storage | undefined {
 }
 
 export function getStoredKey(): string {
-  return (
-    safeSessionStorage()?.getItem(SESSION_KEY) ?? safeLocalStorage()?.getItem(LOCAL_KEY) ?? ''
-  )
+  return safeSessionStorage()?.getItem(SESSION_KEY) ?? safeLocalStorage()?.getItem(LOCAL_KEY) ?? ''
 }
 
 export function getStoredMode(): StorageMode {

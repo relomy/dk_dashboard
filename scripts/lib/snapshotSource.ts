@@ -39,7 +39,9 @@ export function guardProdRead({ task, key, usage }: ProdRead, deps: ProdReadDeps
   }
   if (hasR2Credentials(deps.env)) return
   if (deps.env.CI) {
-    throw new Error(`${task} reads prod R2 in CI with the repository secrets ${R2_CREDENTIALS.join(', ')}; set all three.`)
+    throw new Error(
+      `${task} reads prod R2 in CI with the repository secrets ${R2_CREDENTIALS.join(', ')}; set all three.`,
+    )
   }
   if (!deps.source.isLoggedIn()) {
     throw new Error(`Cloudflare login missing. Run: ${LOGIN_COMMAND}`)

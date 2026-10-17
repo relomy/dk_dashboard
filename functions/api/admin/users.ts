@@ -29,8 +29,9 @@ export const onRequestGet: PagesFunction<EnvBindings> = async ({ request, env })
     return owner.response
   }
 
-  const rows = await env.AUTH_DB
-    .prepare('SELECT id, username, role, is_active, must_change_password, last_login_at FROM users ORDER BY username ASC')
+  const rows = await env.AUTH_DB.prepare(
+    'SELECT id, username, role, is_active, must_change_password, last_login_at FROM users ORDER BY username ASC',
+  )
     .bind()
     .all<{
       id: string
@@ -91,9 +92,10 @@ export const onRequestPost: PagesFunction<EnvBindings> = async ({ request, env }
   }
 
   const nowIso = new Date().toISOString()
-  const temporaryPassword = typeof body.temporary_password === 'string' && body.temporary_password.length >= 12
-    ? body.temporary_password
-    : generateTempPassword()
+  const temporaryPassword =
+    typeof body.temporary_password === 'string' && body.temporary_password.length >= 12
+      ? body.temporary_password
+      : generateTempPassword()
   const passwordHash = await hashPassword(temporaryPassword)
   const userId = generateId('usr')
   const tempPasswordExpiresAt = plusHours(nowIso, 24)

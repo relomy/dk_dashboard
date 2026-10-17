@@ -86,7 +86,11 @@ describe('primary contest', () => {
     expect(model.sport).toBe('cfb')
     expect(model.snapshotAt).toBe('2026-10-03T20:48:31Z')
     // Only the name: contest key, id and selection reason are internal and never shown.
-    expect(model.contest).toEqual({ name: 'CFB Single Entry $25 Double Up', state: 'live', startTime: '2026-10-03T16:00:00Z' })
+    expect(model.contest).toEqual({
+      name: 'CFB Single Entry $25 Double Up',
+      state: 'live',
+      startTime: '2026-10-03T16:00:00Z',
+    })
     expect(model.cashLine).toEqual({ points: 129.04001, rank: 98 })
   })
 
@@ -161,7 +165,9 @@ describe('VIP cashing and distance to cash', () => {
   it('does not match per-VIP metrics on display_name', () => {
     const snapshot = load()
     addVip(snapshot)
-    setDistance(snapshot, [{ vip_entry_key: null, entry_key: null, display_name: VIP_NAME, points_delta: 99, rank_delta: 99 }])
+    setDistance(snapshot, [
+      { vip_entry_key: null, entry_key: null, display_name: VIP_NAME, points_delta: 99, rank_delta: 99 },
+    ])
 
     const vip = vipOf(snapshot)
     expect(vip.distanceToCash).toEqual({ points: null, rank: null })
@@ -184,8 +190,6 @@ describe('VIP cashing and distance to cash', () => {
 
     expect(vipOf(snapshot).cashing).toBe(false)
   })
-
-
 })
 
 describe('VIP lineup players', () => {
@@ -203,9 +207,17 @@ describe('VIP lineup players', () => {
 
   it('reads each players_live row into a lineup player with its game status', () => {
     const snapshot = load()
-    Object.assign(snapshot.sports.cfb.players.find((row: Json) => row.name === 'Ashton Daniels'), {
-      rt_projection: 21.11, time_remaining_minutes: 38.02, stats_text: '1 TD', fantasy_points: 7.25, ownership_pct: 84.67, value: 2.07,
-    })
+    Object.assign(
+      snapshot.sports.cfb.players.find((row: Json) => row.name === 'Ashton Daniels'),
+      {
+        rt_projection: 21.11,
+        time_remaining_minutes: 38.02,
+        stats_text: '1 TD',
+        fantasy_points: 7.25,
+        ownership_pct: 84.67,
+        value: 2.07,
+      },
+    )
     addVip(snapshot, 'cfb', { players_live: [PLAYERS_LIVE_ROW] })
 
     expect(playersOf(snapshot)).toEqual([
@@ -229,14 +241,12 @@ describe('VIP lineup players', () => {
     ])
   })
 
-
   it('keeps a present but empty players_live list as an empty lineup rather than falling back to slots', () => {
     const snapshot = load()
     addVip(snapshot, 'cfb', { players_live: [] })
 
     expect(playersOf(snapshot)).toEqual([])
   })
-
 
   it('carries the contest live update time when present', () => {
     const snapshot = load()
@@ -277,8 +287,6 @@ describe('VIP lineup players', () => {
 })
 
 describe('VIP standing and ownership', () => {
-
-
   function vipOf(snapshot: unknown, sport = 'cfb') {
     const [vip] = modelOf(snapshot, sport).vips
     if (!vip) throw new Error('Expected a VIP')
@@ -286,9 +294,12 @@ describe('VIP standing and ownership', () => {
   }
 
   function setSummary(snapshot: Json, perVip: Json[]) {
-    contestOf(snapshot).metrics.ownership_summary = { source: 'vip_lineup_players', scope: 'vip_lineup', per_vip: perVip }
+    contestOf(snapshot).metrics.ownership_summary = {
+      source: 'vip_lineup_players',
+      scope: 'vip_lineup',
+      per_vip: perVip,
+    }
   }
-
 
   it('falls back to the lineup rank and points without a live block', () => {
     const snapshot = load()
@@ -304,7 +315,6 @@ describe('VIP standing and ownership', () => {
     expect(vipOf(snapshot)).toMatchObject({ rank: null, points: null, pmr: null, ownershipRemainingPct: null })
   })
 
-
   it('reads lineup ownership from the older total_ownership_pct', () => {
     const snapshot = load()
     addVip(snapshot)
@@ -312,7 +322,6 @@ describe('VIP standing and ownership', () => {
 
     expect(vipOf(snapshot).lineupOwnershipPct).toBe(189.78)
   })
-
 
   it('matches the lineup ownership row on vip_entry_key before entry_key, never on display_name', () => {
     const snapshot = load()
@@ -335,7 +344,6 @@ describe('VIP standing and ownership', () => {
 
     expect(vipOf(snapshot, 'mlb').lineupOwnershipPct).toBeNull()
   })
-
 })
 
 describe('VIP card from a minimal producer lineup', () => {
@@ -344,7 +352,15 @@ describe('VIP card from a minimal producer lineup', () => {
     rank: '74',
     pts: 433,
     pmr: '82',
-    players_live: [{ slot: 'QB', player_key: 'cfb:ashton-daniels:fsu:6500:qb', player_name: 'Ashton Daniels', salary: 6500, is_live: true }],
+    players_live: [
+      {
+        slot: 'QB',
+        player_key: 'cfb:ashton-daniels:fsu:6500:qb',
+        player_name: 'Ashton Daniels',
+        salary: 6500,
+        is_live: true,
+      },
+    ],
   }
   const STANDINGS_ROW = {
     entry_key: VIP_KEY,
@@ -394,7 +410,10 @@ describe('VIP card from a minimal producer lineup', () => {
   it('matches the standings row on vip_entry_key before entry_key', () => {
     const snapshot = load()
     addVip(snapshot, 'cfb', { ...MINIMAL_LINEUP, entry_key: 'someone-else', vip_entry_key: VIP_KEY })
-    setStandings(snapshot, [{ ...STANDINGS_ROW, entry_key: 'someone-else', ownership_remaining_total_pct: 1 }, STANDINGS_ROW])
+    setStandings(snapshot, [
+      { ...STANDINGS_ROW, entry_key: 'someone-else', ownership_remaining_total_pct: 1 },
+      STANDINGS_ROW,
+    ])
 
     expect(vipOf(snapshot).ownershipRemainingPct).toBe(143.5)
   })
@@ -409,7 +428,7 @@ describe('VIP card from a minimal producer lineup', () => {
     expect(vipOf(snapshot)).toMatchObject({ rank: 74, points: 433, pmr: 82, ownershipRemainingPct: null })
   })
 
-  it('prefers the standings row\'s ownership remaining over the leverage row, which matches on entry key only', () => {
+  it("prefers the standings row's ownership remaining over the leverage row, which matches on entry key only", () => {
     const snapshot = load()
     addVip(snapshot, 'cfb', MINIMAL_LINEUP)
     setStandings(snapshot, [STANDINGS_ROW])
@@ -454,13 +473,18 @@ describe('VIP card from a minimal producer lineup', () => {
       ])
     })
 
-
     it('takes nothing from a same-name pool player when the row has a player_key the pool lacks', () => {
       const snapshot = load()
       addVip(snapshot, 'cfb', { players_live: [{ ...KEYED_ROW, player_key: 'cfb:ashton-daniels:other:1:qb' }] })
 
       expect(playersOf(snapshot)).toEqual([
-        expect.objectContaining({ name: 'Ashton Daniels', ownershipPct: null, points: null, gameStatus: null, value: null }),
+        expect.objectContaining({
+          name: 'Ashton Daniels',
+          ownershipPct: null,
+          points: null,
+          gameStatus: null,
+          value: null,
+        }),
       ])
     })
 
@@ -499,7 +523,10 @@ describe('VIP card from a minimal producer lineup', () => {
     it('keeps separate rows for players with the same roster slot', () => {
       const snapshot = load()
       addVip(snapshot, 'cfb', {
-        players_live: [KEYED_ROW, { ...KEYED_ROW, player_key: 'cfb:austin-simmons:mizz:6700:qb', player_name: 'Austin Simmons' }],
+        players_live: [
+          KEYED_ROW,
+          { ...KEYED_ROW, player_key: 'cfb:austin-simmons:mizz:6700:qb', player_name: 'Austin Simmons' },
+        ],
       })
 
       expect(playersOf(snapshot).map((player) => [player.key, player.slot])).toEqual([
@@ -519,7 +546,10 @@ describe('VIP card from a minimal producer lineup', () => {
   it('projects from the pool-enriched points when some rows carry a real-time projection', () => {
     const snapshot = load()
     snapshot.sports.cfb.players.find((row: Json) => row.name === 'Austin Simmons').rt_projection = 20
-    Object.assign(snapshot.sports.cfb.players.find((row: Json) => row.name === 'Ashton Daniels'), { fantasy_points: 3, game_status: 'Final' })
+    Object.assign(
+      snapshot.sports.cfb.players.find((row: Json) => row.name === 'Ashton Daniels'),
+      { fantasy_points: 3, game_status: 'Final' },
+    )
     const [keyed] = MINIMAL_LINEUP.players_live
     addVip(snapshot, 'cfb', {
       players_live: [
@@ -569,14 +599,16 @@ describe('VIP card from a minimal producer lineup', () => {
 })
 
 describe('VIP card below the standings cut (prod NFL fixture)', () => {
-  it('shows each VIP\'s rank, points and PMR from its lineup row and ownership remaining from its leverage row', () => {
-    const vips = modelOf(structuredClone(nflSnapshot), 'nfl').vips.map(({ name, rank, points, pmr, ownershipRemainingPct }) => ({
-      name,
-      rank,
-      points,
-      pmr,
-      ownershipRemainingPct,
-    }))
+  it("shows each VIP's rank, points and PMR from its lineup row and ownership remaining from its leverage row", () => {
+    const vips = modelOf(structuredClone(nflSnapshot), 'nfl').vips.map(
+      ({ name, rank, points, pmr, ownershipRemainingPct }) => ({
+        name,
+        rank,
+        points,
+        pmr,
+        ownershipRemainingPct,
+      }),
+    )
 
     expect(vips).toEqual([
       { name: 'cglenn91', rank: 879, points: 28.64, pmr: 390, ownershipRemainingPct: 262.59 },
@@ -692,7 +724,11 @@ describe('trains', () => {
     })
 
     it('is identical when every slot is shared', () => {
-      expect(oneTrain(load(), { min_shared_slots: 8 }).closeness).toEqual({ minShared: 8, slotCount: 8, identical: true })
+      expect(oneTrain(load(), { min_shared_slots: 8 }).closeness).toEqual({
+        minShared: 8,
+        slotCount: 8,
+        identical: true,
+      })
     })
 
     it('has no closeness when the producer omits min_shared_slots', () => {
@@ -720,19 +756,62 @@ describe('trains', () => {
 
     it('takes each player game status, points and ownership from the pool, matched by name', () => {
       const [live, later, done] = lineupOf('Live Guy|Later Guy|Done Guy', [
-        { name: 'Live Guy', team: 'FSU', position: 'QB', matchup: 'FSU@MIZZ', salary: 1, game_status: 'In-Progress', fantasy_points: 12.5, ownership_pct: 31.5, value: 4.5 },
-        { name: 'Later Guy', team: 'MIZZ', position: 'RB', salary: 1, game_status: 'FSU@MIZZ 07:30PM ET', fantasy_points: 0, ownership_pct: 12 },
-        { name: 'Done Guy', team: 'FSU', position: 'WR', salary: 1, game_status: 'Final', fantasy_points: 30, ownership_pct: 55, value: 6.5 },
+        {
+          name: 'Live Guy',
+          team: 'FSU',
+          position: 'QB',
+          matchup: 'FSU@MIZZ',
+          salary: 1,
+          game_status: 'In-Progress',
+          fantasy_points: 12.5,
+          ownership_pct: 31.5,
+          value: 4.5,
+        },
+        {
+          name: 'Later Guy',
+          team: 'MIZZ',
+          position: 'RB',
+          salary: 1,
+          game_status: 'FSU@MIZZ 07:30PM ET',
+          fantasy_points: 0,
+          ownership_pct: 12,
+        },
+        {
+          name: 'Done Guy',
+          team: 'FSU',
+          position: 'WR',
+          salary: 1,
+          game_status: 'Final',
+          fantasy_points: 30,
+          ownership_pct: 55,
+          value: 6.5,
+        },
       ])
 
-      expect(live).toMatchObject({ slot: 'QB', name: 'Live Guy', gameStatus: 'in-progress', points: 12.5, ownershipPct: 31.5, value: 4.5, clock: 'In-Progress', matchup: 'FSU@MIZZ' })
+      expect(live).toMatchObject({
+        slot: 'QB',
+        name: 'Live Guy',
+        gameStatus: 'in-progress',
+        points: 12.5,
+        ownershipPct: 31.5,
+        value: 4.5,
+        clock: 'In-Progress',
+        matchup: 'FSU@MIZZ',
+      })
       expect(later).toMatchObject({ slot: 'RB', gameStatus: 'pre-game', points: 0, ownershipPct: 12 })
       expect(done).toMatchObject({ slot: 'WR', gameStatus: 'final', points: 30 })
     })
 
     it('has no matchup when the pool repeats the game status as the matchup', () => {
       const [live] = lineupOf('Live Guy', [
-        { name: 'Live Guy', team: 'FSU', position: 'QB', matchup: 'In-Progress', salary: 1, game_status: 'In-Progress' },
+        {
+          name: 'Live Guy',
+          team: 'FSU',
+          position: 'QB',
+          matchup: 'In-Progress',
+          salary: 1,
+          game_status: 'In-Progress',
+        },
       ])
 
       expect(live.matchup).toBeNull()
@@ -741,7 +820,15 @@ describe('trains', () => {
     it('keeps a player missing from the pool as a name with no live details', () => {
       const [stranger] = lineupOf('Stranger', [])
 
-      expect(stranger).toMatchObject({ name: 'Stranger', slot: '', gameStatus: null, points: null, ownershipPct: null, clock: null, matchup: null })
+      expect(stranger).toMatchObject({
+        name: 'Stranger',
+        slot: '',
+        gameStatus: null,
+        points: null,
+        ownershipPct: null,
+        clock: null,
+        matchup: null,
+      })
     })
 
     it('keeps locked slots in position, with no live details', () => {
@@ -763,7 +850,9 @@ describe('trains', () => {
         { entry_key: 'k2', username: 'second', rank: 2 },
         { entry_key: 'k1', username: 'first', rank: 1 },
       ]
-      contestOf(snapshot).train_clusters = [{ cluster_id: 't1', user_count: 4, rank: 1, entry_keys: ['k1', 'missing', 'k2'] }]
+      contestOf(snapshot).train_clusters = [
+        { cluster_id: 't1', user_count: 4, rank: 1, entry_keys: ['k1', 'missing', 'k2'] },
+      ]
 
       const [train] = trainsOf(snapshot).rows
       expect(train?.ridingNames).toEqual(['first', 'second'])
@@ -782,8 +871,16 @@ describe('trains', () => {
     function overlapSnapshot() {
       const snapshot = load()
       contestOf(snapshot).vip_lineups = [
-        { entry_key: 'v1', display_name: 'VIP One', players_live: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((player_name) => ({ slot: 'X', player_name })) },
-        { entry_key: 'v2', display_name: 'VIP Two', players_live: ['A', 'Z1', 'Z2', 'Z3'].map((player_name) => ({ slot: 'X', player_name })) },
+        {
+          entry_key: 'v1',
+          display_name: 'VIP One',
+          players_live: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((player_name) => ({ slot: 'X', player_name })),
+        },
+        {
+          entry_key: 'v2',
+          display_name: 'VIP Two',
+          players_live: ['A', 'Z1', 'Z2', 'Z3'].map((player_name) => ({ slot: 'X', player_name })),
+        },
       ]
       contestOf(snapshot).train_clusters = [
         { cluster_id: 'big', user_count: 14, rank: 36, lineup_signature: 'A|B|C|D|X1|X2|X3|X4' },
@@ -806,7 +903,9 @@ describe('trains', () => {
 
     it('never counts a locked slot as shared', () => {
       const snapshot = overlapSnapshot()
-      contestOf(snapshot).train_clusters = [{ cluster_id: 'locked', user_count: 3, rank: 1, lineup_signature: 'LOCKED 🔒|LOCKED 🔒|A' }]
+      contestOf(snapshot).train_clusters = [
+        { cluster_id: 'locked', user_count: 3, rank: 1, lineup_signature: 'LOCKED 🔒|LOCKED 🔒|A' },
+      ]
       contestOf(snapshot).vip_lineups[0].players_live.push({ slot: 'X', player_name: 'LOCKED 🔒', is_locked: true })
 
       expect(trainsOf(snapshot).rows[0]?.vipOverlaps.map((overlap) => overlap.shared)).toEqual([1, 1])
@@ -831,7 +930,9 @@ describe('trains', () => {
 
     it('has no overlap when a VIP shares fewer than 4 players with every train', () => {
       const snapshot = overlapSnapshot()
-      contestOf(snapshot).train_clusters = [{ cluster_id: 'far', user_count: 9, rank: 1, lineup_signature: 'A|B|C|Y1|Y2|Y3|Y4|Y5' }]
+      contestOf(snapshot).train_clusters = [
+        { cluster_id: 'far', user_count: 9, rank: 1, lineup_signature: 'A|B|C|Y1|Y2|Y3|Y4|Y5' },
+      ]
 
       expect(modelOf(snapshot).vips[0]?.trainOverlap).toBeNull()
     })
@@ -874,7 +975,12 @@ describe('trains', () => {
 
   it('is unavailable when every train row is malformed', () => {
     const snapshot = load()
-    contestOf(snapshot).train_clusters = [null, 'invalid-row', { cluster_id: 123, user_count: 'x' }, { entry_keys: [42] }]
+    contestOf(snapshot).train_clusters = [
+      null,
+      'invalid-row',
+      { cluster_id: 123, user_count: 'x' },
+      { entry_keys: [42] },
+    ]
 
     expect(modelOf(snapshot).trains).toEqual({ availability: 'unavailable' })
   })
@@ -1028,7 +1134,6 @@ describe('swing players', () => {
     })
   })
 
-
   it('is unavailable for the missing-metrics fixture', () => {
     expect(modelOf(load(), 'mlb').threat).toEqual({ availability: 'unavailable' })
   })
@@ -1039,7 +1144,6 @@ describe('swing players', () => {
 
     expect(modelOf(snapshot).threat).toEqual({ availability: 'available', data: { swingPlayers: [] } })
   })
-
 })
 
 describe('field ownership remaining', () => {
@@ -1100,11 +1204,11 @@ describe('player pool', () => {
       { name: 'Value Signal', value: 1 },
     ])
 
-    expect(modelOf(snapshot).pool.map((player) => player.name).sort()).toEqual([
-      'Ownership Signal',
-      'Points Signal',
-      'Value Signal',
-    ])
+    expect(
+      modelOf(snapshot)
+        .pool.map((player) => player.name)
+        .sort(),
+    ).toEqual(['Ownership Signal', 'Points Signal', 'Value Signal'])
   })
 
   it('maps the canonical fixture players to pool rows', () => {
@@ -1149,7 +1253,13 @@ describe('value icon', () => {
     ])
 
     const icons = Object.fromEntries(modelOf(snapshot).pool.map((player) => [player.name, player.valueIcon]))
-    expect(icons).toEqual({ 'Hot Guy': 'fire', 'Cold Guy': 'ice', 'Plain Guy': null, 'Null Guy': null, 'Odd Guy': null })
+    expect(icons).toEqual({
+      'Hot Guy': 'fire',
+      'Cold Guy': 'ice',
+      'Plain Guy': null,
+      'Null Guy': null,
+      'Odd Guy': null,
+    })
   })
 
   it('has no icons for the canonical fixture, which carries none', () => {
@@ -1167,7 +1277,6 @@ describe('value icon', () => {
 
     expect(modelOf(snapshot).vips[0].players.map((player) => player.valueIcon)).toEqual(['fire', null])
   })
-
 
   it('takes a train lineup player icon from the pool', () => {
     const snapshot = snapshotWith([{ name: 'Hot Guy', value_icon: 'fire' }, { name: 'Plain Guy' }])

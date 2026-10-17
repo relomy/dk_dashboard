@@ -4,7 +4,15 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ProfileContext } from '../context/ProfileContext'
 import { ShiftsContext } from '../context/ShiftsContext'
-import type { CashLineMove, CashLineShiftItem, ContestShiftItem, LineupSlotDiff, ShiftItem, ShiftsFeed, VipShiftItem } from '../lib/shifts'
+import type {
+  CashLineMove,
+  CashLineShiftItem,
+  ContestShiftItem,
+  LineupSlotDiff,
+  ShiftItem,
+  ShiftsFeed,
+  VipShiftItem,
+} from '../lib/shifts'
 import Shifts, { ShiftsSummary } from '../routes/Shifts'
 import { load } from './liveHarness'
 
@@ -72,7 +80,9 @@ function stubApi(snapshotStatus = 200) {
         )
       }
       if (snapshotStatus !== 200) {
-        return new Response(JSON.stringify({ error: { code: 'boom', message: 'Snapshot failed to load' } }), { status: snapshotStatus })
+        return new Response(JSON.stringify({ error: { code: 'boom', message: 'Snapshot failed to load' } }), {
+          status: snapshotStatus,
+        })
       }
       return new Response(JSON.stringify(load()), { status: 200 })
     }),
@@ -109,7 +119,11 @@ async function renderShifts(feed: ShiftsFeed | null, username?: string, snapshot
     </QueryClientProvider>,
   )
   if (snapshotStatus === 200 && feed) {
-    await waitFor(() => expect(screen.queryByRole('heading', { name: /shifts/i }) ?? screen.queryByText(/nothing to follow/i)).toBeTruthy())
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: /shifts/i }) ?? screen.queryByText(/nothing to follow/i),
+      ).toBeTruthy(),
+    )
   }
 }
 
@@ -137,7 +151,9 @@ describe('the Shifts page', () => {
         cause: { points: { from: 400.5, to: 405.25 }, rank: { from: 500, to: 520 } },
       },
     })
-    await renderShifts(stubFeed([crossing, vipItem('tuck', { crossing: { path: 'in then out', cause: null }, priority: 'high' })]))
+    await renderShifts(
+      stubFeed([crossing, vipItem('tuck', { crossing: { path: 'in then out', cause: null }, priority: 'high' })]),
+    )
     const [caused, plain] = await screen.findAllByRole('article')
     expect(within(caused).getByText('High')).toBeTruthy()
     expect(within(caused).getByText(/fell out of cashing/i)).toBeTruthy()
@@ -171,11 +187,15 @@ describe('the Shifts page', () => {
     const points = within(better).getByRole('group', { name: 'Points' })
     expect(points.textContent).toContain('30.00 → 34.50')
     expect(within(points).getByRole('img', { name: 'Improved' })).toBeTruthy()
-    expect(within(within(worse).getByRole('group', { name: 'Points' })).getByRole('img', { name: 'Worsened' })).toBeTruthy()
+    expect(
+      within(within(worse).getByRole('group', { name: 'Points' })).getByRole('img', { name: 'Worsened' }),
+    ).toBeTruthy()
     const toCash = within(better).getByRole('group', { name: 'To cash' })
     expect(toCash.textContent).toContain('−20 → −15.5')
     expect(within(toCash).getByRole('img', { name: 'Improved' })).toBeTruthy()
-    expect(within(within(worse).getByRole('group', { name: 'To cash' })).getByRole('img', { name: 'Worsened' })).toBeTruthy()
+    expect(
+      within(within(worse).getByRole('group', { name: 'To cash' })).getByRole('img', { name: 'Worsened' }),
+    ).toBeTruthy()
   })
 
   it('shows no arrow for a zero or unknown move', async () => {
@@ -191,7 +211,9 @@ describe('the Shifts page', () => {
     const card = (await screen.findAllByRole('article'))[0]
     expect(within(within(card).getByRole('group', { name: 'Rank' })).queryByRole('img')).toBeNull()
     expect(within(within(card).getByRole('group', { name: 'To cash' })).queryByRole('img')).toBeNull()
-    expect(within(within(card).getByRole('group', { name: 'Points' })).getByRole('img', { name: 'Improved' })).toBeTruthy()
+    expect(
+      within(within(card).getByRole('group', { name: 'Points' })).getByRole('img', { name: 'Improved' }),
+    ).toBeTruthy()
   })
 
   it('shows a cash line move as a neutral card, with no good or bad reading', async () => {
@@ -253,7 +275,7 @@ describe('the Shifts page', () => {
     expect(within(cashed).queryByRole('group', { name: 'To cash' })).toBeNull()
   })
 
-  it('hides the name only on the card of the VIP the active Profile\'s username rule matches', async () => {
+  it("hides the name only on the card of the VIP the active Profile's username rule matches", async () => {
     await renderShifts(stubFeed([vipItem('empire'), vipItem('tuck')]), 'empiremaker2')
     const [you, other] = await screen.findAllByRole('article')
     expect(within(you).getByRole('heading').textContent).toBe('You')
@@ -281,7 +303,10 @@ describe('the Shifts page', () => {
 
   it('disables Mark as seen when nothing is unseen, without the auto-advance note', async () => {
     await renderShifts(stubFeed([]))
-    expect((await screen.findByRole('button', { name: 'Mark as seen' })) as HTMLButtonElement).toHaveProperty('disabled', true)
+    expect((await screen.findByRole('button', { name: 'Mark as seen' })) as HTMLButtonElement).toHaveProperty(
+      'disabled',
+      true,
+    )
     expect(screen.getByText(/nothing has moved since you last looked/i)).toBeTruthy()
     expect(screen.queryByText(/moved on by itself/i)).toBeNull()
   })
@@ -305,7 +330,12 @@ describe('the Shifts page', () => {
   })
 
   it('points the arrow up for an improvement, so a rank that falls to a better place shows an up arrow', async () => {
-    await renderShifts(stubFeed([vipItem('empire', { rank: { from: 600, to: 580 } }), vipItem('tuck', { rank: { from: 580, to: 600 } })]))
+    await renderShifts(
+      stubFeed([
+        vipItem('empire', { rank: { from: 600, to: 580 } }),
+        vipItem('tuck', { rank: { from: 580, to: 600 } }),
+      ]),
+    )
     const [better, worse] = await screen.findAllByRole('article')
     const arrow = (card: HTMLElement) => within(within(card).getByRole('group', { name: 'Rank' })).getByRole('img')
     expect(arrow(better).getAttribute('data-direction')).toBe('up')
@@ -313,11 +343,28 @@ describe('the Shifts page', () => {
   })
 
   it('points a neutral cash line arrow by the way the figure moved', async () => {
-    const line: CashLineShiftItem = { id: 'cl', kind: 'cash-line', priority: 'normal', detectedAt: 0, snapshotAt: '2026-10-04T18:00:00Z', parts: ['cash-line'], points: { from: 400, to: 405 }, rank: { from: 520, to: 500 } }
+    const line: CashLineShiftItem = {
+      id: 'cl',
+      kind: 'cash-line',
+      priority: 'normal',
+      detectedAt: 0,
+      snapshotAt: '2026-10-04T18:00:00Z',
+      parts: ['cash-line'],
+      points: { from: 400, to: 405 },
+      rank: { from: 520, to: 500 },
+    }
     await renderShifts(stubFeed([line]))
     const card = (await screen.findAllByRole('article'))[0]
-    expect(within(within(card).getByRole('group', { name: 'Points' })).getByRole('img').getAttribute('data-direction')).toBe('up')
-    expect(within(within(card).getByRole('group', { name: 'Rank' })).getByRole('img').getAttribute('data-direction')).toBe('down')
+    expect(
+      within(within(card).getByRole('group', { name: 'Points' }))
+        .getByRole('img')
+        .getAttribute('data-direction'),
+    ).toBe('up')
+    expect(
+      within(within(card).getByRole('group', { name: 'Rank' }))
+        .getByRole('img')
+        .getAttribute('data-direction'),
+    ).toBe('down')
   })
 })
 
@@ -423,7 +470,11 @@ describe('the lineup diff on a VIP card', () => {
       slot('s2', 'Travis Kelce', { points: { from: 10, to: 7 }, pointsMove: -3 }),
       slot('s3', 'Tyreek Hill'),
       // A late swap: not compared, so no delta and not counted as changed.
-      slot('s4', 'Dalton Kincaid', { points: { from: null, to: 8 }, pointsMove: null, gameStatus: { from: null, to: 'in-progress' } }),
+      slot('s4', 'Dalton Kincaid', {
+        points: { from: null, to: 8 },
+        pointsMove: null,
+        gameStatus: { from: null, to: 'in-progress' },
+      }),
     ]
     await renderShifts(stubFeed([vipItem('empire', { lineup })]))
     fireEvent.click(await screen.findByRole('button', { name: /lineup · 2 of 4 changed/i }))

@@ -8,7 +8,8 @@ const moved = (move: Move<number | null>) => move.from !== null && move.to !== n
 
 function playerEvent(slot: LineupSlotDiff): string | null {
   if (slot.locked.from && !slot.locked.to) return `${slot.name} revealed`
-  if (slot.gameStatus.from !== null && slot.gameStatus.from !== 'final' && slot.gameStatus.to === 'final') return `${slot.name} final`
+  if (slot.gameStatus.from !== null && slot.gameStatus.from !== 'final' && slot.gameStatus.to === 'final')
+    return `${slot.name} final`
   if (slot.pointsMove !== null && slot.pointsMove !== 0) return `${slot.name} ${formatSigned(slot.pointsMove)}`
   return null
 }
@@ -26,7 +27,9 @@ export function compactVipLine(item: VipShiftItem, part: ShiftPart, name: string
       const figures = [
         moved(item.rank) ? `rank ${formatRank(item.rank.from)} → ${formatRank(item.rank.to)}` : null,
         moved(item.points) ? `points ${formatPoints(item.points.from)} → ${formatPoints(item.points.to)}` : null,
-        moved(item.distanceToCashPoints) ? `to cash ${formatSigned(item.distanceToCashPoints.from)} → ${formatSigned(item.distanceToCashPoints.to)}` : null,
+        moved(item.distanceToCashPoints)
+          ? `to cash ${formatSigned(item.distanceToCashPoints.from)} → ${formatSigned(item.distanceToCashPoints.to)}`
+          : null,
       ].filter((figure): figure is string => figure !== null)
       return figures.length > 0 ? `${name} ${figures.join(' · ')}` : null
     }

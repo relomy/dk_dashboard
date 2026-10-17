@@ -74,7 +74,10 @@ export function awayText(minutes: number): string {
 /** A place as an ordinal: 1st, 2nd, 3rd, 11th. */
 export function ordinal(place: number): string {
   const lastTwo = place % 100
-  const suffix = lastTwo >= 11 && lastTwo <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[place % 10] ?? 'th'
+  const suffix =
+    lastTwo >= 11 && lastTwo <= 13
+      ? 'th'
+      : (({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[place % 10] ?? 'th')
   return `${place}${suffix}`
 }
 

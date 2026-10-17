@@ -23,7 +23,7 @@ it('follows the latest pointer when older and historical snapshots are already c
   old.sports.nfl.contests[0].name = 'Old contest'
   const current = structuredClone(snapshot)
   current.sports.nfl.contests[0].name = 'Current contest'
-  current.sports.nfl.players.find(p => p.name === 'Trevor Lawrence')!.fantasy_points = 99
+  current.sports.nfl.players.find((p) => p.name === 'Trevor Lawrence')!.fantasy_points = 99
   client.setQueryData(['snapshot', 'history.json'], old)
   client.setQueryData(['snapshot', 'old.json'], old)
   client.setQueryData(['latest'], { latest_snapshot_path: 'old.json' })
@@ -33,7 +33,9 @@ it('follows the latest pointer when older and historical snapshots are already c
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={['/live/nfl']}>
-        <Routes><Route path="/live/:sport" element={<Live />} /></Routes>
+        <Routes>
+          <Route path="/live/:sport" element={<Live />} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -41,7 +43,9 @@ it('follows the latest pointer when older and historical snapshots are already c
   await act(async () => {
     client.setQueryData(['latest'], { latest_snapshot_path: 'current.json' })
   })
-  await waitFor(() => expect(playerRows('Trevor Lawrence').some((row) => /99\.00/.test(row))).toBe(true), { timeout: 5000 })
+  await waitFor(() => expect(playerRows('Trevor Lawrence').some((row) => /99\.00/.test(row))).toBe(true), {
+    timeout: 5000,
+  })
   expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('current.json'), expect.anything())
   client.clear()
 })

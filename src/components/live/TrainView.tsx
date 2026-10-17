@@ -107,8 +107,7 @@ export function TrainView({ model, train }: { model: LiveModel; train: LiveTrain
             >
               <VipAvatar name={overlap.name} index={index} className="size-5 rounded-full text-[9px]" />
               <span className="sr-only">{overlap.name}</span>
-              shares{' '}
-              <span className="font-mono text-foreground">{`${overlap.shared}/${train.players.length}`}</span>
+              shares <span className="font-mono text-foreground">{`${overlap.shared}/${train.players.length}`}</span>
             </li>
           ))}
         </ul>

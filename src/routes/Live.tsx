@@ -16,7 +16,15 @@ function AllContestsLink({ sportKey, sportLabel }: { sportKey: string; sportLabe
   )
 }
 
-function NotRenderable({ reason, sportKey, sportLabel }: { reason: LiveNotRenderableReason; sportKey: string; sportLabel: string }) {
+function NotRenderable({
+  reason,
+  sportKey,
+  sportLabel,
+}: {
+  reason: LiveNotRenderableReason
+  sportKey: string
+  sportLabel: string
+}) {
   switch (reason.kind) {
     case 'unsupported-schema':
       return (

@@ -51,14 +51,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const updatePassword = useCallback(async (currentPassword: string | undefined, nextPassword: string) => {
-    setError(null)
-    await changePassword({
-      currentPassword,
-      newPassword: nextPassword,
-    })
-    await refresh()
-  }, [refresh])
+  const updatePassword = useCallback(
+    async (currentPassword: string | undefined, nextPassword: string) => {
+      setError(null)
+      await changePassword({
+        currentPassword,
+        newPassword: nextPassword,
+      })
+      await refresh()
+    },
+    [refresh],
+  )
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -75,4 +78,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
-

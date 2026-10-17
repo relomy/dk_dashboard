@@ -116,7 +116,15 @@ describe('Players view', () => {
     const rows = within(playersTable()).getAllByRole('row').slice(1)
     expect(rows).toHaveLength(9)
     expect(within(playersTable()).queryByText('Josh Allen')).not.toBeInTheDocument()
-    for (const name of ['Trevor Lawrence', 'Chase Brown', 'Jeremiyah Love', 'Garrett Wilson', 'Parker Washington', 'Rams', 'Tyler Higbee']) {
+    for (const name of [
+      'Trevor Lawrence',
+      'Chase Brown',
+      'Jeremiyah Love',
+      'Garrett Wilson',
+      'Parker Washington',
+      'Rams',
+      'Tyler Higbee',
+    ]) {
       expect(within(playersTable()).getByText(name)).toBeInTheDocument()
     }
   })
@@ -127,7 +135,7 @@ describe('Players view', () => {
     const search = screen.getByRole('searchbox', { name: /search player or team/i })
     fireEvent.change(search, { target: { value: 'cin' } })
     expect(within(playersTable()).getAllByRole('row').slice(1)).toHaveLength(5)
-    for (const name of ['Chase Brown', 'Ja\'Marr Chase', 'Joe Burrow', 'Mike Gesicki', 'Tee Higgins']) {
+    for (const name of ['Chase Brown', "Ja'Marr Chase", 'Joe Burrow', 'Mike Gesicki', 'Tee Higgins']) {
       expect(within(playersTable()).getByText(name)).toBeInTheDocument()
     }
 
@@ -176,11 +184,11 @@ describe('Total ownership', () => {
     const bar = screen.getByRole('region', { name: /total ownership/i })
     expect(within(bar).getByText('200%')).toBeInTheDocument()
     const shares = within(bar).getByRole('list', { name: /game status shares/i })
-    expect(within(shares).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
-      'Final 50%',
-      'In play 30%',
-      'Pre-game 20%',
-    ])
+    expect(
+      within(shares)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Final 50%', 'In play 30%', 'Pre-game 20%'])
     expect(bar).toHaveAttribute('title', 'Total ownership 200% — Final 100% · In play 60% · Pre-game 40%')
     expect(bar).not.toHaveTextContent(/locked/i)
   })
@@ -287,12 +295,11 @@ describe('phones', () => {
     await renderLive(load())
 
     expect(screen.queryByRole('navigation', { name: /live views/i })).not.toBeInTheDocument()
-    expect(within(tabBar()).getAllByRole('link').map((link) => link.textContent)).toEqual([
-      'Players',
-      'VIPs',
-      'Trains',
-      'Leverage',
-    ])
+    expect(
+      within(tabBar())
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['Players', 'VIPs', 'Trains', 'Leverage'])
     expect(screen.queryByRole('heading', { name: /swing players/i })).not.toBeInTheDocument()
 
     fireEvent.click(within(tabBar()).getByRole('link', { name: 'Leverage' }))

@@ -9,10 +9,7 @@ test('resolves per-vip metric keys with vip_entry_key then entry_key only', () =
 })
 
 test('ignores per-vip rows missing both stable keys', () => {
-  const rows = [
-    { entry_key: 'entry-a', display_name: 'Alpha' },
-    { display_name: 'NoKey Row' },
-  ]
+  const rows = [{ entry_key: 'entry-a', display_name: 'Alpha' }, { display_name: 'NoKey Row' }]
   const lookup = buildPerVipIndex(rows)
 
   expect(lookup.size).toBe(1)

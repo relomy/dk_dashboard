@@ -30,7 +30,10 @@ function TotalOwnershipBar({ total }: { total: LiveTotalOwnership }) {
         ))}
       </div>
       {hasGameStatus ? (
-        <ul aria-label="Game status shares" className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+        <ul
+          aria-label="Game status shares"
+          className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground"
+        >
           {parts.map((part) => (
             <li key={part.label} className="flex items-center gap-1.5">
               <span aria-hidden="true" className={cn('size-2 rounded-sm', part.className)} />

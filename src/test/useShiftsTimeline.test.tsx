@@ -21,13 +21,17 @@ function setup(options: StubOptions = {}) {
     </QueryClientProvider>
   )
   const mount = () => renderHook(() => useShiftsTimeline('nfl'), { wrapper })
-  const mountSport = (initial: string) => renderHook(({ sport }) => useShiftsTimeline(sport), { wrapper, initialProps: { sport: initial } })
+  const mountSport = (initial: string) =>
+    renderHook(({ sport }) => useShiftsTimeline(sport), { wrapper, initialProps: { sport: initial } })
   return { ...stub, client, mount, mountSport }
 }
 
 const stepTimes = (opening: TimelineOpening | undefined) =>
   opening?.kind === 'ready' ? opening.timeline.entries.map((entry) => `${entry.kind}:${entry.snapshotAt}`) : []
-const tick = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms) })
+const tick = (ms: number) =>
+  act(async () => {
+    await vi.advanceTimersByTimeAsync(ms)
+  })
 
 describe('useShiftsTimeline', () => {
   beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }))
@@ -40,7 +44,9 @@ describe('useShiftsTimeline', () => {
     const { mount, calls, publish } = setup({ slots: many })
     const first = mount()
     await waitFor(() => expect(first.result.current.opening?.kind).toBe('ready'))
-    await act(async () => { await first.result.current.loadMore() })
+    await act(async () => {
+      await first.result.current.loadMore()
+    })
     const longRail = stepTimes(first.result.current.opening)
     expect(longRail).toHaveLength(14)
     first.unmount()
@@ -60,7 +66,9 @@ describe('useShiftsTimeline', () => {
     await waitFor(() => expect(hook.result.current.opening?.kind).toBe('ready'))
     expect(hook.result.current.refreshError).toBeNull()
     const original = history.manifest
-    history.manifest = async () => { throw new Error('manifest down') }
+    history.manifest = async () => {
+      throw new Error('manifest down')
+    }
     await tick(TIMELINE_REFRESH_MS)
     expect(hook.result.current.refreshError?.message).toBe('manifest down')
     expect(hook.result.current.error).toBeNull()
@@ -78,11 +86,15 @@ describe('useShiftsTimeline', () => {
     const hook = mount()
     await waitFor(() => expect(hook.result.current.opening?.kind).toBe('ready'))
     let outcome: { ok: boolean } | undefined
-    await act(async () => { outcome = await hook.result.current.retryGap(stamp(4)) })
+    await act(async () => {
+      outcome = await hook.result.current.retryGap(stamp(4))
+    })
     expect(outcome).toEqual({ ok: false })
     expect(stepTimes(hook.result.current.opening)).toContain(`gap:${stamp(4)}`)
     failing.length = 0
-    await act(async () => { outcome = await hook.result.current.retryGap(stamp(4)) })
+    await act(async () => {
+      outcome = await hook.result.current.retryGap(stamp(4))
+    })
     expect(outcome).toEqual({ ok: true })
     await waitFor(() => expect(stepTimes(hook.result.current.opening)).toContain(`step:${stamp(4)}`))
   })
@@ -124,7 +136,9 @@ describe('useShiftsTimeline', () => {
     const hook = mount()
     await waitFor(() => expect(hook.result.current.opening?.kind).toBe('ready'))
     let release: () => void = () => {}
-    const gate = new Promise<void>((resolve) => { release = resolve })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
     const snapshot = history.snapshot
     history.snapshot = async (path) => {
       if (/live-(2[5-9]|3[0-4])\./.test(path)) await gate
@@ -202,24 +216,32 @@ describe('useShiftsTimeline', () => {
     const hook = mountSport('nfl')
     await waitFor(() => expect(hook.result.current.opening?.kind).toBe('ready'))
     const manifest = history.manifest
-    history.manifest = async () => { throw new Error('manifest down') }
+    history.manifest = async () => {
+      throw new Error('manifest down')
+    }
     await tick(TIMELINE_REFRESH_MS)
     expect(hook.result.current.refreshError?.message).toBe('manifest down')
     history.manifest = manifest
     let release: () => void = () => {}
-    const gate = new Promise<void>((resolve) => { release = resolve })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
     const snapshot = history.snapshot
     history.snapshot = async (path) => {
       if (calls.snapshots.length >= 5) await gate
       return snapshot(path)
     }
-    act(() => { void hook.result.current.loadMore() })
+    act(() => {
+      void hook.result.current.loadMore()
+    })
     expect(hook.result.current.more.busy).toBe(true)
     hook.rerender({ sport: 'golf' })
     expect(hook.result.current.refreshError).toBeNull()
     expect(hook.result.current.progress).toBeNull()
     expect(hook.result.current.more).toMatchObject({ busy: false, error: null, announcement: '' })
-    await act(async () => { release() })
+    await act(async () => {
+      release()
+    })
   })
 
   it('ignores a second Load more after a remount while the first is still in flight', async () => {
@@ -227,7 +249,9 @@ describe('useShiftsTimeline', () => {
     const first = mount()
     await waitFor(() => expect(first.result.current.opening?.kind).toBe('ready'))
     let release: () => void = () => {}
-    const gate = new Promise<void>((resolve) => { release = resolve })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
     const snapshot = history.snapshot
     const requested: string[] = []
     history.snapshot = async (path) => {
@@ -235,15 +259,21 @@ describe('useShiftsTimeline', () => {
       await gate
       return snapshot(path)
     }
-    act(() => { void first.result.current.loadMore() })
+    act(() => {
+      void first.result.current.loadMore()
+    })
     await waitFor(() => expect(requested.length).toBeGreaterThan(0))
     const fetchedByFirst = requested.length
     first.unmount()
     const second = mount()
     expect(second.result.current.more.busy).toBe(true)
-    await act(async () => { await second.result.current.loadMore() })
+    await act(async () => {
+      await second.result.current.loadMore()
+    })
     expect(requested).toHaveLength(fetchedByFirst)
-    await act(async () => { release() })
+    await act(async () => {
+      release()
+    })
     await waitFor(() => expect(stepTimes(second.result.current.opening)).toHaveLength(14))
     await waitFor(() => expect(second.result.current.more.busy).toBe(false))
     expect(new Set(requested).size).toBe(requested.length)

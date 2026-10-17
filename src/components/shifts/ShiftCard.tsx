@@ -6,13 +6,7 @@ import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { DASH, formatPoints, formatRank, formatSigned } from '../../lib/format'
 import type { GameStatus } from '../../lib/liveModel'
-import type {
-  CashLineShiftItem,
-  ContestShiftItem,
-  LineupSlotDiff,
-  Move,
-  VipShiftItem,
-} from '../../lib/shifts'
+import type { CashLineShiftItem, ContestShiftItem, LineupSlotDiff, Move, VipShiftItem } from '../../lib/shifts'
 import type { ReactNode } from 'react'
 import { contestStateText, lineMoveText, PATH_TEXT } from './shiftText'
 
@@ -46,11 +40,21 @@ export function MoveRow({
   return (
     <div role="group" aria-label={label} className="flex items-baseline justify-between gap-2">
       <span className="text-muted-foreground">{label}</span>
-      <span className={cn('flex items-center gap-1 font-mono tabular-nums', change !== 0 && !neutral && (improved ? 'text-cashing' : 'text-non-cashing'))}>
+      <span
+        className={cn(
+          'flex items-center gap-1 font-mono tabular-nums',
+          change !== 0 && !neutral && (improved ? 'text-cashing' : 'text-non-cashing'),
+        )}
+      >
         {format(from)} → {format(to)}
         {places && change !== 0 ? <span className="text-xs">({Math.abs(change)} places)</span> : null}
         {change !== 0 ? (
-          <Arrow role="img" data-direction={up ? 'up' : 'down'} aria-label={neutral ? (change > 0 ? 'Up' : 'Down') : improved ? 'Improved' : 'Worsened'} className="size-3" />
+          <Arrow
+            role="img"
+            data-direction={up ? 'up' : 'down'}
+            aria-label={neutral ? (change > 0 ? 'Up' : 'Down') : improved ? 'Improved' : 'Worsened'}
+            className="size-3"
+          />
         ) : null}
       </span>
     </div>
@@ -116,16 +120,24 @@ export function LineupDiff({ lineup }: { lineup: LineupSlotDiff[] }) {
               <li key={slot.key} className={cn('flex items-center gap-2 py-1.5', !isChanged(slot) && 'opacity-50')}>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-x-2">
-                    {hidden ? <Lock role="img" aria-label="Still locked" className="size-3 text-muted-foreground" /> : null}
-                    <span className={cn('truncate', hidden && 'text-muted-foreground')}>{hidden ? 'Still hidden' : slot.name}</span>
+                    {hidden ? (
+                      <Lock role="img" aria-label="Still locked" className="size-3 text-muted-foreground" />
+                    ) : null}
+                    <span className={cn('truncate', hidden && 'text-muted-foreground')}>
+                      {hidden ? 'Still hidden' : slot.name}
+                    </span>
                     {slot.locked.from && !slot.locked.to ? (
                       <Badge variant="outline" className="border-cash-line text-cash-line">
                         Revealed
                       </Badge>
                     ) : null}
-                    {hidden ? null : <span className="text-xs text-muted-foreground">{gameStatusText(slot.gameStatus)}</span>}
+                    {hidden ? null : (
+                      <span className="text-xs text-muted-foreground">{gameStatusText(slot.gameStatus)}</span>
+                    )}
                   </div>
-                  {slot.stats?.to ? <p className="truncate text-[11px] text-muted-foreground">{slot.stats.to}</p> : null}
+                  {slot.stats?.to ? (
+                    <p className="truncate text-[11px] text-muted-foreground">{slot.stats.to}</p>
+                  ) : null}
                 </div>
                 {hidden ? null : (
                   <span className="hidden font-mono text-xs text-muted-foreground tabular-nums sm:block">
@@ -133,7 +145,12 @@ export function LineupDiff({ lineup }: { lineup: LineupSlotDiff[] }) {
                   </span>
                 )}
                 {hidden ? null : (
-                  <span className={cn('w-14 shrink-0 text-right font-mono text-xs tabular-nums', deltaTone(slot.pointsMove))}>
+                  <span
+                    className={cn(
+                      'w-14 shrink-0 text-right font-mono text-xs tabular-nums',
+                      deltaTone(slot.pointsMove),
+                    )}
+                  >
                     {deltaText(slot.pointsMove)}
                   </span>
                 )}

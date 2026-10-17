@@ -1,14 +1,7 @@
 import { isSupportedSnapshot } from '../lib/interpretedSnapshot'
 import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import DataPage from '../components/DataPage'
 import StatusPill from '../components/StatusPill'
@@ -28,7 +21,6 @@ function formatAgeValue(snapshotAgeSeconds: number | null): string {
   const seconds = snapshotAgeSeconds % 60
   return `${minutes}m ${seconds}s`
 }
-
 
 const headCell = 'h-8 text-xs text-muted-foreground'
 
@@ -73,7 +65,12 @@ function Health() {
     )
   }
 
-  if (snapshotQuery.data && !isSupportedSnapshot(snapshotQuery.data)) return <DataPage title="Health"><p>Unsupported snapshot schema version: {String(snapshotQuery.data.schema_version)}.</p></DataPage>
+  if (snapshotQuery.data && !isSupportedSnapshot(snapshotQuery.data))
+    return (
+      <DataPage title="Health">
+        <p>Unsupported snapshot schema version: {String(snapshotQuery.data.schema_version)}.</p>
+      </DataPage>
+    )
 
   if (!snapshotQuery.data || !latestQuery.data) {
     return (

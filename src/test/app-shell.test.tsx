@@ -111,9 +111,9 @@ describe('sport tabs', () => {
 
     expect(await screen.findByRole('button', { name: /user menu/i })).toBeInTheDocument()
     await vi.waitFor(() => {
-      expect(
-        vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).includes('/api/snapshot')),
-      ).toBe(true)
+      expect(vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).includes('/api/snapshot'))).toBe(
+        true,
+      )
     })
     expect(within(screen.getByRole('navigation', { name: /sports/i })).queryAllByRole('link')).toHaveLength(0)
   })

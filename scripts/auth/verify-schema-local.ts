@@ -8,23 +8,15 @@ const WRANGLER_LOG_PATH = process.env.WRANGLER_LOG_PATH ?? '.wrangler/logs'
 mkdirSync(WRANGLER_LOG_PATH, { recursive: true })
 
 function runWranglerQuery(sql: string): unknown {
-  const raw = execFileSync(
-    'npx',
-    ['wrangler', 'd1', 'execute', DATABASE_NAME, '--local', '--json', '--command', sql],
-    {
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        WRANGLER_LOG_PATH,
-      },
+  const raw = execFileSync('npx', ['wrangler', 'd1', 'execute', DATABASE_NAME, '--local', '--json', '--command', sql], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      WRANGLER_LOG_PATH,
     },
-  )
+  })
 
-  const firstBracket = Math.min(
-    ...['[', '{']
-      .map((token) => raw.indexOf(token))
-      .filter((index) => index >= 0),
-  )
+  const firstBracket = Math.min(...['[', '{'].map((token) => raw.indexOf(token)).filter((index) => index >= 0))
   const jsonText = firstBracket >= 0 ? raw.slice(firstBracket) : raw
   return JSON.parse(jsonText) as unknown
 }
@@ -81,7 +73,11 @@ assertSingleNumericCount(
   'required tables',
 )
 
-assertSingleNumericCount("SELECT COUNT(*) AS count FROM pragma_table_info('sessions') WHERE name = 'token_hash';", 1, 'sessions.token_hash')
+assertSingleNumericCount(
+  "SELECT COUNT(*) AS count FROM pragma_table_info('sessions') WHERE name = 'token_hash';",
+  1,
+  'sessions.token_hash',
+)
 
 assertSingleNumericCount(
   "SELECT COUNT(*) AS count FROM pragma_table_info('users') WHERE name = 'must_change_password';",

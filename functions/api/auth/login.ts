@@ -38,7 +38,10 @@ function asBoolean(value: unknown): boolean {
   return value === true || value === 1 || value === '1'
 }
 
-function tempPasswordExpired(user: { must_change_password: unknown; temp_password_expires_at: unknown }, atIso: string): boolean {
+function tempPasswordExpired(
+  user: { must_change_password: unknown; temp_password_expires_at: unknown },
+  atIso: string,
+): boolean {
   if (!asBoolean(user.must_change_password)) {
     return false
   }
@@ -123,8 +126,7 @@ export const onRequestPost: PagesFunction<EnvBindings> = async ({ request, env }
   })
   await pruneSessionsToLimit(env.AUTH_DB, user.id, 3, issuedAt)
 
-  await env.AUTH_DB
-    .prepare('UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?')
+  await env.AUTH_DB.prepare('UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?')
     .bind(issuedAt, issuedAt, user.id)
     .run()
 

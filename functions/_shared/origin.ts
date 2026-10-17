@@ -39,7 +39,8 @@ export function validateStateChangingOrigin(
   request: Request,
   env: Partial<Pick<EnvBindings, 'ALLOWED_ORIGINS'>>,
 ): OriginValidationResult {
-  const requestOrigin = request.headers.get('origin')?.trim() || extractOriginFromReferer(request.headers.get('referer'))
+  const requestOrigin =
+    request.headers.get('origin')?.trim() || extractOriginFromReferer(request.headers.get('referer'))
   if (!requestOrigin) {
     return {
       ok: false,

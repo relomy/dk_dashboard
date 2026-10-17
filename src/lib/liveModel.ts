@@ -2,13 +2,20 @@ import { normalizeContestState, resolveVipCashing } from './contestDisplay'
 import { LOCKED_LABEL, parseLineupSignature, type LineupSlot } from './lineup'
 import { buildPerVipIndex, resolveVipMetricMatchKey } from './perVipKeys'
 import { buildPlayerPool, numberOrNull, readValueIcon, type PlayerPoolRow } from './playerPool'
-import { interpretSnapshot, type LiveContest as Contest, type InterpretedSnapshot, isSupportedSnapshot, type LiveSport as SportSnapshot } from './interpretedSnapshot'
-import type { OwnershipSummary as ContestMetricsOwnershipSummary, Threat as ContestMetricsThreat, VipLineupRow as VipLineup, VipLineupSlot as VipLineupPlayerLive } from './generated/snapshot'
+import {
+  interpretSnapshot,
+  type LiveContest as Contest,
+  type InterpretedSnapshot,
+  isSupportedSnapshot,
+  type LiveSport as SportSnapshot,
+} from './interpretedSnapshot'
 import type {
-  ContestState,
-  Player,
-  ValueIcon,
-} from './types'
+  OwnershipSummary as ContestMetricsOwnershipSummary,
+  Threat as ContestMetricsThreat,
+  VipLineupRow as VipLineup,
+  VipLineupSlot as VipLineupPlayerLive,
+} from './generated/snapshot'
+import type { ContestState, Player, ValueIcon } from './types'
 
 export type LiveNotRenderableReason =
   | { kind: 'unsupported-schema'; version: number | null }
@@ -277,8 +284,7 @@ export interface LiveModel {
 }
 
 export type LiveModelResult =
-  | { kind: 'ready'; model: LiveModel }
-  | { kind: 'not-renderable'; reason: LiveNotRenderableReason }
+  { kind: 'ready'; model: LiveModel } | { kind: 'not-renderable'; reason: LiveNotRenderableReason }
 
 function notRenderable(reason: LiveNotRenderableReason): LiveModelResult {
   return { kind: 'not-renderable', reason }
@@ -376,9 +382,10 @@ function buildLineupPlayers(lineup: VipLineup, pool: PoolIndex): LiveLineupPlaye
         gameStatus: classifyGameStatus(gameStatus),
         points: numberOrNull(pooled?.fantasy_points),
         projection: numberOrNull(pooled?.rt_projection),
-        clock: numberOrNull(pooled?.time_remaining_minutes) !== null
-          ? `${pooled?.time_remaining_minutes} min`
-          : nonEmptyString(gameStatus),
+        clock:
+          numberOrNull(pooled?.time_remaining_minutes) !== null
+            ? `${pooled?.time_remaining_minutes} min`
+            : nonEmptyString(gameStatus),
         matchup: matchupOf(pooled),
         ownershipPct: numberOrNull(pooled?.ownership_pct),
         value: numberOrNull(pooled?.value),
@@ -426,14 +433,11 @@ function buildVips(contest: Contest, trains: Section<LiveTrains>, pool: PoolInde
       distanceToCash: { points: numberOrNull(distance?.points_delta), rank: numberOrNull(distance?.rank_delta) },
       updatedAt: contest.live_metrics?.updated_at || null,
       rank: numberOrNull(lineup.rank) ?? numberOrNull(standing?.rank),
-      points:
-        numberOrNull(lineup.points) ??
-        numberOrNull(standing?.points),
+      points: numberOrNull(lineup.points) ?? numberOrNull(standing?.points),
       projectedPoints: projectLineup(players),
       pmr: numberOrNull(lineup.pmr) ?? numberOrNull(standing?.pmr),
       ownershipRemainingPct:
-        numberOrNull(standing?.ownership_remaining_total_pct) ??
-        numberOrNull(leverage?.vip_remaining_pct),
+        numberOrNull(standing?.ownership_remaining_total_pct) ?? numberOrNull(leverage?.vip_remaining_pct),
       lineupOwnershipPct: lineupOwnershipOf(metricKey ? summaryByKey.get(metricKey) : undefined),
       players,
       trainOverlap: closestTrain(trains, vipIndex, lineupSlotCount(lineup)),
@@ -715,7 +719,9 @@ function buildPool(sportData: SportSnapshot, contest: Contest): LivePoolPlayer[]
     return {
       ...row,
       gameStatus: classifyGameStatus(row.status),
-      vipIndexes: lineups.flatMap((players, index) => (players.some((player) => isSamePlayer(player, ref)) ? [index] : [])),
+      vipIndexes: lineups.flatMap((players, index) =>
+        players.some((player) => isSamePlayer(player, ref)) ? [index] : [],
+      ),
     }
   })
 }
@@ -775,7 +781,11 @@ export function buildInterpretedLiveModel(snapshot: InterpretedSnapshot, sportKe
     model: {
       sport: sportKey,
       snapshotAt: snapshot.snapshot_at,
-      contest: { name: contest.name, state: normalizeContestState(contest.state), startTime: contest.start_time || null },
+      contest: {
+        name: contest.name,
+        state: normalizeContestState(contest.state),
+        startTime: contest.start_time || null,
+      },
       fieldSize: numberOrNull(contest.max_entries),
       cashLine: { points: numberOrNull(cashLine?.points_cutoff), rank: numberOrNull(cashLine?.rank_cutoff) },
       vips: buildVips(contest, trains, pool),

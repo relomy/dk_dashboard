@@ -15,7 +15,5 @@ export function parseLineupSignature(signature: string | null | undefined): Line
     .split('|')
     .map((part) => part.trim())
     .filter((part) => part.length > 0)
-    .map((part) =>
-      part === LOCKED_MARKER ? { label: LOCKED_LABEL, locked: true } : { label: part, locked: false },
-    )
+    .map((part) => (part === LOCKED_MARKER ? { label: LOCKED_LABEL, locked: true } : { label: part, locked: false }))
 }

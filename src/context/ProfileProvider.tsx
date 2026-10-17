@@ -56,22 +56,23 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const deleteProfile = useCallback((id: string) => {
-    setProfiles((prev) => {
-      const nextWithoutDeleted = prev.filter((profile) => profile.id !== id)
-      const next = nextWithoutDeleted.length > 0 ? nextWithoutDeleted : [createDefaultProfile()]
-      const nextActive = next.some((profile) => profile.id === activeProfileId) ? activeProfileId : next[0].id
-      setActiveProfileState(nextActive)
-      saveActiveProfileId(nextActive)
-      saveProfiles(next)
-      return next
-    })
-  }, [activeProfileId])
+  const deleteProfile = useCallback(
+    (id: string) => {
+      setProfiles((prev) => {
+        const nextWithoutDeleted = prev.filter((profile) => profile.id !== id)
+        const next = nextWithoutDeleted.length > 0 ? nextWithoutDeleted : [createDefaultProfile()]
+        const nextActive = next.some((profile) => profile.id === activeProfileId) ? activeProfileId : next[0].id
+        setActiveProfileState(nextActive)
+        saveActiveProfileId(nextActive)
+        saveProfiles(next)
+        return next
+      })
+    },
+    [activeProfileId],
+  )
 
   const activeProfile =
-    profiles.find((profile) => profile.id === activeProfileId) ??
-    profiles[0] ??
-    createDefaultProfile()
+    profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0] ?? createDefaultProfile()
 
   const value = useMemo<ProfileContextValue>(
     () => ({
@@ -88,4 +89,3 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>
 }
-

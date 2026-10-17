@@ -17,7 +17,8 @@ function isContainer(value: unknown): value is object {
 function addLeafPaths(value: unknown, path: string, paths: Set<string>, concrete = false): void {
   if (Array.isArray(value)) {
     if (value.length === 0) paths.add(path)
-    for (const [index, item] of value.entries()) addLeafPaths(item, concrete ? `${path}[${index}]` : `${path}[]`, paths, concrete)
+    for (const [index, item] of value.entries())
+      addLeafPaths(item, concrete ? `${path}[${index}]` : `${path}[]`, paths, concrete)
     return
   }
   if (isContainer(value)) {
@@ -92,7 +93,9 @@ export function readPaths<T>(value: T, read: (value: T) => unknown, concrete = f
   recording = false
   const leaked = findProxy(result, proxyPaths)
   if (leaked !== undefined) {
-    throw new Error(`The reader returned the feed's own ${leaked || 'root'}; reads of it after the reader returns go unrecorded`)
+    throw new Error(
+      `The reader returned the feed's own ${leaked || 'root'}; reads of it after the reader returns go unrecorded`,
+    )
   }
   return paths
 }
@@ -116,7 +119,10 @@ export function unallowlistedPaths(unread: readonly string[], allowlist: UnreadA
  * reads it now), sorted. Judge staleness over every input together: a path one input lacks may be
  * another's.
  */
-export function staleAllowlistEntries(unreadPerInput: Iterable<readonly string[]>, allowlist: UnreadAllowlist): string[] {
+export function staleAllowlistEntries(
+  unreadPerInput: Iterable<readonly string[]>,
+  allowlist: UnreadAllowlist,
+): string[] {
   const unread = new Set<string>()
   for (const paths of unreadPerInput) for (const path of paths) unread.add(path)
   return Object.keys(allowlist)

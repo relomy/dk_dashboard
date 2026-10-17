@@ -65,7 +65,9 @@ export function ShiftsTimeline() {
   const { feed, model, view } = useOutletContext<ShiftsOutletContext>()
   const { activeProfile } = useProfiles()
   const seenAt = useSyncExternalStore(feed.subscribe, feed.seenSnapshotAt)
-  const { opening, error, loading, progress, retry, retryGap, loadMore, more, refreshError } = useShiftsTimeline(model.sport)
+  const { opening, error, loading, progress, retry, retryGap, loadMore, more, refreshError } = useShiftsTimeline(
+    model.sport,
+  )
   if (error) {
     return (
       <PageMessage tone="error">
@@ -76,7 +78,8 @@ export function ShiftsTimeline() {
       </PageMessage>
     )
   }
-  if (opening?.kind === 'not-renderable') return <PageMessage>There is nothing to follow live for this sport.</PageMessage>
+  if (opening?.kind === 'not-renderable')
+    return <PageMessage>There is nothing to follow live for this sport.</PageMessage>
   const ready = !loading && opening !== undefined
   return (
     <div className="space-y-3">
@@ -157,7 +160,8 @@ function Shifts() {
   }
   if (!feed) return <PageMessage>Shifts are not available.</PageMessage>
   if (!result) return <PageMessage>Loading shifts...</PageMessage>
-  if (result.kind === 'not-renderable') return <PageMessage>There is nothing to follow live for this sport.</PageMessage>
+  if (result.kind === 'not-renderable')
+    return <PageMessage>There is nothing to follow live for this sport.</PageMessage>
   return <ShiftsPage sport={sport} feed={feed} model={result.model} />
 }
 

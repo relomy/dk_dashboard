@@ -1,5 +1,11 @@
 import { INVARIANTS, contractCasesOf } from '../../../src/lib/liveInvariants'
-import { buildLiveModel, type LiveModel, type LiveNotRenderableReason, type LiveVip, type Section } from '../../../src/lib/liveModel'
+import {
+  buildLiveModel,
+  type LiveModel,
+  type LiveNotRenderableReason,
+  type LiveVip,
+  type Section,
+} from '../../../src/lib/liveModel'
 import { LIVE_UNREAD_ALLOWLIST, liveUnreadPaths } from '../../../src/lib/liveUnreadPaths'
 import { formatOwnership } from '../../../src/lib/playerPool'
 import { interpretSnapshot, type InterpretedSnapshot, isSupportedSnapshot } from '../../../src/lib/interpretedSnapshot'
@@ -62,7 +68,9 @@ function takeExpectedCommit(args: string[]): { rest: string[]; expectedCommit?: 
   const rest = [...args.slice(0, at), ...args.slice(at + 2)]
   if (value === '') return { rest }
   if (!COMMIT_SHA.test(value)) {
-    throw new Error(`Expected ${EXPECT_COMMIT_FLAG} to be a full 40-character lowercase commit SHA, got "${value}".\n${USAGE}`)
+    throw new Error(
+      `Expected ${EXPECT_COMMIT_FLAG} to be a full 40-character lowercase commit SHA, got "${value}".\n${USAGE}`,
+    )
   }
   return { rest, expectedCommit: value }
 }
@@ -72,10 +80,14 @@ function expectProducerCommit(snapshot: Snapshot, expected: string, commitOrder:
   if (!commitOrder) throw new Error(`${EXPECT_COMMIT_FLAG} needs a commit-order check, and none was provided.`)
   const actual = producerCommitOf(snapshot)
   if (actual === null) {
-    throw new Error(`The snapshot has no producer commit (older snapshots do not), so it cannot be checked against ${expected}.`)
+    throw new Error(
+      `The snapshot has no producer commit (older snapshots do not), so it cannot be checked against ${expected}.`,
+    )
   }
   if (!commitOrder(actual, expected)) {
-    throw new Error(`The snapshot's producer commit ${actual} is not ${expected} or a descendant of it, so the producer hasn't run since the deploy; retry later.`)
+    throw new Error(
+      `The snapshot's producer commit ${actual} is not ${expected} or a descendant of it, so the producer hasn't run since the deploy; retry later.`,
+    )
   }
 }
 
@@ -99,10 +111,17 @@ function latestSnapshotKey(source: SnapshotSource): string {
 
 function checkSnapshot(snapshot: InterpretedSnapshot, requestedSports: string[], key: string): ProdCheckResult {
   if (!isSupportedSnapshot(snapshot)) {
-    return { exitCode: 1, outcome: 'dashboard', key, output: `Unsupported snapshot schema version: ${String(snapshot.schema_version)}` }
+    return {
+      exitCode: 1,
+      outcome: 'dashboard',
+      key,
+      output: `Unsupported snapshot schema version: ${String(snapshot.schema_version)}`,
+    }
   }
   const sports = requestedSports.length > 0 ? requestedSports : sportsIn(snapshot)
-  const lines = [`Prod check: ${key} | snapshot_at ${String(snapshot.snapshot_at)} | producer ${shortCommit(producerCommitOf(snapshot))}`]
+  const lines = [
+    `Prod check: ${key} | snapshot_at ${String(snapshot.snapshot_at)} | producer ${shortCommit(producerCommitOf(snapshot))}`,
+  ]
   const skipped: string[] = []
   let checkedCount = 0
   let ok = true
@@ -134,22 +153,31 @@ function checkSport(snapshot: Snapshot, sport: string, key: string): SportCheck 
     return { kind: 'skipped', reason: `not in the snapshot (it has ${sportsIn(snapshot).join(', ')})` }
   }
   const built = buildLiveModel(snapshot, sport)
-  if (built.kind !== 'ready') return { kind: 'skipped', reason: `the Live view cannot render it (${describeReason(built.reason)})` }
+  if (built.kind !== 'ready')
+    return { kind: 'skipped', reason: `the Live view cannot render it (${describeReason(built.reason)})` }
 
   const model = built.model
   const contractCase = contractCasesOf(key, snapshot).find((candidate) => candidate.sport === sport)
   if (!contractCase) return fail(`no contract case for ${sport}`)
 
-  const failures = Object.entries(INVARIANTS).map(([name, invariant]) => ({ name, violations: invariant(model, contractCase) }))
+  const failures = Object.entries(INVARIANTS).map(([name, invariant]) => ({
+    name,
+    violations: invariant(model, contractCase),
+  }))
   const unread = liveUnreadPaths(snapshot, sport).filter((path) => !reportedByTheCheck(path))
   const unallowlisted = unallowlistedPaths(unread, LIVE_UNREAD_ALLOWLIST)
   const ok = failures.every(({ violations }) => violations.length === 0) && unallowlisted.length === 0
 
-  const lines = [`Contest: ${model.contest.name} | field ${show(model.fieldSize)} | cash line ${show(model.cashLine.points)} pts, rank ${show(model.cashLine.rank)}`]
+  const lines = [
+    `Contest: ${model.contest.name} | field ${show(model.fieldSize)} | cash line ${show(model.cashLine.points)} pts, rank ${show(model.cashLine.rank)}`,
+  ]
   lines.push('', 'Sections', ...sectionLines(model))
   lines.push('', `VIP cards (${model.vips.length})`, ...vipLines(model))
   lines.push('', 'Invariants', ...failures.flatMap(invariantLines))
-  lines.push('', `Unread paths: ${unallowlisted.length} unallowlisted, ${unread.length - unallowlisted.length} allowlisted`)
+  lines.push(
+    '',
+    `Unread paths: ${unallowlisted.length} unallowlisted, ${unread.length - unallowlisted.length} allowlisted`,
+  )
   lines.push(...capped(unallowlisted.map((path) => `  - ${path}`)))
   return { kind: 'checked', ok, lines }
 }
@@ -176,7 +204,10 @@ function presenceWarningsOf(snapshot: Snapshot): PresenceWarning[] {
   if (!Array.isArray(recorded)) return []
   return recorded.filter(
     (entry): entry is PresenceWarning =>
-      typeof entry === 'object' && entry !== null && typeof (entry as PresenceWarning).path === 'string' && typeof (entry as PresenceWarning).rule === 'string',
+      typeof entry === 'object' &&
+      entry !== null &&
+      typeof (entry as PresenceWarning).path === 'string' &&
+      typeof (entry as PresenceWarning).rule === 'string',
   )
 }
 

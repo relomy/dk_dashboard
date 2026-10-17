@@ -201,10 +201,7 @@ export async function logout(): Promise<void> {
   })
 }
 
-export async function changePassword(input: {
-  currentPassword?: string
-  newPassword: string
-}): Promise<void> {
+export async function changePassword(input: { currentPassword?: string; newPassword: string }): Promise<void> {
   if (config.useMock) {
     return
   }
@@ -265,8 +262,7 @@ export async function resetAdminUserPassword(userId: string): Promise<{
   return {
     userId: typeof payload.user_id === 'string' ? payload.user_id : userId,
     temporaryPassword: typeof payload.temporary_password === 'string' ? payload.temporary_password : '',
-    tempPasswordExpiresAt:
-      typeof payload.temp_password_expires_at === 'string' ? payload.temp_password_expires_at : '',
+    tempPasswordExpiresAt: typeof payload.temp_password_expires_at === 'string' ? payload.temp_password_expires_at : '',
   }
 }
 

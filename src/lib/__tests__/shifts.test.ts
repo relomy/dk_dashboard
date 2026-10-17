@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest'
 // Exported by the dk_results producer: cfb and mlb contests (provenance in public/mock/PRODUCER_FIXTURE.md).
 import producerSnapshot from '../../../public/mock/snapshots/live-2026-10-03T20-48-31Z.json'
 import { buildLiveModel, type LiveModel } from '../liveModel'
-import { buildTimeline, createShiftsFeed, digestOf, diffDigests, type Digest, type ShiftsStorage, type TimelineInput, type VipShiftItem } from '../shifts'
+import {
+  buildTimeline,
+  createShiftsFeed,
+  digestOf,
+  diffDigests,
+  type Digest,
+  type ShiftsStorage,
+  type TimelineInput,
+  type VipShiftItem,
+} from '../shifts'
 // Exported by the dk_results producer: an NFL mid-slate contest with six VIPs.
 import nflSnapshot from '../../../public/mock/snapshots/live-2026-10-04T18-41-34Z.json'
 
@@ -261,7 +270,12 @@ describe('net VIP shifts', () => {
     feed.record(
       nflModel({ EmpireMaker2: { rank: 400 } }, (snapshot) => {
         const contest = snapshot.sports.nfl.contests[0]
-        contest.vip_lineups.push({ ...structuredClone(contest.vip_lineups[0]), entry_key: 'new-1', vip_entry_key: 'new-1', display_name: 'NewVip' })
+        contest.vip_lineups.push({
+          ...structuredClone(contest.vip_lineups[0]),
+          entry_key: 'new-1',
+          vip_entry_key: 'new-1',
+          display_name: 'NewVip',
+        })
       }),
       { visit: false },
     )
@@ -273,7 +287,9 @@ describe('net VIP shifts', () => {
     feed.record(
       nflModel({}, (snapshot) => {
         const contest = snapshot.sports.nfl.contests[0]
-        contest.vip_lineups = contest.vip_lineups.filter((vip: { display_name: string }) => vip.display_name !== 'EmpireMaker2')
+        contest.vip_lineups = contest.vip_lineups.filter(
+          (vip: { display_name: string }) => vip.display_name !== 'EmpireMaker2',
+        )
       }),
       { visit: false },
     )
@@ -325,7 +341,10 @@ function empireModel(edit: (snapshot: any) => void = () => {}): LiveModel {
 describe('lineup diff', () => {
   it('lists every slot of the lineup, the scoring player first with its own points move', () => {
     const { feed } = seededFeed()
-    feed.record(empireModel((snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 15.44 })), { visit: false })
+    feed.record(
+      empireModel((snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 15.44 })),
+      { visit: false },
+    )
     const [item] = vipItems(feed)
     expect(item.lineup).toHaveLength(9)
     expect(item.lineup?.[0]).toMatchObject({
@@ -367,7 +386,10 @@ describe('lineup diff', () => {
 
   it('reports a game going final as a status change on that player', () => {
     const { feed } = seededFeed()
-    feed.record(empireModel((snapshot) => pooled(snapshot, WILSON, { game_status: 'Final' })), { visit: false })
+    feed.record(
+      empireModel((snapshot) => pooled(snapshot, WILSON, { game_status: 'Final' })),
+      { visit: false },
+    )
     const [item] = vipItems(feed)
     expect(item.lineup?.[0]).toMatchObject({
       playerKey: WILSON,
@@ -385,17 +407,30 @@ describe('lineup diff', () => {
       { visit: false },
     )
     expect(vipItems(feed)[0].lineup?.[0]).toMatchObject({ playerKey: LAWRENCE, stats: { from: null, to: '2 TD' } })
-    expect(vipItems(feed)[0].lineup?.slice(1).every((slot) => slot.stats === undefined)).toBe(true)
+    expect(
+      vipItems(feed)[0]
+        .lineup?.slice(1)
+        .every((slot) => slot.stats === undefined),
+    ).toBe(true)
   })
 
   it('reports no stats move when the line is unchanged or has gone', () => {
     const feed = createShiftsFeed({ storage: memoryStorage(), now: () => T0 })
-    feed.record(nflModel({}, (snapshot) => pooled(snapshot, LAWRENCE, { stats_text: '2 TD' })), { visit: true })
-    feed.record(empireModel((snapshot) => pooled(snapshot, BROWN, { fantasy_points: 12 })), { visit: false })
+    feed.record(
+      nflModel({}, (snapshot) => pooled(snapshot, LAWRENCE, { stats_text: '2 TD' })),
+      { visit: true },
+    )
+    feed.record(
+      empireModel((snapshot) => pooled(snapshot, BROWN, { fantasy_points: 12 })),
+      { visit: false },
+    )
     const unchanged = vipItems(feed)[0].lineup?.find((slot) => slot.playerKey === LAWRENCE)
     expect(unchanged).toMatchObject({ pointsMove: 0 })
     expect(unchanged?.stats).toBeUndefined()
-    feed.record(empireModel((snapshot) => pooled(snapshot, LAWRENCE, { stats_text: null })), { visit: false })
+    feed.record(
+      empireModel((snapshot) => pooled(snapshot, LAWRENCE, { stats_text: null })),
+      { visit: false },
+    )
     expect(vipItems(feed)[0].lineup?.find((slot) => slot.playerKey === LAWRENCE)?.stats).toBeUndefined()
   })
 
@@ -403,7 +438,12 @@ describe('lineup diff', () => {
     const { feed } = seededFeed()
     feed.record(
       empireModel((snapshot) => {
-        lineupOf(snapshot, 'EmpireMaker2')[6] = { slot: 'TE', player_key: HIGBEE, player_name: 'Tyler Higbee', is_live: true }
+        lineupOf(snapshot, 'EmpireMaker2')[6] = {
+          slot: 'TE',
+          player_key: HIGBEE,
+          player_name: 'Tyler Higbee',
+          is_live: true,
+        }
         pooled(snapshot, HIGBEE, { fantasy_points: 4.2 })
       }),
       { visit: false },
@@ -424,7 +464,12 @@ describe('lineup diff', () => {
     const { feed } = seededFeed()
     feed.record(
       empireModel((snapshot) => {
-        lineupOf(snapshot, 'EmpireMaker2')[1] = { slot: 'RB', player_key: BROWN, player_name: 'Chase Brown', is_live: true }
+        lineupOf(snapshot, 'EmpireMaker2')[1] = {
+          slot: 'RB',
+          player_key: BROWN,
+          player_name: 'Chase Brown',
+          is_live: true,
+        }
         // Washington (6.5k WR) is swapped for Wicks in the same slot position.
         lineupOf(snapshot, 'EmpireMaker2')[4] = {
           slot: 'WR',
@@ -436,7 +481,11 @@ describe('lineup diff', () => {
       { visit: false },
     )
     const swappedIn = vipItems(feed)[0].lineup?.find((slot) => slot.name === 'Dontayvion Wicks')
-    expect(swappedIn).toMatchObject({ points: { from: null, to: 3.3 }, pointsMove: null, locked: { from: false, to: false } })
+    expect(swappedIn).toMatchObject({
+      points: { from: null, to: 3.3 },
+      pointsMove: null,
+      locked: { from: false, to: false },
+    })
     expect(vipItems(feed)[0].lineup?.some((slot) => slot.playerKey === WASHINGTON)).toBe(false)
     expect(vipItems(feed)[0].lineup?.every((slot) => (slot.pointsMove ?? 0) === 0)).toBe(true)
   })
@@ -447,7 +496,12 @@ describe('lineup diff', () => {
       empireModel((snapshot) => {
         const lineup = lineupOf(snapshot, 'EmpireMaker2')
         // The two WR rows after Wilson: Washington was live, the next row was locked.
-        lineup[4] = { slot: 'WR', player_key: 'nfl:dontayvion-wicks:phi:4300:wr', player_name: 'Dontayvion Wicks', is_live: true }
+        lineup[4] = {
+          slot: 'WR',
+          player_key: 'nfl:dontayvion-wicks:phi:4300:wr',
+          player_name: 'Dontayvion Wicks',
+          is_live: true,
+        }
         lineup[5] = { slot: 'WR', player_key: WASHINGTON, player_name: 'Parker Washington', is_live: true }
         pooled(snapshot, WASHINGTON, { fantasy_points: 7.5 })
       }),
@@ -456,7 +510,11 @@ describe('lineup diff', () => {
     const lineup = vipItems(feed)[0].lineup ?? []
     // Position 5 was locked, so it is a reveal: Washington's whole 7.5 is its move, though he sat in position 4 before.
     const revealed = lineup.find((slot) => slot.playerKey === WASHINGTON)
-    expect(revealed).toMatchObject({ locked: { from: true, to: false }, points: { from: null, to: 7.5 }, pointsMove: 7.5 })
+    expect(revealed).toMatchObject({
+      locked: { from: true, to: false },
+      points: { from: null, to: 7.5 },
+      pointsMove: 7.5,
+    })
     // Position 4 changed player: a swap, with no points move.
     const swapped = lineup.find((slot) => slot.name === 'Dontayvion Wicks')
     expect(swapped).toMatchObject({ locked: { from: false, to: false }, pointsMove: null })
@@ -480,14 +538,23 @@ describe('lineup diff', () => {
 
   it('gives no item for a lineup change alone', () => {
     const { feed } = seededFeed()
-    feed.record(nflModel({}, (snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 20 })), { visit: false })
+    feed.record(
+      nflModel({}, (snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 20 })),
+      { visit: false },
+    )
     expect(feed.feed()).toEqual([])
   })
 
   it('measures the lineup from the Seen mark, so it accumulates across polls', () => {
     const { feed } = seededFeed()
-    feed.record(empireModel((snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 11.44 })), { visit: false })
-    feed.record(empireModel((snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 13.44 })), { visit: false })
+    feed.record(
+      empireModel((snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 11.44 })),
+      { visit: false },
+    )
+    feed.record(
+      empireModel((snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 13.44 })),
+      { visit: false },
+    )
     expect(vipItems(feed)[0].lineup?.[0]).toMatchObject({ points: { from: 9.44, to: 13.44 }, pointsMove: 4 })
   })
 })
@@ -510,9 +577,12 @@ describe('cash crossings', () => {
   it('reports a VIP entering cashing as a High item listed ahead of Normal items', () => {
     const { feed, at } = seededFeed()
     at(T0 + 60_000)
-    feed.record(nflModel({ EmpireMaker2: { distancePoints: 2.2, distanceRank: -2, rank: 505 }, Cubbiesftw23: { rank: 1100 } }), {
-      visit: false,
-    })
+    feed.record(
+      nflModel({ EmpireMaker2: { distancePoints: 2.2, distanceRank: -2, rank: 505 }, Cubbiesftw23: { rank: 1100 } }),
+      {
+        visit: false,
+      },
+    )
     const items = vipItems(feed)
     expect(items.map((item) => item.vipKey)).toEqual([KEY.empire, KEY.cubbies])
     expect(items[0]).toMatchObject({ priority: 'high', crossing: { path: 'in' } })
@@ -581,7 +651,9 @@ describe('cash crossings', () => {
     feed.record(
       nflModel({}, (snapshot) => {
         const contest = snapshot.sports.nfl.contests[0]
-        contest.vip_lineups = contest.vip_lineups.filter((vip: { display_name: string }) => vip.display_name !== 'EmpireMaker2')
+        contest.vip_lineups = contest.vip_lineups.filter(
+          (vip: { display_name: string }) => vip.display_name !== 'EmpireMaker2',
+        )
       }),
       { visit: false },
     )
@@ -1003,7 +1075,12 @@ describe('completed contest', () => {
       nflModel({ EmpireMaker2: { rank: 480, pts: 33.5, distancePoints: 1.2 } }, (snapshot) => {
         completed(snapshot)
         pooled(snapshot, LAWRENCE, { fantasy_points: 15.44, game_status: 'Final' })
-        lineupOf(snapshot, 'EmpireMaker2')[6] = { slot: 'TE', player_key: HIGBEE, player_name: 'Tyler Higbee', is_live: true }
+        lineupOf(snapshot, 'EmpireMaker2')[6] = {
+          slot: 'TE',
+          player_key: HIGBEE,
+          player_name: 'Tyler Higbee',
+          is_live: true,
+        }
       }),
       { visit: false },
     )
@@ -1024,7 +1101,11 @@ describe('completed contest', () => {
   it('reports a VIP whose final standing moved by any amount, with whether each finished cashing', () => {
     const { feed } = seededFeed()
     feed.record(nflModel({ EmpireMaker2: { rank: 510 }, Cubbiesftw23: { pts: 40 } }, completed), { visit: false })
-    expect(vipItems(feed).map((item) => [item.vipKey, item.finishedCashing]).sort()).toEqual(
+    expect(
+      vipItems(feed)
+        .map((item) => [item.vipKey, item.finishedCashing])
+        .sort(),
+    ).toEqual(
       [
         [KEY.empire, false],
         [KEY.cubbies, false],
@@ -1245,7 +1326,9 @@ describe('pair diff', () => {
 
     it('adds player events when a lineup slot changed', () => {
       const [item] = diff(
-        nflModel({ EmpireMaker2: { rank: 480 } }, (snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 15.44, game_status: 'Final' })),
+        nflModel({ EmpireMaker2: { rank: 480 } }, (snapshot) =>
+          pooled(snapshot, LAWRENCE, { fantasy_points: 15.44, game_status: 'Final' }),
+        ),
       )
       expect(item.parts).toEqual(['rank-points', 'player-events'])
     })
@@ -1283,7 +1366,8 @@ describe('timeline', () => {
     return digestOf({ ...model, snapshotAt: minute(n) }, T0 + n * MINUTE)
   }
 
-  const stepsOf = (inputs: TimelineInput[], options?: Parameters<typeof buildTimeline>[1]) => buildTimeline(inputs, options).entries
+  const stepsOf = (inputs: TimelineInput[], options?: Parameters<typeof buildTimeline>[1]) =>
+    buildTimeline(inputs, options).entries
 
   describe('steps', () => {
     it('is empty for no snapshot or one snapshot', () => {
@@ -1305,23 +1389,48 @@ describe('timeline', () => {
       ])
       const [newest, middle] = entries
       expect(newest).toMatchObject({ kind: 'step', items: [] })
-      expect(middle).toMatchObject({ kind: 'step', items: [{ vipKey: KEY.empire, rank: { from: 480, to: 400 }, snapshotAt: minute(10) }] })
+      expect(middle).toMatchObject({
+        kind: 'step',
+        items: [{ vipKey: KEY.empire, rank: { from: 480, to: 400 }, snapshotAt: minute(10) }],
+      })
     })
 
     it('gives the same item and step ids when the same snapshots are rebuilt later', () => {
-      const models = [nflModel(), nflModel({ EmpireMaker2: { rank: 480 } }, cashLine(33.5, 505)), nflModel({ EmpireMaker2: INSIDE })]
-      const build = (clock: number) => stepsOf(models.map((model, n) => digestOf({ ...model, snapshotAt: minute(n * 5) }, clock + n)))
-      const ids = (entries: ReturnType<typeof build>) => entries.flatMap((entry) => [entry.id, ...(entry.kind === 'step' ? entry.items.map((item) => item.id) : [])])
+      const models = [
+        nflModel(),
+        nflModel({ EmpireMaker2: { rank: 480 } }, cashLine(33.5, 505)),
+        nflModel({ EmpireMaker2: INSIDE }),
+      ]
+      const build = (clock: number) =>
+        stepsOf(models.map((model, n) => digestOf({ ...model, snapshotAt: minute(n * 5) }, clock + n)))
+      const ids = (entries: ReturnType<typeof build>) =>
+        entries.flatMap((entry) => [entry.id, ...(entry.kind === 'step' ? entry.items.map((item) => item.id) : [])])
       expect(ids(build(1))).toEqual(ids(build(999_999)))
       expect(new Set(ids(build(1))).size).toBe(ids(build(1)).length)
     })
 
     it('shows a VIP crossing in and then out as two items in two steps, both High', () => {
-      const entries = stepsOf([snap(0), snap(5, nflModel({ EmpireMaker2: INSIDE })), snap(10, nflModel({ EmpireMaker2: OUTSIDE }))])
+      const entries = stepsOf([
+        snap(0),
+        snap(5, nflModel({ EmpireMaker2: INSIDE })),
+        snap(10, nflModel({ EmpireMaker2: OUTSIDE })),
+      ])
       const crossings = entries.map((entry) => (entry.kind === 'step' ? entry.items : []))
       expect(crossings).toEqual([
-        [expect.objectContaining({ vipKey: KEY.empire, priority: 'high', crossing: expect.objectContaining({ path: 'out' }) })],
-        [expect.objectContaining({ vipKey: KEY.empire, priority: 'high', crossing: expect.objectContaining({ path: 'in' }) })],
+        [
+          expect.objectContaining({
+            vipKey: KEY.empire,
+            priority: 'high',
+            crossing: expect.objectContaining({ path: 'out' }),
+          }),
+        ],
+        [
+          expect.objectContaining({
+            vipKey: KEY.empire,
+            priority: 'high',
+            crossing: expect.objectContaining({ path: 'in' }),
+          }),
+        ],
       ])
     })
   })
@@ -1345,7 +1454,11 @@ describe('timeline', () => {
     })
 
     it('does not link a crossing when the line moved in another step', () => {
-      const entries = stepsOf([snap(0), snap(5, nflModel({}, cashLine(33.5, 505))), snap(10, nflModel({ EmpireMaker2: INSIDE }, cashLine(33.5, 505)))])
+      const entries = stepsOf([
+        snap(0),
+        snap(5, nflModel({}, cashLine(33.5, 505))),
+        snap(10, nflModel({ EmpireMaker2: INSIDE }, cashLine(33.5, 505))),
+      ])
       expect(itemsOf(entries[0]).map((item) => item.kind)).toEqual(['vip'])
       expect(itemsOf(entries[1]).map((item) => item.kind)).toEqual(['cash-line'])
     })
@@ -1353,12 +1466,25 @@ describe('timeline', () => {
 
   describe('per-step moves', () => {
     it('applies the thresholds to each step, so a slow drift under them is not reported', () => {
-      const entries = stepsOf([snap(0), snap(5, nflModel({ EmpireMaker2: { rank: 510 } })), snap(10, nflModel({ EmpireMaker2: { rank: 509 } })), snap(15, nflModel({ EmpireMaker2: { rank: 508 } }))])
+      const entries = stepsOf([
+        snap(0),
+        snap(5, nflModel({ EmpireMaker2: { rank: 510 } })),
+        snap(10, nflModel({ EmpireMaker2: { rank: 509 } })),
+        snap(15, nflModel({ EmpireMaker2: { rank: 508 } })),
+      ])
       expect(entries.map((entry) => (entry.kind === 'step' ? entry.items : null))).toEqual([[], [], []])
     })
 
     it('reports a player event and exposes the whole lineup, changed or not', () => {
-      const [moved] = stepsOf([snap(0), snap(5, nflModel({ EmpireMaker2: { rank: 480 } }, (snapshot) => pooled(snapshot, LAWRENCE, { fantasy_points: 15.44, game_status: 'Final' })))])
+      const [moved] = stepsOf([
+        snap(0),
+        snap(
+          5,
+          nflModel({ EmpireMaker2: { rank: 480 } }, (snapshot) =>
+            pooled(snapshot, LAWRENCE, { fantasy_points: 15.44, game_status: 'Final' }),
+          ),
+        ),
+      ])
       const item = (moved.kind === 'step' ? moved.items : [])[0] as VipShiftItem
       expect(item.parts).toEqual(['rank-points', 'player-events'])
       expect(item.lineup?.length).toBeGreaterThan(1)
@@ -1373,7 +1499,11 @@ describe('timeline', () => {
 
   describe('gaps', () => {
     it('puts a gap entry with its reason where the skipped snapshot was and compares across it', () => {
-      const entries = stepsOf([snap(0), { reason: 'unavailable', snapshotAt: minute(5) }, snap(10, nflModel({ EmpireMaker2: { rank: 480 } }))])
+      const entries = stepsOf([
+        snap(0),
+        { reason: 'unavailable', snapshotAt: minute(5) },
+        snap(10, nflModel({ EmpireMaker2: { rank: 480 } })),
+      ])
       expect(entries.map((entry) => [entry.kind, entry.snapshotAt])).toEqual([
         ['step', minute(10)],
         ['gap', minute(5)],
@@ -1403,7 +1533,13 @@ describe('timeline', () => {
     const done = (changes = {}) => nflModel(changes, completed)
 
     it('gives every step up to completion, then one High item with the final standings, and nothing after', () => {
-      const entries = stepsOf([snap(0), snap(5, nflModel({ EmpireMaker2: { rank: 480 } })), snap(10, done({ EmpireMaker2: { rank: 470 } })), snap(15, done({ EmpireMaker2: { rank: 400 } })), snap(20, done())])
+      const entries = stepsOf([
+        snap(0),
+        snap(5, nflModel({ EmpireMaker2: { rank: 480 } })),
+        snap(10, done({ EmpireMaker2: { rank: 470 } })),
+        snap(15, done({ EmpireMaker2: { rank: 400 } })),
+        snap(20, done()),
+      ])
       const items = entries.map((entry) => (entry.kind === 'step' ? entry.items : []))
       expect(items[0]).toEqual([])
       expect(items[1]).toEqual([])
@@ -1413,7 +1549,9 @@ describe('timeline', () => {
           kind: 'contest-state',
           priority: 'high',
           state: { from: 'live', to: 'completed' },
-          standings: expect.arrayContaining([{ vipKey: KEY.empire, rank: { from: 480, to: 470 }, points: expect.anything(), cashing: false }]),
+          standings: expect.arrayContaining([
+            { vipKey: KEY.empire, rank: { from: 480, to: 470 }, points: expect.anything(), cashing: false },
+          ]),
         }),
       ])
     })
@@ -1432,8 +1570,14 @@ describe('timeline', () => {
     })
 
     it('says the contest start or the cap when told what stopped the range', () => {
-      expect(buildTimeline([snap(5), snap(10)], { reach: 'contest-start' }).rangeNote).toEqual({ kind: 'contest-start', snapshotAt: minute(5) })
-      expect(buildTimeline([snap(5), snap(10)], { reach: 'cap' }).rangeNote).toEqual({ kind: 'cap', snapshotAt: minute(5) })
+      expect(buildTimeline([snap(5), snap(10)], { reach: 'contest-start' }).rangeNote).toEqual({
+        kind: 'contest-start',
+        snapshotAt: minute(5),
+      })
+      expect(buildTimeline([snap(5), snap(10)], { reach: 'cap' }).rangeNote).toEqual({
+        kind: 'cap',
+        snapshotAt: minute(5),
+      })
     })
 
     it('has no note without snapshots', () => {
@@ -1457,7 +1601,10 @@ describe("the Seen mark's snapshot time", () => {
 
   it('stays put on a later build and moves to the newest build when marked seen', () => {
     const { feed } = seededFeed()
-    feed.record(nflModel({}, (snapshot) => (snapshot.snapshot_at = LATER_AT)), { visit: false })
+    feed.record(
+      nflModel({}, (snapshot) => (snapshot.snapshot_at = LATER_AT)),
+      { visit: false },
+    )
     expect(feed.seenSnapshotAt()).toBe(SEEN_AT)
     feed.markSeen()
     expect(feed.seenSnapshotAt()).toBe(LATER_AT)
@@ -1466,7 +1613,10 @@ describe("the Seen mark's snapshot time", () => {
   it('moves when a quick visit advances the Seen mark on its own', () => {
     const { feed, at } = seededFeed()
     at(T0 + 60_000)
-    feed.record(nflModel({}, (snapshot) => (snapshot.snapshot_at = LATER_AT)), { visit: true })
+    feed.record(
+      nflModel({}, (snapshot) => (snapshot.snapshot_at = LATER_AT)),
+      { visit: true },
+    )
     expect(feed.seenSnapshotAt()).toBe(LATER_AT)
   })
 

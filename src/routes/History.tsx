@@ -258,7 +258,11 @@ function History() {
   }
 
   if (!isSupportedSnapshot(snapshotQuery.data)) {
-    return <DataPage title="History"><p>Unsupported snapshot schema version: {String(snapshotQuery.data.schema_version ?? 'unknown')}.</p></DataPage>
+    return (
+      <DataPage title="History">
+        <p>Unsupported snapshot schema version: {String(snapshotQuery.data.schema_version ?? 'unknown')}.</p>
+      </DataPage>
+    )
   }
 
   return (
@@ -270,11 +274,7 @@ function History() {
         </Button>
       }
     >
-      <SnapshotOverview
-        snapshot={snapshotQuery.data}
-        vipFilterMode="all"
-        activeProfileRules={activeProfile.rules}
-      />
+      <SnapshotOverview snapshot={snapshotQuery.data} vipFilterMode="all" activeProfileRules={activeProfile.rules} />
     </DataPage>
   )
 }

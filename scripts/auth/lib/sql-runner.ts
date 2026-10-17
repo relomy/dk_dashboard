@@ -6,11 +6,7 @@ import type { SqlRunner } from './commands'
 const WRANGLER_LOG_PATH = process.env.WRANGLER_LOG_PATH ?? '.wrangler/logs'
 
 function parseJsonPayload(raw: string): unknown {
-  const firstBracket = Math.min(
-    ...['[', '{']
-      .map((token) => raw.indexOf(token))
-      .filter((index) => index >= 0),
-  )
+  const firstBracket = Math.min(...['[', '{'].map((token) => raw.indexOf(token)).filter((index) => index >= 0))
   const jsonText = firstBracket >= 0 ? raw.slice(firstBracket) : raw
   return JSON.parse(jsonText) as unknown
 }
@@ -62,10 +58,7 @@ function runWranglerSql(databaseName: string, sql: string, remote: boolean): Arr
   return extractRows(parseJsonPayload(raw))
 }
 
-export function createWranglerRunner(options: {
-  databaseName: string
-  remote?: boolean
-}): SqlRunner {
+export function createWranglerRunner(options: { databaseName: string; remote?: boolean }): SqlRunner {
   const remote = Boolean(options.remote)
   return {
     async query(sql: string): Promise<Array<Record<string, unknown>>> {

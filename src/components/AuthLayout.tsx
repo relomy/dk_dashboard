@@ -5,15 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/
  * Full-page centered card for the pages that render outside the app shell
  * (Login, Change password).
  */
-function AuthLayout({
-  title,
-  description,
-  children,
-}: {
-  title: string
-  description: string
-  children: ReactNode
-}) {
+function AuthLayout({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return (
     <div className="flex min-h-dvh items-center justify-center p-4">
       <Card className="w-full max-w-sm">

@@ -7,9 +7,7 @@ function normalize(value: string | undefined): string {
 
 function lineupTokens(lineup: VipLineup): string[] {
   const values = [lineup.display_name, lineup.entry_key, lineup.vip_entry_key]
-  return values
-    .map((value) => normalize(value))
-    .filter((value) => value.length > 0)
+  return values.map((value) => normalize(value)).filter((value) => value.length > 0)
 }
 
 function hasAnyRule(rules: ProfileMatchRules): boolean {
@@ -33,11 +31,7 @@ export function lineupMatchesProfile(lineup: VipLineup, rules: ProfileMatchRules
   return containsMatch || exactMatch || usernameMatch
 }
 
-export function filterVipLineups(
-  lineups: VipLineup[],
-  rules: ProfileMatchRules,
-  mode: 'all' | 'active',
-): VipLineup[] {
+export function filterVipLineups(lineups: VipLineup[], rules: ProfileMatchRules, mode: 'all' | 'active'): VipLineup[] {
   if (mode === 'all') {
     return lineups
   }

@@ -24,7 +24,9 @@ function main(): void {
 
   console.log(`Wrote ${result.fixturePath}`)
   console.log('Record the snapshot key, producer commit, pull date and these counts in')
-  console.log('public/mock/PRODUCER_FIXTURE.md (a capture from the Prod Check workflow is recorded in its draft PR instead):')
+  console.log(
+    'public/mock/PRODUCER_FIXTURE.md (a capture from the Prod Check workflow is recorded in its draft PR instead):',
+  )
   console.log('')
   console.log('| Array | Rows |')
   console.log('| --- | --- |')

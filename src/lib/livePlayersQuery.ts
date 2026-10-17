@@ -41,7 +41,9 @@ export function queryPool(
   const needle = search.trim().toLowerCase()
   const sign = sort.dir === 'asc' ? 1 : -1
   return pool
-    .filter((player) => !needle || player.name.toLowerCase().includes(needle) || player.team.toLowerCase().includes(needle))
+    .filter(
+      (player) => !needle || player.name.toLowerCase().includes(needle) || player.team.toLowerCase().includes(needle),
+    )
     .filter((player) => {
       if (filter === 'still-to-play') return player.gameStatus === 'pre-game' || player.gameStatus === 'in-progress'
       if (filter === 'on-a-vip') return player.vipIndexes.length > 0

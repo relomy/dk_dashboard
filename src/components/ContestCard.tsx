@@ -1,11 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import {
-  formatContestState,
-  formatMoney,
-  getVipCashingStatus,
-  normalizeContestState,
-} from '../lib/contestDisplay'
+import { formatContestState, formatMoney, getVipCashingStatus, normalizeContestState } from '../lib/contestDisplay'
 import type { Contest, VipLineup } from '../lib/types'
 import { LOCKED_LABEL } from '../lib/lineup'
 
@@ -34,9 +29,7 @@ function ContestCard({
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 py-2 font-mono text-xs text-muted-foreground tabular-nums">
         <p>Field size: {contest.max_entries}</p>
-        {typeof contest.max_entries_per_user === 'number' ? (
-          <p>Max per user: {contest.max_entries_per_user}</p>
-        ) : null}
+        {typeof contest.max_entries_per_user === 'number' ? <p>Max per user: {contest.max_entries_per_user}</p> : null}
         <p>Prize pool: {formatMoney(contest.prize_pool_cents, contest.currency, wholeDollars)}</p>
       </div>
       <div className="px-3 pb-3">
@@ -54,7 +47,9 @@ function ContestCard({
                   className="min-w-0 rounded-lg border bg-background/40 p-2"
                 >
                   <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <p className="min-w-0 truncate font-medium">{lineup.display_name || lineup.entry_key || lineup.vip_entry_key || 'VIP'}</p>
+                    <p className="min-w-0 truncate font-medium">
+                      {lineup.display_name || lineup.entry_key || lineup.vip_entry_key || 'VIP'}
+                    </p>
                     {cashingStatus ? (
                       <Badge
                         className={cn(
@@ -72,9 +67,7 @@ function ContestCard({
                     {(lineup.players_live ?? []).map((slot, index) => (
                       <li key={`${lineupKey}-${index}`} className="flex gap-2">
                         <span className="w-9 shrink-0 font-mono text-muted-foreground">{slot.slot}</span>
-                        <span className="min-w-0 break-words">
-                          {slot.is_locked ? LOCKED_LABEL : slot.player_name}
-                        </span>
+                        <span className="min-w-0 break-words">{slot.is_locked ? LOCKED_LABEL : slot.player_name}</span>
                       </li>
                     ))}
                   </ol>

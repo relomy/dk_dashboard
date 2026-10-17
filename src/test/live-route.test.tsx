@@ -208,7 +208,9 @@ describe('Leverage panel', () => {
       await renderLive(load())
 
       expect(screen.queryByRole('heading', { name: 'Swing players' })).not.toBeInTheDocument()
-      fireEvent.click(within(screen.getByRole('navigation', { name: /live tabs/i })).getByRole('link', { name: 'Leverage' }))
+      fireEvent.click(
+        within(screen.getByRole('navigation', { name: /live tabs/i })).getByRole('link', { name: 'Leverage' }),
+      )
 
       expect(screen.getByRole('heading', { name: 'Swing players' })).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: 'Leverage vs field' })).toBeInTheDocument()
@@ -270,7 +272,9 @@ describe('Leverage panel', () => {
       }
       expect(swingRow("Ja'Marr Chase")).toHaveTextContent('FADE')
 
-      fireEvent.click(within(screen.getByRole('navigation', { name: /live views/i })).getByRole('link', { name: /×76/ }))
+      fireEvent.click(
+        within(screen.getByRole('navigation', { name: /live views/i })).getByRole('link', { name: /×76/ }),
+      )
       expect(swingSubtitle()).toHaveTextContent('vs ×76 train')
       expect(swingRow('Chase Brown')).toHaveTextContent('FADE')
       expect(swingRow('Jeremiyah Love')).toHaveTextContent('HAVE')
@@ -336,7 +340,14 @@ describe('Leverage panel', () => {
       const snapshot = load()
       const contest = contestOf(snapshot)
       const tuckKey = vipOf(snapshot, 'tuck8989').entry_key
-      contest.standings.push({ entry_key: tuckKey, username: 'tuck8989', rank: 900, points: 50, pmr: 200, ownership_remaining_total_pct: 150 })
+      contest.standings.push({
+        entry_key: tuckKey,
+        username: 'tuck8989',
+        rank: 900,
+        points: 50,
+        pmr: 200,
+        ownership_remaining_total_pct: 150,
+      })
       const tuckRow = contest.metrics.threat.vip_vs_field_leverage.find((row: Json) => row.display_name === 'tuck8989')
       tuckRow.field_remaining_pct = 300
       await renderLive(snapshot, '/live/nfl?view=vips')
@@ -346,13 +357,15 @@ describe('Leverage panel', () => {
       expect(tuck).toHaveTextContent('202.82%')
       expect(tuck).not.toHaveTextContent('150%')
       // The field marker sits further along tuck8989's bar than along a VIP's measured against the contest field.
-      const fieldMarker = (group: HTMLElement) => parseFloat(group.querySelector<HTMLElement>('[aria-hidden="true"]')?.style.left ?? '')
+      const fieldMarker = (group: HTMLElement) =>
+        parseFloat(group.querySelector<HTMLElement>('[aria-hidden="true"]')?.style.left ?? '')
       expect(fieldMarker(tuck)).toBeGreaterThan(fieldMarker(leverage.getByRole('group', { name: 'Aj_cray' })))
     })
 
     it('marks only partial leverage rows as partial', async () => {
       const snapshot = load()
-      for (const row of contestOf(snapshot).metrics.threat.vip_vs_field_leverage) row.is_partial = row.display_name === 'tuck8989'
+      for (const row of contestOf(snapshot).metrics.threat.vip_vs_field_leverage)
+        row.is_partial = row.display_name === 'tuck8989'
       await renderLive(snapshot, '/live/nfl?view=vips')
 
       const leverage = section('Leverage vs field')
@@ -409,13 +422,11 @@ describe('Leverage panel', () => {
         expect(leaders.getByRole('columnheader', { name })).toBeInTheDocument()
       }
       expect(leaderRows()).toHaveLength(10)
-      expect(within(leaderRows()[0]).getAllByRole('cell').map((cell) => cell.textContent)).toEqual([
-        '#183',
-        'DrEvil1996',
-        '387.77%',
-        '300.0',
-        '42.54',
-      ])
+      expect(
+        within(leaderRows()[0])
+          .getAllByRole('cell')
+          .map((cell) => cell.textContent),
+      ).toEqual(['#183', 'DrEvil1996', '387.77%', '300.0', '42.54'])
       expect(within(leaderRows()[1]).getAllByRole('cell')[2]).toHaveTextContent('384.78%')
     })
 
@@ -449,7 +460,9 @@ describe('Leverage panel', () => {
       // Golf has no ownership watchlist.
       await renderLive(load(), '/live/golf')
 
-      expect(section('Ownership leaders').getByText('Ownership leaders are unavailable for this contest.')).toBeInTheDocument()
+      expect(
+        section('Ownership leaders').getByText('Ownership leaders are unavailable for this contest.'),
+      ).toBeInTheDocument()
     })
   })
 })

@@ -26,16 +26,22 @@ export function liveUnreadPaths(raw: unknown, sport: string): string[] {
   const scoped = { ...snapshot, sports: { [sport]: snapshot.sports[sport] } }
   const rawScoped = { ...original, sports: { [sport]: original.sports[sport] } }
   const reads = readPaths(scoped, (feed) => buildInterpretedLiveModel(feed, sport), true)
-  const consumed = new Set([...reads].map((path) => provenance.origins.has(path) ? provenance.origins.get(path) : path))
+  const consumed = new Set(
+    [...reads].map((path) => (provenance.origins.has(path) ? provenance.origins.get(path) : path)),
+  )
   const collapse = (path: string) => path.replace(/\[\d+\]/g, '[]')
   const collapsedReads = new Set([...consumed].filter((path): path is string => typeof path === 'string').map(collapse))
   // Compatibility sources are judged per row; ordinary fields retain the detector's established
   // per-field semantics (e.g. a cashing fallback or a locked player's name is conditional).
-  const unread = new Set([...leafPaths(rawScoped, true)].filter((path) =>
-    /\.vip_lineups\[\d+\]\.(points|pts|rank|pmr)$/.test(path)
-      ? !consumed.has(path)
-      : !collapsedReads.has(collapse(path)),
-  ).map(collapse))
+  const unread = new Set(
+    [...leafPaths(rawScoped, true)]
+      .filter((path) =>
+        /\.vip_lineups\[\d+\]\.(points|pts|rank|pmr)$/.test(path)
+          ? !consumed.has(path)
+          : !collapsedReads.has(collapse(path)),
+      )
+      .map(collapse),
+  )
   const prefix = `sports.${sport}`
   return [...unread]
     .map((path) => (path === prefix || path.startsWith(`${prefix}.`) ? `sports.*${path.slice(prefix.length)}` : path))

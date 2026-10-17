@@ -9,10 +9,15 @@ import { selectSource } from '../lib/selectSource'
 import { describeFailure, runProdCheck } from './lib/prodCheck'
 
 try {
-  const result = runProdCheck(process.argv.slice(2), { source: selectSource(process.env), env: process.env, commitOrder: githubCommitOrder() })
+  const result = runProdCheck(process.argv.slice(2), {
+    source: selectSource(process.env),
+    env: process.env,
+    commitOrder: githubCommitOrder(),
+  })
   console.log(result.output)
   // GitHub Actions: expose the outcome, and the snapshot it was reached on, as step outputs for the workflow.
-  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${result.outcome}\nsnapshot=${result.key}\n`)
+  if (process.env.GITHUB_OUTPUT)
+    appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${result.outcome}\nsnapshot=${result.key}\n`)
   process.exit(result.exitCode)
 } catch (error: unknown) {
   console.error(describeFailure(error))

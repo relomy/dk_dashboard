@@ -15,9 +15,14 @@ export function isSupportedSnapshot(snapshot: InterpretedSnapshot): snapshot is 
   return snapshot.schema_version === 3
 }
 
-interface Provenance { raw: unknown; origins: Map<string, string | null> }
+interface Provenance {
+  raw: unknown
+  origins: Map<string, string | null>
+}
 const provenance = new WeakMap<object, Provenance>()
-export function snapshotProvenance(snapshot: object): Provenance | undefined { return provenance.get(snapshot) }
+export function snapshotProvenance(snapshot: object): Provenance | undefined {
+  return provenance.get(snapshot)
+}
 
 function numeric(value: unknown, strings = false): number | undefined {
   if (strings && typeof value === 'string' && value.trim()) value = Number(value)

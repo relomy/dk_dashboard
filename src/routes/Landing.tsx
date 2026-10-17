@@ -15,7 +15,8 @@ function Landing() {
     return <PageMessage tone="error">{error.message}</PageMessage>
   }
 
-  if (unsupportedVersion !== undefined) return <PageMessage>Unsupported snapshot schema version: {String(unsupportedVersion)}.</PageMessage>
+  if (unsupportedVersion !== undefined)
+    return <PageMessage>Unsupported snapshot schema version: {String(unsupportedVersion)}.</PageMessage>
 
   if (!snapshot) {
     return <PageMessage>Snapshot not available.</PageMessage>

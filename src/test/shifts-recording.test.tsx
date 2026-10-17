@@ -184,7 +184,9 @@ describe('recording Live builds in the shell', () => {
     renderShell('/settings')
     await screen.findByTestId('feed-probe')
     await vi.waitFor(() =>
-      expect(vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).includes('/api/snapshot'))).toBe(true),
+      expect(vi.mocked(globalThis.fetch).mock.calls.some(([input]) => String(input).includes('/api/snapshot'))).toBe(
+        true,
+      ),
     )
 
     expect(calls.records).toEqual([])
