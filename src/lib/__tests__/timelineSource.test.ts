@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { TIMELINE_CAP, TIMELINE_FETCH_BOUND, TIMELINE_LOAD_MORE_SNAPSHOTS, TIMELINE_OPEN_SNAPSHOTS } from '../timelineConfig'
+import {
+  TIMELINE_CAP,
+  TIMELINE_FETCH_BOUND,
+  TIMELINE_LOAD_MORE_SNAPSHOTS,
+  TIMELINE_OPEN_SNAPSHOTS,
+} from '../timelineConfig'
 import { ApiError } from '../api'
 import { createLimiter, createTimelineSource, type TimelineHistory } from '../timelineSource'
 import { pathOf, stamp, stubHistory } from '../../test/timelineHistory'
@@ -23,7 +28,13 @@ describe('the fetch limiter', () => {
         active -= 1
       }
       let release: () => void = () => {}
-      const first = run(task(new Promise<void>((resolve) => { release = resolve })))
+      const first = run(
+        task(
+          new Promise<void>((resolve) => {
+            release = resolve
+          }),
+        ),
+      )
       const waiter = run(task(Promise.resolve()))
       release()
       const barger = (async () => {
@@ -46,7 +57,10 @@ describe('the Timeline source', () => {
     expect(opened.timeline.entries.map((entry) => [entry.kind, entry.snapshotAt])).toEqual(
       [6, 5, 4, 3].map((slot) => ['step', stamp(slot)]),
     )
-    const vips = opened.timeline.entries[0].kind === 'step' ? opened.timeline.entries[0].items.filter((item): item is VipShiftItem => item.kind === 'vip') : []
+    const vips =
+      opened.timeline.entries[0].kind === 'step'
+        ? opened.timeline.entries[0].items.filter((item): item is VipShiftItem => item.kind === 'vip')
+        : []
     const moved = vips.find((vip) => vip.rank.to === 540)
     expect(moved?.rank).toEqual({ from: 550, to: 540 })
     expect(moved?.points).toEqual({ from: 55, to: 60 })
@@ -82,7 +96,10 @@ describe('the Timeline source', () => {
     if (opened.kind !== 'ready') throw new Error('expected ready')
     expect(opened.timeline.entries[2]).toMatchObject({ kind: 'gap', reason: 'unavailable' })
     const across = opened.timeline.entries[1]
-    const vip = across.kind === 'step' ? across.items.find((item): item is VipShiftItem => item.kind === 'vip' && item.rank.to === 550) : undefined
+    const vip =
+      across.kind === 'step'
+        ? across.items.find((item): item is VipShiftItem => item.kind === 'vip' && item.rank.to === 550)
+        : undefined
     expect(vip?.rank).toEqual({ from: 570, to: 550 })
   })
 
@@ -242,7 +259,10 @@ describe('the Timeline source', () => {
       const { history } = stubHistory({ slots: many, failing: [30] })
       const opened = ready(await sourceOf(history).open('nfl'))
       const more = ready(await opened.loadMore!())
-      expect(more.timeline.entries.find((entry) => entry.snapshotAt === stamp(30))).toMatchObject({ kind: 'gap', reason: 'unavailable' })
+      expect(more.timeline.entries.find((entry) => entry.snapshotAt === stamp(30))).toMatchObject({
+        kind: 'gap',
+        reason: 'unavailable',
+      })
       const again = ready(await more.loadMore!())
       expect(again.range.loaded).toBe(25)
       expect(again.retryGap).toBeDefined()
@@ -311,7 +331,10 @@ describe('the Timeline source', () => {
         const rotated = (snapshot: { sports: { nfl: { contests: Array<{ name: string }> } } }) => {
           snapshot.sports.nfl.contests[0].name = 'Yesterday slate'
         }
-        const { history } = stubHistory({ slots: many, mutate: Object.fromEntries([25, 26, 27, 28, 29].map((i) => [i, rotated])) })
+        const { history } = stubHistory({
+          slots: many,
+          mutate: Object.fromEntries([25, 26, 27, 28, 29].map((i) => [i, rotated])),
+        })
         const opened = ready(await sourceOf(history, { cap: 15 }).open('nfl'))
         const more = ready(await opened.loadMore!())
         expect(more.range.reach).toBe('contest-start')
@@ -320,7 +343,10 @@ describe('the Timeline source', () => {
 
     describe('across the UTC midnight manifest rollover', () => {
       it('reads yesterday only once today runs out, and carries on into it', async () => {
-        const { history, calls } = stubHistory({ slots: [10, 11, 12, 13, 14, 15, 16], yesterdaySlots: Array.from({ length: 20 }, (_, i) => i - 20) })
+        const { history, calls } = stubHistory({
+          slots: [10, 11, 12, 13, 14, 15, 16],
+          yesterdaySlots: Array.from({ length: 20 }, (_, i) => i - 20),
+        })
         const opened = ready(await sourceOf(history).open('nfl'))
         expect(calls.manifests).toEqual(['manifest/2026-10-04.json'])
         const more = ready(await opened.loadMore!())
@@ -340,14 +366,21 @@ describe('the Timeline source', () => {
       })
 
       it('does not read yesterday again when open already topped up from it', async () => {
-        const { history, calls } = stubHistory({ slots: [5, 6], yesterdaySlots: Array.from({ length: 20 }, (_, i) => i - 20) })
+        const { history, calls } = stubHistory({
+          slots: [5, 6],
+          yesterdaySlots: Array.from({ length: 20 }, (_, i) => i - 20),
+        })
         const opened = ready(await sourceOf(history).open('nfl'))
         await opened.loadMore!()
         expect(calls.manifests.filter((path) => path.includes('10-03'))).toHaveLength(1)
       })
 
       it('rejects Load more when yesterday cannot be read, leaving the Timeline as it was', async () => {
-        const { history } = stubHistory({ slots: [10, 11, 12, 13, 14, 15, 16], yesterdaySlots: [-1], yesterdayError: true })
+        const { history } = stubHistory({
+          slots: [10, 11, 12, 13, 14, 15, 16],
+          yesterdaySlots: [-1],
+          yesterdayError: true,
+        })
         const opened = ready(await sourceOf(history).open('nfl'))
         await expect(opened.loadMore!()).rejects.toThrow('yesterday down')
         expect(opened.loadMore).toBeDefined()
@@ -436,7 +469,11 @@ describe('refreshing an open Timeline', () => {
 
   it('starts a fresh Timeline when the primary contest rotates', async () => {
     const { history, publish } = stubHistory({
-      mutate: { 7: (snapshot) => { snapshot.sports.nfl.contests[0].name = 'Tomorrow slate' } },
+      mutate: {
+        7: (snapshot) => {
+          snapshot.sports.nfl.contests[0].name = 'Tomorrow slate'
+        },
+      },
     })
     const opened = await openOf(history)
     publish(7)
@@ -453,13 +490,21 @@ describe('refreshing an open Timeline', () => {
       ...history,
       latest: async () => {
         const latest = await history.latest()
-        return rolled ? { ...latest, manifest_today_path: 'manifest/2026-10-05.json', manifest_yesterday_path: 'manifest/2026-10-04.json' } : latest
+        return rolled
+          ? {
+              ...latest,
+              manifest_today_path: 'manifest/2026-10-05.json',
+              manifest_yesterday_path: 'manifest/2026-10-04.json',
+            }
+          : latest
       },
       manifest: async (path) => {
         const all = await history.manifest(path)
         // After midnight, the new day's manifest holds only the newest snapshot and yesterday's holds the rest.
         if (!rolled) return all
-        return path.includes('10-05') ? { ...all, snapshots: all.snapshots.slice(-1) } : { ...all, snapshots: all.snapshots.slice(0, -1) }
+        return path.includes('10-05')
+          ? { ...all, snapshots: all.snapshots.slice(-1) }
+          : { ...all, snapshots: all.snapshots.slice(0, -1) }
       },
     }
     const opened = await openOf(midnight)
@@ -502,7 +547,9 @@ describe('refreshing an open Timeline', () => {
       expect(refreshed.retryGap).toBeDefined()
       const again = ready(await refreshed.loadMore!())
       expect(again.range).toEqual({ loaded: 26, cap: TIMELINE_CAP, reach: null })
-      expect(again.timeline.entries.map((entry) => entry.snapshotAt)).toEqual(Array.from({ length: 25 }, (_, i) => stamp(40 - i)))
+      expect(again.timeline.entries.map((entry) => entry.snapshotAt)).toEqual(
+        Array.from({ length: 25 }, (_, i) => stamp(40 - i)),
+      )
       expect(again.refresh).toBeDefined()
     })
 
@@ -538,7 +585,8 @@ describe('overlapping source calls', () => {
     const failing = [4]
     const { history, calls, publish } = stubHistory({ slots: many, failing })
     const opened = await sourceOf(history, { fetchBound: 2 }).open('nfl')
-    if (opened.kind !== 'ready' || !opened.loadMore || !opened.refresh || !opened.retryGap) throw new Error('expected a full opening')
+    if (opened.kind !== 'ready' || !opened.loadMore || !opened.refresh || !opened.retryGap)
+      throw new Error('expected a full opening')
     failing.length = 0
     publish(40)
     publish(41)
@@ -645,12 +693,18 @@ describe('older snapshots that cannot be shown', () => {
 })
 
 describe('Load more across the UTC midnight', () => {
-  it("reads the yesterday that the latest pointer names now, not the one named when the Timeline opened", async () => {
-    const { history, calls } = stubHistory({ slots: [10, 11, 12, 13, 14, 15, 16], yesterdaySlots: Array.from({ length: 20 }, (_, i) => i - 20) })
+  it('reads the yesterday that the latest pointer names now, not the one named when the Timeline opened', async () => {
+    const { history, calls } = stubHistory({
+      slots: [10, 11, 12, 13, 14, 15, 16],
+      yesterdaySlots: Array.from({ length: 20 }, (_, i) => i - 20),
+    })
     let rolled = false
     const midnight: TimelineHistory = {
       ...history,
-      latest: async () => ({ ...(await history.latest()), manifest_yesterday_path: rolled ? 'manifest/2026-10-03.json' : 'manifest/2026-10-02.json' }),
+      latest: async () => ({
+        ...(await history.latest()),
+        manifest_yesterday_path: rolled ? 'manifest/2026-10-03.json' : 'manifest/2026-10-02.json',
+      }),
       manifest: async (path) => {
         if (path.includes('10-02')) throw new Error('the old yesterday is the wrong day')
         return history.manifest(path)

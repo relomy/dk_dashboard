@@ -5,7 +5,14 @@ import { TimelineRail } from '../components/shifts/TimelineRail'
 import { useTimelineView } from '../hooks/useTimelineView'
 import { buildLiveModel, type LiveModel } from '../lib/liveModel'
 import type { ProfileMatchRules } from '../lib/profiles'
-import type { CashLineShiftItem, ContestShiftItem, LineupSlotDiff, ShiftPart, Timeline, VipShiftItem } from '../lib/shifts'
+import type {
+  CashLineShiftItem,
+  ContestShiftItem,
+  LineupSlotDiff,
+  ShiftPart,
+  Timeline,
+  VipShiftItem,
+} from '../lib/shifts'
 import { load } from './liveHarness'
 
 const result = buildLiveModel(load(), 'nfl')
@@ -42,13 +49,35 @@ function vip(id: string, vipKey: string, parts: ShiftPart[]): VipShiftItem {
     ...(parts.includes('crossings') ? { crossing: { path: 'in' as const, cause: null } } : {}),
   }
 }
-const cashLine: CashLineShiftItem = { kind: 'cash-line', id: 'cash', priority: 'normal', detectedAt: 0, snapshotAt: '2026-10-04T18:00:00Z', parts: ['cash-line'], points: move(90, 95), rank: move(500, 490) }
-const completed: ContestShiftItem = { kind: 'contest-state', id: 'state', priority: 'high', detectedAt: 0, snapshotAt: '2026-10-04T18:00:00Z', parts: ['contest-state'], state: move('live', 'completed') }
+const cashLine: CashLineShiftItem = {
+  kind: 'cash-line',
+  id: 'cash',
+  priority: 'normal',
+  detectedAt: 0,
+  snapshotAt: '2026-10-04T18:00:00Z',
+  parts: ['cash-line'],
+  points: move(90, 95),
+  rank: move(500, 490),
+}
+const completed: ContestShiftItem = {
+  kind: 'contest-state',
+  id: 'state',
+  priority: 'high',
+  detectedAt: 0,
+  snapshotAt: '2026-10-04T18:00:00Z',
+  parts: ['contest-state'],
+  state: move('live', 'completed'),
+}
 
 /** Newest first: 18:15 a mixed row for the first VIP; 18:10 the second VIP's rank move; 18:05 the cash line; 18:00 completion. */
 const TIMELINE: Timeline = {
   entries: [
-    { kind: 'step', id: 's15', snapshotAt: '2026-10-04T18:15:00Z', items: [vip('mixed', FIRST.key, ['rank-points', 'player-events', 'crossings'])] },
+    {
+      kind: 'step',
+      id: 's15',
+      snapshotAt: '2026-10-04T18:15:00Z',
+      items: [vip('mixed', FIRST.key, ['rank-points', 'player-events', 'crossings'])],
+    },
     { kind: 'step', id: 's10', snapshotAt: '2026-10-04T18:10:00Z', items: [vip('other', SECOND.key, ['rank-points'])] },
     { kind: 'step', id: 's05', snapshotAt: '2026-10-04T18:05:00Z', items: [cashLine] },
     { kind: 'step', id: 's00', snapshotAt: '2026-10-04T18:00:00Z', items: [completed] },
@@ -65,7 +94,17 @@ function Harness({ rules = TWO, timeline = TIMELINE }: { rules?: ProfileMatchRul
   return (
     <>
       <TimelineFilterBar view={view} model={MODEL} username={rules.username} />
-      <TimelineRail timeline={timeline} model={MODEL} rules={rules} view={view} seenAt={null} range={{ loaded: 4, cap: 60, reach: 'window' }} onLoadMore={undefined} onRetryGap={() => {}} more={{ busy: false, progress: null, error: null, announcement: '' }} />
+      <TimelineRail
+        timeline={timeline}
+        model={MODEL}
+        rules={rules}
+        view={view}
+        seenAt={null}
+        range={{ loaded: 4, cap: 60, reach: 'window' }}
+        onLoadMore={undefined}
+        onRetryGap={() => {}}
+        more={{ busy: false, progress: null, error: null, announcement: '' }}
+      />
     </>
   )
 }
@@ -76,7 +115,7 @@ const chip = (name: string | RegExp) => screen.getByRole('button', { name })
 afterEach(cleanup)
 
 describe('the filter bar', () => {
-  it('shows chips with aria-pressed, defaulting to the Profile\'s VIPs, every kind on and High priority only off', () => {
+  it("shows chips with aria-pressed, defaulting to the Profile's VIPs, every kind on and High priority only off", () => {
     render(<Harness />)
     expect(chip(FIRST.name).getAttribute('aria-pressed')).toBe('true')
     expect(chip(SECOND.name).getAttribute('aria-pressed')).toBe('true')
@@ -231,7 +270,9 @@ describe('Compact', () => {
     expect(screen.queryByText(/filtered out/i)).toBeNull()
     const newest = steps()[0]
     expect(within(newest).getByRole('time').getAttribute('datetime')).toBe('2026-10-04T18:15:00Z')
-    const lines = within(newest).getAllByRole('listitem').map((li) => li.textContent)
+    const lines = within(newest)
+      .getAllByRole('listitem')
+      .map((li) => li.textContent)
     expect(lines).toHaveLength(3)
     expect(lines[0]).toContain(`${FIRST.name} rank`)
     expect(lines.some((line) => line?.includes('moved into cashing'))).toBe(true)

@@ -148,13 +148,7 @@ describe('trimSnapshot standings', () => {
       ownership_watchlist: { entries: [{ entry_key: 'watched' }] },
     })
 
-    expect(keptEntryKeys(trimSnapshot(text, options).text)).toEqual([
-      'a',
-      'a-tie',
-      'watched',
-      'watched-tie',
-      'x',
-    ])
+    expect(keptEntryKeys(trimSnapshot(text, options).text)).toEqual(['a', 'a-tie', 'watched', 'watched-tie', 'x'])
   })
 })
 

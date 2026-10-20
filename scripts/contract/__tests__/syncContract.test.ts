@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { GOLDENS_DIR, PIN_PATH, SCHEMA_PATH, TYPES_PATH, syncContract, type ContractFiles, type ProducerSource } from '../lib/syncContract'
+import {
+  GOLDENS_DIR,
+  PIN_PATH,
+  SCHEMA_PATH,
+  TYPES_PATH,
+  syncContract,
+  type ContractFiles,
+  type ProducerSource,
+} from '../lib/syncContract'
 
 const COMMIT = '6ae728d8062629852789c3ded7e6f663ca68fdf9'
 const SCHEMA = JSON.stringify({
@@ -28,7 +36,8 @@ function repo(existing: Record<string, string> = {}): ContractFiles & { files: M
     files,
     write: (path, text) => void files.set(path, text),
     remove: (path) => void files.delete(path),
-    list: (dir) => [...files.keys()].filter((path) => path.startsWith(`${dir}/`)).map((path) => path.slice(dir.length + 1)),
+    list: (dir) =>
+      [...files.keys()].filter((path) => path.startsWith(`${dir}/`)).map((path) => path.slice(dir.length + 1)),
   }
 }
 
@@ -39,7 +48,12 @@ describe('syncContract', () => {
 
     await syncContract(COMMIT, { source, files })
 
-    expect(source.reads).toEqual([`schema@${COMMIT}`, `list@${COMMIT}`, `golf.json@${COMMIT}`, `nfl_mid_slate.json@${COMMIT}`])
+    expect(source.reads).toEqual([
+      `schema@${COMMIT}`,
+      `list@${COMMIT}`,
+      `golf.json@${COMMIT}`,
+      `nfl_mid_slate.json@${COMMIT}`,
+    ])
     expect(files.files.get(SCHEMA_PATH)).toBe(SCHEMA)
     expect(files.files.get(`${GOLDENS_DIR}/golf.json`)).toBe('{"golden":"golf.json"}\n')
     expect(files.files.get(`${GOLDENS_DIR}/nfl_mid_slate.json`)).toBe('{"golden":"nfl_mid_slate.json"}\n')

@@ -42,7 +42,17 @@ function ScopedBanner({ feed, sport }: { feed: ShiftsFeed; sport: string | null 
  * so surfacing one never blanks the others while they are being read. Surfacing is explicit: only Dismiss calls
  * `markSurfaced`, so an item never dismissed shows again on the next load.
  */
-function BannerRows({ feed, model, sport, username }: { feed: ShiftsFeed; model: LiveModel; sport: string; username: string | undefined }) {
+function BannerRows({
+  feed,
+  model,
+  sport,
+  username,
+}: {
+  feed: ShiftsFeed
+  model: LiveModel
+  sport: string
+  username: string | undefined
+}) {
   const items = useSyncExternalStore(feed.subscribe, feed.feed)
   const away = useSyncExternalStore(feed.subscribe, feed.awaySummary)
   const [shownIds, setShownIds] = useState<string[]>([])

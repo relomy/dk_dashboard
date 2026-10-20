@@ -73,7 +73,8 @@ export interface VipSpec {
 export function setVips(snapshot: Json, vips: VipSpec[], sport = SPORT) {
   const contest = contestOf(snapshot, sport)
   const pool: Json[] = snapshot.sports[sport].players
-  const keyOf = (name: string): string | undefined => pool.find((row) => String(row.name).trim() === name.trim())?.player_key
+  const keyOf = (name: string): string | undefined =>
+    pool.find((row) => String(row.name).trim() === name.trim())?.player_key
   contest.vip_lineups = vips.map((vip) => {
     const names = vip.players ?? []
     const liveRows =

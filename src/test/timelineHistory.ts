@@ -6,7 +6,8 @@ import type { DayManifest, LatestResponse, ManifestSnapshotSummary } from '../li
 export type Json = any
 
 const MINUTE = 5
-export const stamp = (index: number) => new Date(Date.UTC(2026, 9, 4, 18, index * MINUTE)).toISOString().replace('.000Z', 'Z')
+export const stamp = (index: number) =>
+  new Date(Date.UTC(2026, 9, 4, 18, index * MINUTE)).toISOString().replace('.000Z', 'Z')
 export const pathOf = (index: number) => `snapshots/live-${index}.json`
 
 /** The NFL fixture as the snapshot published at slot `index`, the first VIP moving 10 ranks and 5 points per slot. */

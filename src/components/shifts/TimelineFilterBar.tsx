@@ -7,7 +7,14 @@ import { vipName } from './shiftText'
 
 function Chip({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <Button type="button" variant={pressed ? 'secondary' : 'outline'} size="sm" aria-pressed={pressed} onClick={onClick} className={cn('shrink-0', pressed && 'border-ring')}>
+    <Button
+      type="button"
+      variant={pressed ? 'secondary' : 'outline'}
+      size="sm"
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={cn('shrink-0', pressed && 'border-ring')}
+    >
       {children}
     </Button>
   )
@@ -17,7 +24,15 @@ function Chip({ pressed, onClick, children }: { pressed: boolean; onClick: () =>
  * The always-visible filter bar: a VIP strip (left out with a single followed VIP), a kind strip, High priority only
  * and Compact. Each strip scrolls sideways so the bar fits 375px.
  */
-export function TimelineFilterBar({ view, model, username }: { view: TimelineView; model: LiveModel; username: string | undefined }) {
+export function TimelineFilterBar({
+  view,
+  model,
+  username,
+}: {
+  view: TimelineView
+  model: LiveModel
+  username: string | undefined
+}) {
   const { filters } = view
   return (
     <div role="group" aria-label="Timeline filters" className="space-y-1.5">

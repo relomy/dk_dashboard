@@ -31,8 +31,7 @@ export const onRequestPost: PagesFunction<EnvBindings> = async ({ request, env }
     return jsonError(400, 'owner_safety_violation', 'Owners cannot deactivate themselves.')
   }
 
-  const target = await env.AUTH_DB
-    .prepare('SELECT id, role, is_active FROM users WHERE id = ?')
+  const target = await env.AUTH_DB.prepare('SELECT id, role, is_active FROM users WHERE id = ?')
     .bind(userId)
     .first<{ id: string; role: 'owner' | 'friend'; is_active: number }>()
 
@@ -42,8 +41,9 @@ export const onRequestPost: PagesFunction<EnvBindings> = async ({ request, env }
 
   const activeTarget = target.is_active === 1
   if (target.role === 'owner' && activeTarget) {
-    const countRows = await env.AUTH_DB
-      .prepare("SELECT COUNT(*) AS active_owner_count FROM users WHERE role = 'owner' AND is_active = 1")
+    const countRows = await env.AUTH_DB.prepare(
+      "SELECT COUNT(*) AS active_owner_count FROM users WHERE role = 'owner' AND is_active = 1",
+    )
       .bind()
       .all<{ active_owner_count: number | string }>()
     const activeOwnerCount = Number(countRows.results[0]?.active_owner_count ?? 0)
@@ -53,10 +53,7 @@ export const onRequestPost: PagesFunction<EnvBindings> = async ({ request, env }
   }
 
   const nowIso = new Date().toISOString()
-  await env.AUTH_DB
-    .prepare('UPDATE users SET is_active = 0, updated_at = ? WHERE id = ?')
-    .bind(nowIso, userId)
-    .run()
+  await env.AUTH_DB.prepare('UPDATE users SET is_active = 0, updated_at = ? WHERE id = ?').bind(nowIso, userId).run()
   await revokeAllSessionsForUser(env.AUTH_DB, userId, nowIso)
 
   await writeAuditEvent(env.AUTH_DB, {

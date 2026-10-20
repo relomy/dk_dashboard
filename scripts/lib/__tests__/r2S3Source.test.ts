@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import { r2S3Source, type RunCommand } from '../r2S3Source'
 
-const ENV = { R2_ACCESS_KEY_ID: 'AKIDEXAMPLE0123', R2_SECRET_ACCESS_KEY: 'sEcReT/value+0123', CLOUDFLARE_ACCOUNT_ID: 'acct123' }
+const ENV = {
+  R2_ACCESS_KEY_ID: 'AKIDEXAMPLE0123',
+  R2_SECRET_ACCESS_KEY: 'sEcReT/value+0123',
+  CLOUDFLARE_ACCOUNT_ID: 'acct123',
+}
 const KEY = 'snapshots/live-2026-10-04T18-41-34Z.json'
 
 interface Call {
@@ -42,7 +46,9 @@ describe('r2S3Source', () => {
   it('fails naming the object and the status, without the credentials or anything the response said', () => {
     const run = fakeRun(() => {
       const error = new Error(`Command failed: curl --user ${ENV.R2_ACCESS_KEY_ID}:${ENV.R2_SECRET_ACCESS_KEY}`)
-      Object.assign(error, { stderr: 'curl: (22) The requested URL returned error: 403\n<Error>SignatureDoesNotMatch</Error>' })
+      Object.assign(error, {
+        stderr: 'curl: (22) The requested URL returned error: 403\n<Error>SignatureDoesNotMatch</Error>',
+      })
       throw error
     })
 

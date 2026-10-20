@@ -33,7 +33,7 @@ function Settings() {
   const [username, setUsername] = useState('')
 
   const editingProfile = useMemo(
-    () => (editingId ? profiles.find((profile) => profile.id === editingId) ?? null : null),
+    () => (editingId ? (profiles.find((profile) => profile.id === editingId) ?? null) : null),
     [editingId, profiles],
   )
 

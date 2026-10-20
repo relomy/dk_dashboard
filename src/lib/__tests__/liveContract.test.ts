@@ -17,8 +17,14 @@ import { staleAllowlistEntries, unallowlistedPaths } from '../unreadPaths'
  * - Every field an input emits must be read by the Live model or listed, with its reason, in
  *   src/lib/liveUnreadAllowlist.json (the unread-field detector, src/lib/unreadPaths.ts).
  */
-const GOLDENS: Record<string, unknown> = import.meta.glob('../../../contract/goldens/*.json', { eager: true, import: 'default' })
-const PROD_FIXTURES: Record<string, unknown> = import.meta.glob('../../../contract/prod-fixtures/snapshots/*.json', { eager: true, import: 'default' })
+const GOLDENS: Record<string, unknown> = import.meta.glob('../../../contract/goldens/*.json', {
+  eager: true,
+  import: 'default',
+})
+const PROD_FIXTURES: Record<string, unknown> = import.meta.glob('../../../contract/prod-fixtures/snapshots/*.json', {
+  eager: true,
+  import: 'default',
+})
 const INPUTS: Record<string, unknown> = {
   ...import.meta.glob('../../../public/mock/snapshots/*.json', { eager: true, import: 'default' }),
   ...PROD_FIXTURES,

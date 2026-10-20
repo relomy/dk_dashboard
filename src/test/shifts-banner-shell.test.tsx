@@ -24,7 +24,10 @@ function stubApi() {
     vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.includes('/api/auth/me')) {
-        return new Response(JSON.stringify({ user: { id: 'u1', username: 'dana', role, must_change_password: false } }), { status: 200 })
+        return new Response(
+          JSON.stringify({ user: { id: 'u1', username: 'dana', role, must_change_password: false } }),
+          { status: 200 },
+        )
       }
       if (url.includes('/api/auth/csrf')) {
         return new Response(JSON.stringify({ csrf_token: 'csrf_1' }), { status: 200 })
@@ -224,10 +227,7 @@ describe('the Shifts banner in the app shell', () => {
   })
 
   it('says "You" for the VIP the active Profile\'s username rule matches', async () => {
-    store.set(
-      'dk_dashboard_profiles',
-      JSON.stringify([{ id: 'me', name: 'Me', rules: { username: 'EmpireMaker2' } }]),
-    )
+    store.set('dk_dashboard_profiles', JSON.stringify([{ id: 'me', name: 'Me', rules: { username: 'EmpireMaker2' } }]))
     store.set('dk_dashboard_active_profile_id', 'me')
     const { client } = renderShell('/live/nfl')
     await screen.findByRole('link', { name: 'Shifts, 0 unseen' })

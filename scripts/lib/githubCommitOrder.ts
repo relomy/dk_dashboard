@@ -11,17 +11,22 @@ const MAX_RESPONSE_BYTES = 8 * 1024 * 1024
  * error, never a verdict.
  */
 export function githubCommitOrder(
-  run: RunCommand = (command, args, options) => execFileSync(command, args, { ...options, stdio: ['pipe', 'pipe', 'pipe'] }),
+  run: RunCommand = (command, args, options) =>
+    execFileSync(command, args, { ...options, stdio: ['pipe', 'pipe', 'pipe'] }),
 ): (commit: string, base: string) => boolean {
   return (commit, base) => {
     const url = `https://api.github.com/repos/${PRODUCER}/compare/${base}...${commit}`
     const failure = `Comparing ${base} with ${commit} on ${PRODUCER}`
     let body: string
     try {
-      body = run('curl', ['--silent', '--show-error', '--fail', '--header', 'Accept: application/vnd.github+json', url], {
-        encoding: 'utf8',
-        maxBuffer: MAX_RESPONSE_BYTES,
-      })
+      body = run(
+        'curl',
+        ['--silent', '--show-error', '--fail', '--header', 'Accept: application/vnd.github+json', url],
+        {
+          encoding: 'utf8',
+          maxBuffer: MAX_RESPONSE_BYTES,
+        },
+      )
     } catch (error) {
       throw new Error(`${failure} failed (${describeCurlFailure(error)}).`)
     }

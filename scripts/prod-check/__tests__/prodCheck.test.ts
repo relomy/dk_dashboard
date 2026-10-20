@@ -234,7 +234,9 @@ describe('runProdCheck presence warnings', () => {
     expect(result.exitCode).toBe(1)
     expect(result.outcome).toBe('producer')
     expect(result.output).toContain('Presence warnings (2)')
-    expect(result.output).toContain('  - sports.nfl.contests[0].standings[3].payout_cents: a cashing standings row has a payout')
+    expect(result.output).toContain(
+      '  - sports.nfl.contests[0].standings[3].payout_cents: a cashing standings row has a payout',
+    )
     expect(result.output).toContain('  - sports.nfl.players[7].stats_text: an in-progress player has stats')
     expect(result.output).toContain('FAIL')
     expect(result.output).not.toContain('{')
@@ -275,7 +277,10 @@ describe('runProdCheck presence warnings', () => {
   })
 
   it('lists every warning, however many', () => {
-    const many = Array.from({ length: 12 }, (_, i) => ({ path: `sports.nfl.players[${i}].stats_text`, rule: 'an in-progress player has stats' }))
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      path: `sports.nfl.players[${i}].stats_text`,
+      rule: 'an in-progress player has stats',
+    }))
 
     const result = runProdCheck(['nfl', KEY], { source: source({ [KEY]: withPresenceWarnings(many) }), env: {} })
 
@@ -366,16 +371,22 @@ describe('runProdCheck --expect-commit', () => {
         env: {},
         commitOrder: order.isSameOrDescendant,
       }),
-    ).toThrow(`The snapshot has no producer commit (older snapshots do not), so it cannot be checked against ${EXPECTED}.`)
+    ).toThrow(
+      `The snapshot has no producer commit (older snapshots do not), so it cannot be checked against ${EXPECTED}.`,
+    )
     expect(order.asked).toEqual([])
   })
 
   it('rejects an expected commit that is not a full SHA before reading anything', () => {
     const snapshots = source({ [KEY]: FIXTURE })
 
-    expect(() => runProdCheck(['--expect-commit', 'abc123', KEY], { source: snapshots, env: {}, commitOrder: commitOrder(true).isSameOrDescendant })).toThrow(
-      'Expected --expect-commit to be a full 40-character lowercase commit SHA, got "abc123".',
-    )
+    expect(() =>
+      runProdCheck(['--expect-commit', 'abc123', KEY], {
+        source: snapshots,
+        env: {},
+        commitOrder: commitOrder(true).isSameOrDescendant,
+      }),
+    ).toThrow('Expected --expect-commit to be a full 40-character lowercase commit SHA, got "abc123".')
     expect(snapshots.reads).toEqual([])
   })
 

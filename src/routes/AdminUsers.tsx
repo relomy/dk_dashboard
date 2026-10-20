@@ -126,9 +126,7 @@ function AdminUsers() {
     setError(null)
     try {
       await deactivateAdminUser(target.id)
-      setUsers((prev) =>
-        sortUsers(prev.map((item) => (item.id === target.id ? { ...item, is_active: false } : item))),
-      )
+      setUsers((prev) => sortUsers(prev.map((item) => (item.id === target.id ? { ...item, is_active: false } : item))))
     } catch (deactivateError) {
       setError(deactivateError instanceof Error ? deactivateError.message : 'Unable to deactivate user.')
     }
@@ -138,9 +136,7 @@ function AdminUsers() {
     setError(null)
     try {
       await reactivateAdminUser(target.id)
-      setUsers((prev) =>
-        sortUsers(prev.map((item) => (item.id === target.id ? { ...item, is_active: true } : item))),
-      )
+      setUsers((prev) => sortUsers(prev.map((item) => (item.id === target.id ? { ...item, is_active: true } : item))))
     } catch (reactivateError) {
       setError(reactivateError instanceof Error ? reactivateError.message : 'Unable to reactivate user.')
     }
@@ -250,7 +246,9 @@ function AdminUsers() {
                       </Badge>
                     </TableCell>
                     <TableCell className="max-sm:hidden">{item.must_change_password ? 'yes' : 'no'}</TableCell>
-                    <TableCell className="font-mono text-muted-foreground max-sm:hidden">{item.last_login_at ?? '—'}</TableCell>
+                    <TableCell className="font-mono text-muted-foreground max-sm:hidden">
+                      {item.last_login_at ?? '—'}
+                    </TableCell>
                     <TableCell className="whitespace-normal">
                       <div className="flex flex-wrap gap-1.5">
                         <Button type="button" variant="outline" size="sm" onClick={() => void onResetPassword(item)}>

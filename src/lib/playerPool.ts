@@ -40,11 +40,9 @@ export function numberOrNull(value: unknown): number | null {
 }
 
 function toRow(player: Player, index: number): PlayerPoolRow {
-  const position =
-    firstNonBlank(player.position, joinRosterPositions(player.roster_positions)) ?? DASH
+  const position = firstNonBlank(player.position, joinRosterPositions(player.roster_positions)) ?? DASH
   const key =
-    player.player_key ||
-    (`${player.name}|${player.team}|${player.salary}|${position}`.trim() || `player-${index}`)
+    player.player_key || `${player.name}|${player.team}|${player.salary}|${position}`.trim() || `player-${index}`
   return {
     key,
     name: player.name,

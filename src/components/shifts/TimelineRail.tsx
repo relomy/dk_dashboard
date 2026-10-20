@@ -6,7 +6,15 @@ import { cn } from '@/lib/utils'
 import { formatPoints, formatRank, formatSigned } from '../../lib/format'
 import type { LiveModel } from '../../lib/liveModel'
 import type { ProfileMatchRules } from '../../lib/profiles'
-import type { CashLineShiftItem, ContestShiftItem, FinalStanding, GapReason, Timeline, TimelineGapEntry, TimelineStep } from '../../lib/shifts'
+import type {
+  CashLineShiftItem,
+  ContestShiftItem,
+  FinalStanding,
+  GapReason,
+  Timeline,
+  TimelineGapEntry,
+  TimelineStep,
+} from '../../lib/shifts'
 import { ALL_KINDS, filterTimeline, type FilteredEntry, type FilteredItem } from '../../lib/timelineFilter'
 import type { TimelineView } from '../../hooks/useTimelineView'
 import type { LoadMoreState } from '../../hooks/useShiftsTimeline'
@@ -17,21 +25,27 @@ import { contestStateText, describeItem, finalStandingText, lineMoveText, PATH_T
 
 function clockOf(snapshotAt: string): string {
   const date = new Date(snapshotAt)
-  return Number.isNaN(date.getTime()) ? snapshotAt : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+  return Number.isNaN(date.getTime())
+    ? snapshotAt
+    : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 /** A time with its date when it falls on an earlier day than `reference`, in the same local time as the rest of the rail. */
 function stampOf(at: string, reference: string | null): string {
   const date = new Date(at)
   const ref = reference === null ? null : new Date(reference)
-  if (Number.isNaN(date.getTime()) || !ref || Number.isNaN(ref.getTime()) || date.toDateString() === ref.toDateString()) return clockOf(at)
+  if (Number.isNaN(date.getTime()) || !ref || Number.isNaN(ref.getTime()) || date.toDateString() === ref.toDateString())
+    return clockOf(at)
   return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${clockOf(at)}`
 }
 
 /** The contest's final standings, the Profile's VIPs first. Contest-level: the VIP filter never hides them. */
 function orderedStandings(item: ContestShiftItem, followed: ReadonlySet<string>): FinalStanding[] {
   const standings = item.standings ?? []
-  return [...standings.filter((standing) => followed.has(standing.vipKey)), ...standings.filter((standing) => !followed.has(standing.vipKey))]
+  return [
+    ...standings.filter((standing) => followed.has(standing.vipKey)),
+    ...standings.filter((standing) => !followed.has(standing.vipKey)),
+  ]
 }
 
 /** The "+N hidden" chip: reveals the parts of a row the filters hid. */
@@ -48,7 +62,12 @@ function HiddenToggle({ count, revealed, onToggle }: { count: number; revealed: 
 function useRowParts({ shown, hidden }: FilteredItem) {
   const [revealed, setRevealed] = useState(false)
   const parts = revealed ? ALL_KINDS.filter((kind) => shown.includes(kind) || hidden.includes(kind)) : shown
-  return { parts, toggleChip: <HiddenToggle count={hidden.length} revealed={revealed} onToggle={() => setRevealed((value) => !value)} /> }
+  return {
+    parts,
+    toggleChip: (
+      <HiddenToggle count={hidden.length} revealed={revealed} onToggle={() => setRevealed((value) => !value)} />
+    ),
+  }
 }
 
 function VipRow({ row, name, filtered }: { row: FilteredItem; name: string; filtered: boolean }) {
@@ -56,7 +75,8 @@ function VipRow({ row, name, filtered }: { row: FilteredItem; name: string; filt
   const { parts, toggleChip } = useRowParts(row)
   if (item.kind !== 'vip') return null
   const crossingCause = item.crossing?.cause ? lineMoveText(item.crossing.cause) : ''
-  const showLineup = parts.includes('player-events') || (!filtered && !item.parts.includes('player-events') && shown.length > 0)
+  const showLineup =
+    parts.includes('player-events') || (!filtered && !item.parts.includes('player-events') && shown.length > 0)
   return (
     <section aria-label={name} className="space-y-1 border-t border-border px-3 py-2 first:border-t-0">
       <h2 className="flex items-center gap-2 font-semibold">
@@ -64,7 +84,9 @@ function VipRow({ row, name, filtered }: { row: FilteredItem; name: string; filt
         {item.priority === 'high' && parts.includes('crossings') ? <Badge variant="destructive">High</Badge> : null}
       </h2>
       {parts.includes('crossings') && item.crossing ? <p>{PATH_TEXT[item.crossing.path]}</p> : null}
-      {parts.includes('crossings') && crossingCause ? <p className="text-muted-foreground">The cash line moved {crossingCause}. Their lineup did not cause this.</p> : null}
+      {parts.includes('crossings') && crossingCause ? (
+        <p className="text-muted-foreground">The cash line moved {crossingCause}. Their lineup did not cause this.</p>
+      ) : null}
       {parts.includes('rank-points') ? (
         <>
           <MoveRow label="Rank" move={item.rank} format={formatRank} lowerIsBetter places />
@@ -82,7 +104,17 @@ function CashLineRow({ item }: { item: CashLineShiftItem }) {
   return <p className="bg-cash-line-muted px-3 py-2 text-cash-line">The cash line moved {lineMoveText(item)}</p>
 }
 
-function ContestRow({ item, model, followed, username }: { item: ContestShiftItem; model: LiveModel; followed: ReadonlySet<string>; username: string | undefined }) {
+function ContestRow({
+  item,
+  model,
+  followed,
+  username,
+}: {
+  item: ContestShiftItem
+  model: LiveModel
+  followed: ReadonlySet<string>
+  username: string | undefined
+}) {
   const standings = orderedStandings(item, followed)
   return (
     <div className="space-y-1 border-t border-border px-3 py-2 first:border-t-0">
@@ -96,7 +128,8 @@ function ContestRow({ item, model, followed, username }: { item: ContestShiftIte
             <li key={standing.vipKey} className="flex justify-between gap-2">
               <span>{vipName(model, standing.vipKey, username)}</span>
               <span className="font-mono tabular-nums">
-                {formatRank(standing.rank.to)} · {formatPoints(standing.points.to)} · {standing.cashing ? 'Cashing' : 'Not cashing'}
+                {formatRank(standing.rank.to)} · {formatPoints(standing.points.to)} ·{' '}
+                {standing.cashing ? 'Cashing' : 'Not cashing'}
               </span>
             </li>
           ))}
@@ -107,7 +140,17 @@ function ContestRow({ item, model, followed, username }: { item: ContestShiftIte
 }
 
 /** Compact: one short line per change, with the row's "+N hidden" chip after its last line. */
-function CompactItem({ row, model, followed, username }: { row: FilteredItem; model: LiveModel; followed: ReadonlySet<string>; username: string | undefined }) {
+function CompactItem({
+  row,
+  model,
+  followed,
+  username,
+}: {
+  row: FilteredItem
+  model: LiveModel
+  followed: ReadonlySet<string>
+  username: string | undefined
+}) {
   const { item } = row
   const { parts, toggleChip } = useRowParts(row)
   const lines: string[] =
@@ -116,7 +159,9 @@ function CompactItem({ row, model, followed, username }: { row: FilteredItem; mo
       : [
           describeItem(item, model, username),
           ...(item.kind === 'contest-state'
-            ? orderedStandings(item, followed).map((standing) => finalStandingText(vipName(model, standing.vipKey, username), standing.rank.to, standing.cashing))
+            ? orderedStandings(item, followed).map((standing) =>
+                finalStandingText(vipName(model, standing.vipKey, username), standing.rank.to, standing.cashing),
+              )
             : []),
         ]
   return (
@@ -131,9 +176,30 @@ function CompactItem({ row, model, followed, username }: { row: FilteredItem; mo
   )
 }
 
-function StepCard({ step, rows, model, followed, username, compact, filtered }: { step: TimelineStep; rows: FilteredItem[]; model: LiveModel; followed: ReadonlySet<string>; username: string | undefined; compact: boolean; filtered: boolean }) {
+function StepCard({
+  step,
+  rows,
+  model,
+  followed,
+  username,
+  compact,
+  filtered,
+}: {
+  step: TimelineStep
+  rows: FilteredItem[]
+  model: LiveModel
+  followed: ReadonlySet<string>
+  username: string | undefined
+  compact: boolean
+  filtered: boolean
+}) {
   return (
-    <article aria-label={`Step at ${clockOf(step.snapshotAt)}`} data-snapshot-at={step.snapshotAt} tabIndex={-1} className="min-w-0 outline-none">
+    <article
+      aria-label={`Step at ${clockOf(step.snapshotAt)}`}
+      data-snapshot-at={step.snapshotAt}
+      tabIndex={-1}
+      className="min-w-0 outline-none"
+    >
       <Card size="sm" className="gap-0 py-0">
         <header className="flex items-center justify-between border-b border-border px-3 py-1.5 font-mono text-xs text-muted-foreground">
           <time dateTime={step.snapshotAt}>{clockOf(step.snapshotAt)}</time>
@@ -149,7 +215,9 @@ function StepCard({ step, rows, model, followed, username, compact, filtered }: 
             const { item } = row
             switch (item.kind) {
               case 'vip':
-                return <VipRow key={item.id} row={row} name={vipName(model, item.vipKey, username)} filtered={filtered} />
+                return (
+                  <VipRow key={item.id} row={row} name={vipName(model, item.vipKey, username)} filtered={filtered} />
+                )
               case 'cash-line':
                 return <CashLineRow key={item.id} item={item} />
               case 'contest-state':
@@ -172,7 +240,15 @@ const GAP_LABELS: Record<GapReason, string> = {
 }
 
 /** A dashed rail node where a snapshot was skipped; only a failure offers a retry, and a failed retry says so. */
-function GapNode({ gap, onRetry, onRetried }: { gap: TimelineGapEntry; onRetry: (snapshotAt: string) => Promise<RetryOutcome> | RetryOutcome; onRetried: (snapshotAt: string) => void }) {
+function GapNode({
+  gap,
+  onRetry,
+  onRetried,
+}: {
+  gap: TimelineGapEntry
+  onRetry: (snapshotAt: string) => Promise<RetryOutcome> | RetryOutcome
+  onRetried: (snapshotAt: string) => void
+}) {
   const [retrying, setRetrying] = useState(false)
   const [failed, setFailed] = useState(false)
   // Only a failed fetch offers a retry; a snapshot that is not fresh or not renderable would fail the same way.
@@ -193,7 +269,11 @@ function GapNode({ gap, onRetry, onRetried }: { gap: TimelineGapEntry; onRetry: 
     }
   }
   return (
-    <div role="group" aria-label={`${label} at ${clockOf(gap.snapshotAt)}`} className="space-y-1 rounded-xl border border-dashed border-border px-3 py-2 text-muted-foreground">
+    <div
+      role="group"
+      aria-label={`${label} at ${clockOf(gap.snapshotAt)}`}
+      className="space-y-1 rounded-xl border border-dashed border-border px-3 py-2 text-muted-foreground"
+    >
       <p className="font-medium">{label}</p>
       <p className="text-xs">Shifts inside it may be lost; the Steps either side are compared across it.</p>
       {retriable ? (
@@ -211,12 +291,30 @@ function GapNode({ gap, onRetry, onRetried }: { gap: TimelineGapEntry; onRetry: 
 }
 
 /** A rail row: the dot on the rail, then the node itself. */
-function RailRow({ children, dashed = false, arrived = false }: { children: React.ReactNode; dashed?: boolean; arrived?: boolean }) {
+function RailRow({
+  children,
+  dashed = false,
+  arrived = false,
+}: {
+  children: React.ReactNode
+  dashed?: boolean
+  arrived?: boolean
+}) {
   return (
-    <li className={cn('grid grid-cols-[1rem_minmax(0,1fr)] gap-x-2', arrived && 'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-2')}>
+    <li
+      className={cn(
+        'grid grid-cols-[1rem_minmax(0,1fr)] gap-x-2',
+        arrived && 'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-2',
+      )}
+    >
       <div className="relative" aria-hidden="true">
         <span className="absolute inset-y-0 left-[7px] border-l-2 border-border" />
-        <span className={cn('absolute left-[2px] top-3.5 size-3 rounded-full border-2 border-muted-foreground bg-background', dashed && 'border-dashed')} />
+        <span
+          className={cn(
+            'absolute left-[2px] top-3.5 size-3 rounded-full border-2 border-muted-foreground bg-background',
+            dashed && 'border-dashed',
+          )}
+        />
       </div>
       <div className="py-1.5">{children}</div>
     </li>
@@ -246,10 +344,16 @@ function useArrivals(timeline: Timeline, visible: FilteredEntry[]): Arrivals {
     const seen = fresh.filter((step) => shown.has(step.id))
     const newest = seen[0] ? clockOf(seen[0].snapshotAt) : ''
     setArrivals({
-      newestAt: arrivals.newestAt !== null && newestAt !== null && newestAt < arrivals.newestAt ? arrivals.newestAt : newestAt,
+      newestAt:
+        arrivals.newestAt !== null && newestAt !== null && newestAt < arrivals.newestAt ? arrivals.newestAt : newestAt,
       ids: new Set([...arrivals.ids, ...fresh.map((step) => step.id)]),
       // Naming the time makes every arrival a new message, so repeats are announced too.
-      announcement: seen.length === 0 ? '' : seen.length === 1 ? `New Step at ${newest}` : `${seen.length} new Steps, newest ${newest}`,
+      announcement:
+        seen.length === 0
+          ? ''
+          : seen.length === 1
+            ? `New Step at ${newest}`
+            : `${seen.length} new Steps, newest ${newest}`,
     })
   }
   return arrivals
@@ -268,7 +372,10 @@ function SeenMark({ stamp }: { stamp: string }) {
 
 /** The oldest snapshot time the rail reaches, whether a step, a gap or the range note's digest. */
 function rangeFloor(timeline: Timeline): number | null {
-  const times = [...timeline.entries.map((entry) => entry.snapshotAt), ...(timeline.rangeNote ? [timeline.rangeNote.snapshotAt] : [])].map((at) => Date.parse(at))
+  const times = [
+    ...timeline.entries.map((entry) => entry.snapshotAt),
+    ...(timeline.rangeNote ? [timeline.rangeNote.snapshotAt] : []),
+  ].map((at) => Date.parse(at))
   return times.length > 0 ? Math.min(...times) : null
 }
 
@@ -279,7 +386,9 @@ function RangeMeter({ range, more }: { range: TimelineRange; more: LoadMoreState
     <div className="sticky top-0 z-10 -mx-1 space-y-1 bg-background/95 px-1 py-2 backdrop-blur">
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>{text}</span>
-        {more.busy ? <span>{more.progress ? `Loading ${more.progress.done} of ${more.progress.total}...` : 'Loading...'}</span> : null}
+        {more.busy ? (
+          <span>{more.progress ? `Loading ${more.progress.done} of ${more.progress.total}...` : 'Loading...'}</span>
+        ) : null}
       </div>
       <div
         role="progressbar"
@@ -291,7 +400,13 @@ function RangeMeter({ range, more }: { range: TimelineRange; more: LoadMoreState
         aria-busy={more.busy}
         className="h-1.5 overflow-hidden rounded-full bg-muted"
       >
-        <div className={cn('h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none', more.busy && 'animate-pulse motion-reduce:animate-none')} style={{ width: `${Math.min(100, (range.loaded / range.cap) * 100)}%` }} />
+        <div
+          className={cn(
+            'h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none',
+            more.busy && 'animate-pulse motion-reduce:animate-none',
+          )}
+          style={{ width: `${Math.min(100, (range.loaded / range.cap) * 100)}%` }}
+        />
       </div>
     </div>
   )
@@ -362,7 +477,9 @@ export function TimelineRail({
     if (rows.some((row) => row.kind === 'gap' && row.snapshotAt === retried)) return
     const active = document.activeElement
     if (!active || active === document.body) {
-      const step = [...(listRef.current?.querySelectorAll<HTMLElement>('article[data-snapshot-at]') ?? [])].find((node) => node.dataset.snapshotAt === retried)
+      const step = [...(listRef.current?.querySelectorAll<HTMLElement>('article[data-snapshot-at]') ?? [])].find(
+        (node) => node.dataset.snapshotAt === retried,
+      )
       ;(step ?? listRef.current)?.focus()
     }
     retriedRef.current = null
@@ -384,7 +501,9 @@ export function TimelineRail({
   const seenMs = seenAt === null ? null : Date.parse(seenAt)
   const floor = rangeFloor(timeline)
   const beyondRange = seenMs !== null && floor !== null && seenMs < floor
-  const firstSeen = rows.findIndex((entry) => seenMs !== null && Date.parse(entry.kind === 'gap' ? entry.snapshotAt : entry.step.snapshotAt) <= seenMs)
+  const firstSeen = rows.findIndex(
+    (entry) => seenMs !== null && Date.parse(entry.kind === 'gap' ? entry.snapshotAt : entry.step.snapshotAt) <= seenMs,
+  )
   const dividerAt = !hasSteps || seenAt === null || beyondRange ? -1 : firstSeen === -1 ? rows.length : firstSeen
   const seenStamp = seenAt === null ? '' : stampOf(seenAt, timeline.entries[0]?.snapshotAt ?? null)
   const divider = seenAt === null ? null : <SeenMark stamp={seenStamp} />
@@ -406,7 +525,13 @@ export function TimelineRail({
       {loadMoreAnnouncement}
       {hasSteps ? null : (
         <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground">
-          <p>{hasHiddenSteps ? (view.isDefault ? "No shifts for your Profile's VIPs" : 'No entries match these filters') : 'No VIP shifts yet'}</p>
+          <p>
+            {hasHiddenSteps
+              ? view.isDefault
+                ? "No shifts for your Profile's VIPs"
+                : 'No entries match these filters'
+              : 'No VIP shifts yet'}
+          </p>
           {hasHiddenSteps && !view.isDefault ? (
             <Button type="button" variant="outline" size="sm" onClick={view.reset}>
               Reset
@@ -421,14 +546,26 @@ export function TimelineRail({
               {index === dividerAt ? divider : null}
               {entry.kind === 'gap' ? (
                 <RailRow dashed>
-                  <GapNode gap={entry} onRetry={onRetryGap} onRetried={(at) => {
+                  <GapNode
+                    gap={entry}
+                    onRetry={onRetryGap}
+                    onRetried={(at) => {
                       retriedRef.current = at
                       noteRetried()
-                    }} />
+                    }}
+                  />
                 </RailRow>
               ) : (
                 <RailRow arrived={arrivals.ids.has(entry.step.id)}>
-                  <StepCard step={entry.step} rows={entry.items} model={model} followed={view.followed} username={username} compact={compact} filtered={filtered} />
+                  <StepCard
+                    step={entry.step}
+                    rows={entry.items}
+                    model={model}
+                    followed={view.followed}
+                    username={username}
+                    compact={compact}
+                    filtered={filtered}
+                  />
                 </RailRow>
               )}
             </Fragment>
@@ -448,13 +585,23 @@ export function TimelineRail({
           {noteText}
         </p>
       ) : null}
-      {beyondRange && seenAt ? <p className="text-center text-xs text-muted-foreground">You last looked at {seenStamp}, earlier than shown</p> : null}
+      {beyondRange && seenAt ? (
+        <p className="text-center text-xs text-muted-foreground">You last looked at {seenStamp}, earlier than shown</p>
+      ) : null}
     </div>
   )
 }
 
 /** The rail's "Load more" node; while loading it stays in place, marked busy and inert so focus is not lost. */
-function LoadMoreNode({ busy, error, onLoadMore }: { busy: boolean; error: string | null; onLoadMore: () => Promise<void> | void }) {
+function LoadMoreNode({
+  busy,
+  error,
+  onLoadMore,
+}: {
+  busy: boolean
+  error: string | null
+  onLoadMore: () => Promise<void> | void
+}) {
   return (
     <div className="space-y-1">
       <Button

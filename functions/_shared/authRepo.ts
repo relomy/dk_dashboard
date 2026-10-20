@@ -39,16 +39,25 @@ export interface SessionWriteRecord {
 }
 
 async function run(db: D1Like, sql: string, args: unknown[]): Promise<void> {
-  await db.prepare(sql).bind(...args).run()
+  await db
+    .prepare(sql)
+    .bind(...args)
+    .run()
 }
 
 async function all<T extends object>(db: D1Like, sql: string, args: unknown[]): Promise<T[]> {
-  const result = await db.prepare(sql).bind(...args).all<T>()
+  const result = await db
+    .prepare(sql)
+    .bind(...args)
+    .all<T>()
   return result.results
 }
 
 async function first<T extends object>(db: D1Like, sql: string, args: unknown[]): Promise<T | null> {
-  return db.prepare(sql).bind(...args).first<T>()
+  return db
+    .prepare(sql)
+    .bind(...args)
+    .first<T>()
 }
 
 export async function createUser(db: D1Like, record: UserWriteRecord): Promise<void> {

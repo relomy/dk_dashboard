@@ -11,7 +11,9 @@ function CashMeter({ model, focusedKey }: { model: LiveModel; focusedKey: string
   const { fieldSize } = model
   const cashRank = model.cashLine.rank
   if (fieldSize === null || fieldSize < 2 || cashRank === null) {
-    return <p className="mt-6 text-xs text-muted-foreground">Cash-line meter unavailable: the feed has no cash line rank.</p>
+    return (
+      <p className="mt-6 text-xs text-muted-foreground">Cash-line meter unavailable: the feed has no cash line rank.</p>
+    )
   }
 
   const position = (rank: number) => `${Math.min(100, Math.max(0, ((rank - 1) / (fieldSize - 1)) * 100))}%`

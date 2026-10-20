@@ -1,6 +1,17 @@
 import { fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { contestOf, load, location, rail, renderLive, setPlayers, setVips, stubPhone, vipOf, type Json } from './liveHarness'
+import {
+  contestOf,
+  load,
+  location,
+  rail,
+  renderLive,
+  setPlayers,
+  setVips,
+  stubPhone,
+  vipOf,
+  type Json,
+} from './liveHarness'
 
 // The Live Train view: rail rows, the focused Train's stats, VIP overlap, riding entries and grouped
 // lineup, plus the VIP view's overlap notice. The last block runs on the captured NFL slate as it is.
@@ -39,9 +50,35 @@ function setTrains(snapshot: Json, trains: Json[]) {
 /** The pool behind the first three players of `LINEUP`. */
 function setLineupPool(snapshot: Json) {
   setPlayers(snapshot, [
-    { name: 'Live Guy', team: 'FSU', position: 'QB', matchup: 'FSU@MIZZ', game_status: 'In-Progress', fantasy_points: 12.5, ownership_pct: 31.5, value: 4.5 },
-    { name: 'Later Guy', team: 'MIZZ', position: 'RB', game_status: 'FSU@MIZZ 07:30PM ET', fantasy_points: 0, ownership_pct: 12, value: null },
-    { name: 'Finished Guy', team: 'FSU', position: 'WR', matchup: 'ISU@ARIZ', game_status: 'Final', fantasy_points: 30, ownership_pct: 55, value: 6.5 },
+    {
+      name: 'Live Guy',
+      team: 'FSU',
+      position: 'QB',
+      matchup: 'FSU@MIZZ',
+      game_status: 'In-Progress',
+      fantasy_points: 12.5,
+      ownership_pct: 31.5,
+      value: 4.5,
+    },
+    {
+      name: 'Later Guy',
+      team: 'MIZZ',
+      position: 'RB',
+      game_status: 'FSU@MIZZ 07:30PM ET',
+      fantasy_points: 0,
+      ownership_pct: 12,
+      value: null,
+    },
+    {
+      name: 'Finished Guy',
+      team: 'FSU',
+      position: 'WR',
+      matchup: 'ISU@ARIZ',
+      game_status: 'Final',
+      fantasy_points: 30,
+      ownership_pct: 55,
+      value: 6.5,
+    },
   ])
 }
 
@@ -109,7 +146,12 @@ describe('rail', () => {
     const snapshot = load()
     setTrains(
       snapshot,
-      Array.from({ length: 8 }, (_, index) => ({ ...BIG, cluster_id: `t${index}`, user_count: 10 + index, rank: index + 1 })),
+      Array.from({ length: 8 }, (_, index) => ({
+        ...BIG,
+        cluster_id: `t${index}`,
+        user_count: 10 + index,
+        rank: index + 1,
+      })),
     )
     await renderLive(snapshot, '/live/nfl')
 
@@ -171,7 +213,12 @@ describe('Train view focus', () => {
     const snapshot = load()
     setTrains(
       snapshot,
-      Array.from({ length: 8 }, (_, index) => ({ ...BIG, cluster_id: `t${index}`, user_count: 10 + index, rank: index + 1 })),
+      Array.from({ length: 8 }, (_, index) => ({
+        ...BIG,
+        cluster_id: `t${index}`,
+        user_count: 10 + index,
+        rank: index + 1,
+      })),
     )
     await renderLive(snapshot, '/live/nfl?view=trains&train=t0')
 
@@ -240,17 +287,22 @@ describe('VIP overlap', () => {
     const snapshot = load()
     setTrains(snapshot, [BIG])
     setVips(snapshot, [
-      { key: 'v1', name: 'First VIP', players: ['Live Guy', 'Later Guy', 'Finished Guy', 'Fourth Guy', 'Fifth Guy', 'Other'] },
+      {
+        key: 'v1',
+        name: 'First VIP',
+        players: ['Live Guy', 'Later Guy', 'Finished Guy', 'Fourth Guy', 'Fifth Guy', 'Other'],
+      },
       { key: 'v2', name: 'Second VIP', players: ['Live Guy', 'Nobody'] },
     ])
     await renderLive(snapshot, TRAINS)
 
     const overlaps = screen.getByRole('list', { name: /vips sharing this train/i })
     expect(within(overlaps).getByText(/First VIP/)).toBeInTheDocument()
-    expect(within(overlaps).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
-      expect.stringContaining('shares 5/8'),
-      expect.stringContaining('shares 1/8'),
-    ])
+    expect(
+      within(overlaps)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual([expect.stringContaining('shares 5/8'), expect.stringContaining('shares 1/8')])
   })
 
   it('omits the overlap row when there are no VIPs', async () => {
@@ -334,7 +386,11 @@ describe('riding entries', () => {
     const snapshot = load()
     const keys = Array.from({ length: 12 }, (_, index) => `e${index}`)
     setTrains(snapshot, [{ ...BIG, user_count: 12, entry_keys: keys }])
-    contestOf(snapshot).standings = keys.map((entry_key, index) => ({ entry_key, username: `name${index}`, rank: index + 1 }))
+    contestOf(snapshot).standings = keys.map((entry_key, index) => ({
+      entry_key,
+      username: `name${index}`,
+      rank: index + 1,
+    }))
     await renderLive(snapshot, TRAINS)
 
     expect(screen.getByText(/name0, name1, name2, name3, name4, name5, name6, name7 \+4 more/)).toBeInTheDocument()
@@ -493,7 +549,14 @@ describe('against the producer snapshot', () => {
     await renderLive(load(), LARGEST)
 
     const playing = within(screen.getByRole('region', { name: /^playing now/i }))
-    for (const name of ['Trevor Lawrence', 'Chase Brown', 'Jeremiyah Love', 'Garrett Wilson', 'Parker Washington', 'Rams']) {
+    for (const name of [
+      'Trevor Lawrence',
+      'Chase Brown',
+      'Jeremiyah Love',
+      'Garrett Wilson',
+      'Parker Washington',
+      'Rams',
+    ]) {
       expect(playing.getByText(name)).toBeInTheDocument()
     }
     expect(screen.getAllByText('Locked 🔒')).toHaveLength(3)
@@ -545,7 +608,10 @@ describe('against the producer snapshot', () => {
     await renderLive(snapshot, `/live/nfl?view=vips&vip=${String(vipOf(snapshot, 'EmpireMaker2').entry_key)}`)
 
     const notice = screen.getByRole('link', { name: /shared with a ×312 train/i })
-    expect(notice).toHaveAttribute('href', `/live/nfl?view=trains&vip=${String(vipOf(snapshot, 'EmpireMaker2').entry_key)}&train=23a5671f0c78`)
+    expect(notice).toHaveAttribute(
+      'href',
+      `/live/nfl?view=trains&vip=${String(vipOf(snapshot, 'EmpireMaker2').entry_key)}&train=23a5671f0c78`,
+    )
     expect(notice).toHaveTextContent('best #511')
   })
 })

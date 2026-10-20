@@ -42,10 +42,7 @@ export function normalizeContestState(state: Contest['state'] | null | undefined
   return contestStates.find((candidate) => candidate === state) ?? 'unknown'
 }
 
-export function getVipCashingStatus(
-  contest: Contest,
-  lineup: VipLineup,
-): { label: string; positive: boolean } | null {
+export function getVipCashingStatus(contest: Contest, lineup: VipLineup): { label: string; positive: boolean } | null {
   const contestState = normalizeContestState(contest.state)
   if (contestState !== 'completed' && contestState !== 'live') {
     return null
@@ -60,8 +57,13 @@ export function getVipCashingStatus(
 
   if (contestState === 'completed') {
     if (isCashing) {
-      return { label: typeof payoutCents === 'number' && Number.isFinite(payoutCents) && payoutCents > 0
-        ? `Cashed ${formatMoney(payoutCents, contest.currency, true)}` : 'Cashed', positive: true }
+      return {
+        label:
+          typeof payoutCents === 'number' && Number.isFinite(payoutCents) && payoutCents > 0
+            ? `Cashed ${formatMoney(payoutCents, contest.currency, true)}`
+            : 'Cashed',
+        positive: true,
+      }
     }
     return { label: 'Not cashing', positive: false }
   }
@@ -74,9 +76,11 @@ export function resolveVipCashing(
   distance: { points_delta?: number; rank_delta?: number } | undefined,
   standing: Contest['standings'][number] | undefined,
 ): boolean | null {
-  if (typeof distance?.points_delta === 'number' && Number.isFinite(distance.points_delta)) return distance.points_delta >= 0
+  if (typeof distance?.points_delta === 'number' && Number.isFinite(distance.points_delta))
+    return distance.points_delta >= 0
   if (typeof distance?.rank_delta === 'number' && Number.isFinite(distance.rank_delta)) return distance.rank_delta >= 0
   if (typeof standing?.is_cashing === 'boolean') return standing.is_cashing
-  if (typeof standing?.payout_cents === 'number' && Number.isFinite(standing.payout_cents)) return standing.payout_cents > 0
+  if (typeof standing?.payout_cents === 'number' && Number.isFinite(standing.payout_cents))
+    return standing.payout_cents > 0
   return null
 }

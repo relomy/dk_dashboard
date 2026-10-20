@@ -7,7 +7,10 @@ export function useSportSnapshot() {
 
   return {
     snapshot: snapshotQuery.data && isSupportedSnapshot(snapshotQuery.data) ? snapshotQuery.data : undefined,
-    unsupportedVersion: snapshotQuery.data && !isSupportedSnapshot(snapshotQuery.data) ? String(snapshotQuery.data.schema_version ?? 'unknown') : undefined,
+    unsupportedVersion:
+      snapshotQuery.data && !isSupportedSnapshot(snapshotQuery.data)
+        ? String(snapshotQuery.data.schema_version ?? 'unknown')
+        : undefined,
     loading: latestQuery.isLoading || snapshotQuery.isLoading,
     error: latestQuery.error ?? snapshotQuery.error,
   }

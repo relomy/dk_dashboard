@@ -29,8 +29,7 @@ export const onRequestPost: PagesFunction<EnvBindings> = async ({ request, env }
     return jsonError(400, 'invalid_request', 'user_id is required.')
   }
 
-  const target = await env.AUTH_DB
-    .prepare('SELECT id, username FROM users WHERE id = ?')
+  const target = await env.AUTH_DB.prepare('SELECT id, username FROM users WHERE id = ?')
     .bind(userId)
     .first<{ id: string; username: string }>()
 
@@ -39,16 +38,16 @@ export const onRequestPost: PagesFunction<EnvBindings> = async ({ request, env }
   }
 
   const nowIso = new Date().toISOString()
-  const tempPassword = typeof body.temporary_password === 'string' && body.temporary_password.length >= 12
-    ? body.temporary_password
-    : generateTempPassword()
+  const tempPassword =
+    typeof body.temporary_password === 'string' && body.temporary_password.length >= 12
+      ? body.temporary_password
+      : generateTempPassword()
   const passwordHash = await hashPassword(tempPassword)
   const tempPasswordExpiresAt = plusHours(nowIso, 24)
 
-  await env.AUTH_DB
-    .prepare(
-      'UPDATE users SET password_hash = ?, must_change_password = 1, temp_password_expires_at = ?, updated_at = ? WHERE id = ?',
-    )
+  await env.AUTH_DB.prepare(
+    'UPDATE users SET password_hash = ?, must_change_password = 1, temp_password_expires_at = ?, updated_at = ? WHERE id = ?',
+  )
     .bind(passwordHash, tempPasswordExpiresAt, nowIso, userId)
     .run()
   await revokeAllSessionsForUser(env.AUTH_DB, userId, nowIso)

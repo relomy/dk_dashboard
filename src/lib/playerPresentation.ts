@@ -7,17 +7,7 @@ const NBA_TEAM_ALIASES: Record<string, string> = {
   SA: 'SAS',
 }
 
-const NBA_TEAM_TOKENS = new Set([
-  'DAL',
-  'GSW',
-  'LAL',
-  'NOP',
-  'OKC',
-  'PHX',
-  'POR',
-  'SAS',
-  'UTA',
-])
+const NBA_TEAM_TOKENS = new Set(['DAL', 'GSW', 'LAL', 'NOP', 'OKC', 'PHX', 'POR', 'SAS', 'UTA'])
 
 export function toFiniteNumber(value: unknown): number {
   const n = typeof value === 'number' ? value : Number(value)

@@ -3,14 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import ContestCard from '../components/ContestCard'
 import DataPage from '../components/DataPage'
 import StatusPill from '../components/StatusPill'
@@ -146,7 +139,12 @@ function Sport() {
     )
   }
 
-  if (unsupportedVersion !== undefined) return <DataPage title={`Sport: ${sport.toUpperCase()}`}><p>Unsupported snapshot schema version: {String(unsupportedVersion)}.</p></DataPage>
+  if (unsupportedVersion !== undefined)
+    return (
+      <DataPage title={`Sport: ${sport.toUpperCase()}`}>
+        <p>Unsupported snapshot schema version: {String(unsupportedVersion)}.</p>
+      </DataPage>
+    )
 
   const sportData = snapshot?.sports[sportKey]
 
@@ -190,11 +188,7 @@ function Sport() {
           <option value="active">Active profile only</option>
         </NativeSelect>
       </div>
-      <ContestSection
-        sportData={sportData}
-        vipFilterMode={vipFilterMode}
-        activeProfileRules={activeProfile.rules}
-      />
+      <ContestSection sportData={sportData} vipFilterMode={vipFilterMode} activeProfileRules={activeProfile.rules} />
     </DataPage>
   )
 }

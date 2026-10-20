@@ -18,7 +18,8 @@ export type RunCommand = (
  */
 export function r2S3Source(
   env: Record<string, string | undefined>,
-  run: RunCommand = (command, args, options) => execFileSync(command, args, { ...options, stdio: ['pipe', 'pipe', 'pipe'] }),
+  run: RunCommand = (command, args, options) =>
+    execFileSync(command, args, { ...options, stdio: ['pipe', 'pipe', 'pipe'] }),
 ): SnapshotSource {
   const { R2_ACCESS_KEY_ID: accessKeyId, R2_SECRET_ACCESS_KEY: secretAccessKey, CLOUDFLARE_ACCOUNT_ID: accountId } = env
   return {
@@ -27,11 +28,15 @@ export function r2S3Source(
       const url = `https://${accountId}.r2.cloudflarestorage.com/${BUCKET}/${key}`
       const config = `user = "${accessKeyId}:${secretAccessKey}"\n`
       try {
-        return run('curl', ['--silent', '--show-error', '--fail', '--aws-sigv4', 'aws:amz:auto:s3', '--config', '-', url], {
-          input: config,
-          encoding: 'utf8',
-          maxBuffer: MAX_SNAPSHOT_BYTES,
-        })
+        return run(
+          'curl',
+          ['--silent', '--show-error', '--fail', '--aws-sigv4', 'aws:amz:auto:s3', '--config', '-', url],
+          {
+            input: config,
+            encoding: 'utf8',
+            maxBuffer: MAX_SNAPSHOT_BYTES,
+          },
+        )
       } catch (error) {
         throw new Error(`Reading ${key} from R2 failed (${describeCurlFailure(error)}).`)
       }

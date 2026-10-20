@@ -19,7 +19,20 @@ const move = <T,>(from: T, to: T) => ({ from, to })
 const T = (minute: number) => `2026-10-04T14:${String(minute).padStart(2, '0')}:00Z`
 
 function vip(id: string, vipKey: string, parts: ShiftPart[] = ['rank-points']): VipShiftItem {
-  return { kind: 'vip', id, vipKey, priority: 'normal', detectedAt: 0, snapshotAt: T(0), parts, rank: move(20, 12), points: move(100, 110), distanceToCashPoints: move(-5, 5), distanceToCashRank: move(null, null), lineup: [] }
+  return {
+    kind: 'vip',
+    id,
+    vipKey,
+    priority: 'normal',
+    detectedAt: 0,
+    snapshotAt: T(0),
+    parts,
+    rank: move(20, 12),
+    points: move(100, 110),
+    distanceToCashPoints: move(-5, 5),
+    distanceToCashRank: move(null, null),
+    lineup: [],
+  }
 }
 const completed: ContestShiftItem = {
   kind: 'contest-state',
@@ -34,8 +47,14 @@ const completed: ContestShiftItem = {
     { vipKey: FIRST.key, rank: move(5, 3), points: move(100, 120), cashing: true },
   ],
 }
-const step = (id: string, at: string, items: ContestShiftItem[] | VipShiftItem[]): TimelineEntry => ({ kind: 'step', id, snapshotAt: at, items })
-const clock = (minute: number) => new Date(T(minute)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+const step = (id: string, at: string, items: ContestShiftItem[] | VipShiftItem[]): TimelineEntry => ({
+  kind: 'step',
+  id,
+  snapshotAt: at,
+  items,
+})
+const clock = (minute: number) =>
+  new Date(T(minute)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
 
 const IDLE: LoadMoreState = { busy: false, progress: null, error: null, announcement: '' }
 const RANGE: TimelineRange = { loaded: 3, cap: 60, reach: 'window' }
@@ -48,7 +67,18 @@ function Harness({ timeline, rules = RULES, ...props }: RailProps & { rules?: Pr
   return (
     <>
       <TimelineFilterBar view={view} model={MODEL} username={rules.username} />
-      <TimelineRail timeline={timeline} model={MODEL} rules={rules} view={view} seenAt={null} range={RANGE} onLoadMore={undefined} onRetryGap={vi.fn()} more={IDLE} {...props} />
+      <TimelineRail
+        timeline={timeline}
+        model={MODEL}
+        rules={rules}
+        view={view}
+        seenAt={null}
+        range={RANGE}
+        onLoadMore={undefined}
+        onRetryGap={vi.fn()}
+        more={IDLE}
+        {...props}
+      />
     </>
   )
 }
@@ -56,7 +86,11 @@ function Harness({ timeline, rules = RULES, ...props }: RailProps & { rules?: Pr
 afterEach(cleanup)
 
 const gapTimeline: Timeline = {
-  entries: [step('s2', T(10), [vip('a', FIRST.key)]), { kind: 'gap', id: 'g1', snapshotAt: T(5), reason: 'unavailable' }, step('s0', T(0), [vip('b', FIRST.key)])],
+  entries: [
+    step('s2', T(10), [vip('a', FIRST.key)]),
+    { kind: 'gap', id: 'g1', snapshotAt: T(5), reason: 'unavailable' },
+    step('s0', T(0), [vip('b', FIRST.key)]),
+  ],
   rangeNote: null,
 }
 
@@ -82,7 +116,9 @@ describe('a failed Retry', () => {
     let settle: (value: { ok: boolean }) => void = () => {}
     const onRetryGap = vi.fn(() => new Promise<{ ok: boolean }>((resolve) => (settle = resolve)))
     render(<Harness timeline={gapTimeline} onRetryGap={onRetryGap} />)
-    const retry = within(screen.getByRole('group', { name: /snapshot unavailable/i })).getByRole('button', { name: 'Retry' })
+    const retry = within(screen.getByRole('group', { name: /snapshot unavailable/i })).getByRole('button', {
+      name: 'Retry',
+    })
     retry.focus()
     fireEvent.click(retry)
     expect(retry.getAttribute('aria-disabled')).toBe('true')
@@ -97,23 +133,37 @@ describe('a failed Retry', () => {
   it('moves focus to the Step that replaces the gap after a successful retry', async () => {
     const onRetryGap = vi.fn(async () => ({ ok: true }))
     const { rerender } = render(<Harness timeline={gapTimeline} onRetryGap={onRetryGap} />)
-    const retry = within(screen.getByRole('group', { name: /snapshot unavailable/i })).getByRole('button', { name: 'Retry' })
+    const retry = within(screen.getByRole('group', { name: /snapshot unavailable/i })).getByRole('button', {
+      name: 'Retry',
+    })
     retry.focus()
     fireEvent.click(retry)
     await act(async () => {})
-    const filled: Timeline = { entries: [gapTimeline.entries[0], step('s1', T(5), [vip('c', FIRST.key)]), gapTimeline.entries[2]], rangeNote: null }
+    const filled: Timeline = {
+      entries: [gapTimeline.entries[0], step('s1', T(5), [vip('c', FIRST.key)]), gapTimeline.entries[2]],
+      rangeNote: null,
+    }
     rerender(<Harness timeline={filled} onRetryGap={onRetryGap} />)
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('article', { name: `Step at ${clock(5)}` })))
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('article', { name: `Step at ${clock(5)}` })),
+    )
   })
 
   it('falls back to the rail when the retried Step has nothing to show', async () => {
     const onRetryGap = vi.fn(async () => ({ ok: true }))
     const { rerender } = render(<Harness timeline={gapTimeline} onRetryGap={onRetryGap} />)
-    const retry = within(screen.getByRole('group', { name: /snapshot unavailable/i })).getByRole('button', { name: 'Retry' })
+    const retry = within(screen.getByRole('group', { name: /snapshot unavailable/i })).getByRole('button', {
+      name: 'Retry',
+    })
     retry.focus()
     fireEvent.click(retry)
     await act(async () => {})
-    rerender(<Harness timeline={{ entries: [gapTimeline.entries[0], gapTimeline.entries[2]], rangeNote: null }} onRetryGap={onRetryGap} />)
+    rerender(
+      <Harness
+        timeline={{ entries: [gapTimeline.entries[0], gapTimeline.entries[2]], rangeNote: null }}
+        onRetryGap={onRetryGap}
+      />,
+    )
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('list', { name: 'Timeline' })))
   })
 })
@@ -121,9 +171,11 @@ describe('a failed Retry', () => {
 describe('the final standings', () => {
   const finished: Timeline = { entries: [step('done', T(10), [completed])], rangeNote: null }
 
-  it('are not hidden by the VIP filter, the Profile\'s VIPs first', () => {
+  it("are not hidden by the VIP filter, the Profile's VIPs first", () => {
     render(<Harness timeline={finished} rules={{ exact: FIRST.name }} />)
-    const items = within(screen.getByRole('article')).getAllByRole('listitem').map((li) => li.textContent ?? '')
+    const items = within(screen.getByRole('article'))
+      .getAllByRole('listitem')
+      .map((li) => li.textContent ?? '')
     expect(items).toHaveLength(2)
     expect(items[0]).toContain(FIRST.name)
     expect(items[1]).toContain(SECOND.name)
@@ -132,17 +184,22 @@ describe('the final standings', () => {
   it('show in Compact as one "Final:" line per VIP with the place and cashing', () => {
     render(<Harness timeline={finished} rules={{ exact: FIRST.name }} />)
     fireEvent.click(screen.getByRole('button', { name: 'Compact' }))
-    const lines = within(screen.getByRole('article')).getAllByRole('listitem').map((li) => li.textContent)
+    const lines = within(screen.getByRole('article'))
+      .getAllByRole('listitem')
+      .map((li) => li.textContent)
     expect(lines).toContain(`Final: ${FIRST.name} 3rd, cashing`)
     expect(lines).toContain(`Final: ${SECOND.name} 7th, not cashing`)
   })
 })
 
 describe('Load more focus', () => {
-  const tail: Timeline = { entries: [step('s2', T(10), [vip('a', FIRST.key)])], rangeNote: { kind: 'cap', snapshotAt: T(0) } }
+  const tail: Timeline = {
+    entries: [step('s2', T(10), [vip('a', FIRST.key)])],
+    rangeNote: { kind: 'cap', snapshotAt: T(0) },
+  }
   const capped: TimelineRange = { loaded: 60, cap: 60, reach: 'cap' }
 
-  it('moves to the tail note when the user\'s own Load more ends loading', () => {
+  it("moves to the tail note when the user's own Load more ends loading", () => {
     const onLoadMore = vi.fn()
     const { rerender } = render(<Harness timeline={tail} onLoadMore={onLoadMore} />)
     fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
@@ -161,11 +218,33 @@ describe('Load more focus', () => {
 
 describe('announcements', () => {
   function Live() {
-    const [timeline, setTimeline] = useState<Timeline>({ entries: [step('s1', T(5), [vip('a', FIRST.key)])], rangeNote: null })
+    const [timeline, setTimeline] = useState<Timeline>({
+      entries: [step('s1', T(5), [vip('a', FIRST.key)])],
+      rangeNote: null,
+    })
     return (
       <>
-        <button onClick={() => setTimeline((t) => ({ ...t, entries: [step('s2', T(10), [vip('b', FIRST.key)]), ...t.entries] }))}>one</button>
-        <button onClick={() => setTimeline((t) => ({ ...t, entries: [step('s4', T(20), [vip('d', FIRST.key)]), step('s3', T(15), [vip('c', FIRST.key)]), ...t.entries] }))}>two</button>
+        <button
+          onClick={() =>
+            setTimeline((t) => ({ ...t, entries: [step('s2', T(10), [vip('b', FIRST.key)]), ...t.entries] }))
+          }
+        >
+          one
+        </button>
+        <button
+          onClick={() =>
+            setTimeline((t) => ({
+              ...t,
+              entries: [
+                step('s4', T(20), [vip('d', FIRST.key)]),
+                step('s3', T(15), [vip('c', FIRST.key)]),
+                ...t.entries,
+              ],
+            }))
+          }
+        >
+          two
+        </button>
         <Harness timeline={timeline} />
       </>
     )
@@ -181,14 +260,23 @@ describe('announcements', () => {
   })
 
   it('say a failed Load more once: the alert carries it, the status region does not', () => {
-    render(<Harness timeline={gapTimeline} onLoadMore={vi.fn()} more={{ ...IDLE, error: 'down', announcement: 'Could not load more snapshots: down' }} />)
+    render(
+      <Harness
+        timeline={gapTimeline}
+        onLoadMore={vi.fn()}
+        more={{ ...IDLE, error: 'down', announcement: 'Could not load more snapshots: down' }}
+      />,
+    )
     expect(screen.getByRole('alert').textContent).toContain('down')
     expect(screen.getByRole('status', { name: 'Loading more' }).textContent).toBe('')
   })
 })
 
 describe('the Seen divider', () => {
-  const rail: Timeline = { entries: [step('s2', T(10), [vip('a', FIRST.key)]), step('s1', T(5), [vip('b', FIRST.key)])], rangeNote: null }
+  const rail: Timeline = {
+    entries: [step('s2', T(10), [vip('a', FIRST.key)]), step('s1', T(5), [vip('b', FIRST.key)])],
+    rangeNote: null,
+  }
 
   it('reads "Last looked", labelled for assistive tech, outside any list item content role', () => {
     render(<Harness timeline={rail} seenAt={T(5)} />)
@@ -228,15 +316,23 @@ describe('structure and refresh errors', () => {
 })
 
 describe('empty states', () => {
-  const onlyGaps: Timeline = { entries: [{ kind: 'gap', id: 'g1', snapshotAt: T(5), reason: 'unavailable' }], rangeNote: null }
+  const onlyGaps: Timeline = {
+    entries: [{ kind: 'gap', id: 'g1', snapshotAt: T(5), reason: 'unavailable' }],
+    rangeNote: null,
+  }
 
   it('keep gap nodes and their Retry beside "No VIP shifts yet"', () => {
     render(<Harness timeline={onlyGaps} />)
     expect(screen.getByText('No VIP shifts yet')).toBeTruthy()
-    expect(within(screen.getByRole('group', { name: /snapshot unavailable/i })).getByRole('button', { name: 'Retry' })).toBeTruthy()
+    expect(
+      within(screen.getByRole('group', { name: /snapshot unavailable/i })).getByRole('button', { name: 'Retry' }),
+    ).toBeTruthy()
   })
 
-  const hidden: Timeline = { entries: [step('s1', T(10), [vip('x', MODEL.vips[2].key)]), onlyGaps.entries[0]], rangeNote: null }
+  const hidden: Timeline = {
+    entries: [step('s1', T(10), [vip('x', MODEL.vips[2].key)]), onlyGaps.entries[0]],
+    rangeNote: null,
+  }
 
   it('say "No shifts for your Profile\'s VIPs", without a Reset, when the default filters hide every Step', () => {
     render(<Harness timeline={hidden} rules={{ exact: FIRST.name }} />)
@@ -256,7 +352,11 @@ describe('empty states', () => {
 })
 
 describe('the High badge', () => {
-  const crossing: VipShiftItem = { ...vip('hi', FIRST.key, ['rank-points', 'crossings']), priority: 'high', crossing: { path: 'in', cause: null } }
+  const crossing: VipShiftItem = {
+    ...vip('hi', FIRST.key, ['rank-points', 'crossings']),
+    priority: 'high',
+    crossing: { path: 'in', cause: null },
+  }
   const high: Timeline = { entries: [step('s1', T(10), [crossing])], rangeNote: null }
 
   it('shows while the crossing is shown and hides when its kind is filtered out', () => {

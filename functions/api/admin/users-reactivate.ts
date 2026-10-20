@@ -32,10 +32,7 @@ export const onRequestPost: PagesFunction<EnvBindings> = async ({ request, env }
   }
 
   const nowIso = new Date().toISOString()
-  await env.AUTH_DB
-    .prepare('UPDATE users SET is_active = 1, updated_at = ? WHERE id = ?')
-    .bind(nowIso, userId)
-    .run()
+  await env.AUTH_DB.prepare('UPDATE users SET is_active = 1, updated_at = ? WHERE id = ?').bind(nowIso, userId).run()
 
   await writeAuditEvent(env.AUTH_DB, {
     id: generateId('audit'),

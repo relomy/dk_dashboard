@@ -2,8 +2,21 @@ import { ApiError, fetchJson } from './api'
 import { interpretSnapshot, isSupportedSnapshot } from './interpretedSnapshot'
 import { buildLiveModel, type LiveNotRenderableReason } from './liveModel'
 import { manifestWindowPaths, snapshotsNewestFirst } from './manifestWindow'
-import { buildTimeline, digestOf, isGapMarker, type Digest, type Timeline, type TimelineInput, type TimelineReach } from './shifts'
-import { TIMELINE_CAP, TIMELINE_FETCH_BOUND, TIMELINE_LOAD_MORE_SNAPSHOTS, TIMELINE_OPEN_SNAPSHOTS } from './timelineConfig'
+import {
+  buildTimeline,
+  digestOf,
+  isGapMarker,
+  type Digest,
+  type Timeline,
+  type TimelineInput,
+  type TimelineReach,
+} from './shifts'
+import {
+  TIMELINE_CAP,
+  TIMELINE_FETCH_BOUND,
+  TIMELINE_LOAD_MORE_SNAPSHOTS,
+  TIMELINE_OPEN_SNAPSHOTS,
+} from './timelineConfig'
 import type { DayManifest, LatestResponse, ManifestSnapshotSummary } from './types'
 
 /**
@@ -169,15 +182,21 @@ export function createTimelineSource(options: TimelineSourceOptions): TimelineSo
   }
 
   /** Fetches the fresh entries of `page` within the bound; a not-fresh one is skipped without a download. */
-  async function fetchPage(sport: string, page: ManifestSnapshotSummary[], onProgress: TimelineOpenOptions['onProgress']) {
+  async function fetchPage(
+    sport: string,
+    page: ManifestSnapshotSummary[],
+    onProgress: TimelineOpenOptions['onProgress'],
+  ) {
     const fresh = (entry: ManifestSnapshotSummary) => entry.sports_status?.[sport]?.status === 'ok'
     const toFetch = page.filter(fresh)
     let done = 0
     const fetched = new Map<string, Built>()
-    await Promise.all(toFetch.map(async (entry) => {
-      fetched.set(entry.snapshot_at, await digestFor(sport, entry))
-      onProgress?.(++done, toFetch.length)
-    }))
+    await Promise.all(
+      toFetch.map(async (entry) => {
+        fetched.set(entry.snapshot_at, await digestFor(sport, entry))
+        onProgress?.(++done, toFetch.length)
+      }),
+    )
     return fetched
   }
 
@@ -214,7 +233,8 @@ export function createTimelineSource(options: TimelineSourceOptions): TimelineSo
 
     // The newest snapshot is the one the page is about: its failure fails the open.
     const newest = fetched.get(page[0].snapshot_at)
-    if (newest?.kind === 'failed') throw newest.error instanceof Error ? newest.error : new Error('The latest snapshot failed to load')
+    if (newest?.kind === 'failed')
+      throw newest.error instanceof Error ? newest.error : new Error('The latest snapshot failed to load')
     if (newest?.kind === 'not-renderable') return { kind: 'not-renderable', reason: newest.reason }
 
     return ready({
@@ -230,7 +250,10 @@ export function createTimelineSource(options: TimelineSourceOptions): TimelineSo
   }
 
   /** The snapshots newer than `after` (oldest first) as inputs: fetched when fresh, a gap when not or when they fail. */
-  async function newerThan(sport: string, after: string): Promise<{ inputs: TimelineInput[]; paths: Map<string, string>; skipped: number }> {
+  async function newerThan(
+    sport: string,
+    after: string,
+  ): Promise<{ inputs: TimelineInput[]; paths: Map<string, string>; skipped: number }> {
     const latest = await history.latest()
     const window = manifestWindowPaths(latest)
     const today = await history.manifest(window.today)
@@ -247,7 +270,9 @@ export function createTimelineSource(options: TimelineSourceOptions): TimelineSo
     const skipped = Math.max(all.length - cap, 0)
     const entries = all.slice(skipped)
     const built = await Promise.all(
-      entries.map((entry) => (entry.sports_status?.[sport]?.status === 'ok' ? digestFor(sport, entry) : Promise.resolve(null))),
+      entries.map((entry) =>
+        entry.sports_status?.[sport]?.status === 'ok' ? digestFor(sport, entry) : Promise.resolve(null),
+      ),
     )
     const inputs = entries.map((entry, i) => inputOf(entry, built[i] ?? undefined))
     return { inputs, paths: new Map(entries.map((entry) => [entry.snapshot_at, entry.path])), skipped }
@@ -271,7 +296,10 @@ export function createTimelineSource(options: TimelineSourceOptions): TimelineSo
       })
       if (yesterday) {
         const taken = new Set(state.paths.keys())
-        remaining = snapshotsNewestFirst(remaining, yesterday.snapshots.filter((item) => !taken.has(item.snapshot_at)))
+        remaining = snapshotsNewestFirst(
+          remaining,
+          yesterday.snapshots.filter((item) => !taken.has(item.snapshot_at)),
+        )
       }
       yesterdayRead = true
     }
@@ -303,7 +331,12 @@ export function createTimelineSource(options: TimelineSourceOptions): TimelineSo
       hidden -= hiddenDropped
       held = held.slice(Math.min(excess - hiddenDropped, state.all.length))
       // A leading gap has nothing to compare across.
-      held = held.slice(Math.max(held.findIndex((input) => !isGapMarker(input)), 0))
+      held = held.slice(
+        Math.max(
+          held.findIndex((input) => !isGapMarker(input)),
+          0,
+        ),
+      )
       consumed = cap
     }
     return ready({

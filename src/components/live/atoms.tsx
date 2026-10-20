@@ -115,7 +115,13 @@ export function VipAvatars({
         return small ? (
           <span key={vip.key} title={vip.name} aria-hidden="true" className={className} />
         ) : (
-          <Link key={vip.key} to={{ search: hrefFor(vip) }} title={vip.name} aria-label={vip.name} className={className}>
+          <Link
+            key={vip.key}
+            to={{ search: hrefFor(vip) }}
+            title={vip.name}
+            aria-label={vip.name}
+            className={className}
+          >
             {vipInitials(vip.name)}
           </Link>
         )

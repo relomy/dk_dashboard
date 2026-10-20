@@ -53,7 +53,9 @@ function renderLive(client = new QueryClient({ defaultOptions: { queries: { retr
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={['/live/nfl']}>
-        <Routes><Route path="/live/:sport" element={<Live />} /></Routes>
+        <Routes>
+          <Route path="/live/:sport" element={<Live />} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -142,7 +144,9 @@ it('shows Sport the snapshot Live has polled to, not an older one still in the c
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={['/sport/nfl']}>
-        <Routes><Route path="/sport/:sport" element={<Sport />} /></Routes>
+        <Routes>
+          <Route path="/sport/:sport" element={<Sport />} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -177,27 +181,38 @@ it('lands on a sport from the snapshot Live has polled to, not an older one stil
 
 it.each([
   { route: 'Live', path: '/live/nfl', pattern: '/live/:sport', element: <Live />, loading: /loading live snapshot/i },
-  { route: 'Sport', path: '/sport/nfl', pattern: '/sport/:sport', element: <Sport />, loading: /loading sport snapshot/i },
-])('$route keeps showing the previous snapshot while the next one downloads', async ({ path, pattern, element, loading }) => {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[path]}>
-        <Routes><Route path={pattern} element={element} /></Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  )
-  await waitFor(() => expect(playerRows('Trevor Lawrence').length).toBeGreaterThan(0))
+  {
+    route: 'Sport',
+    path: '/sport/nfl',
+    pattern: '/sport/:sport',
+    element: <Sport />,
+    loading: /loading sport snapshot/i,
+  },
+])(
+  '$route keeps showing the previous snapshot while the next one downloads',
+  async ({ path, pattern, element, loading }) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path={pattern} element={element} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+    await waitFor(() => expect(playerRows('Trevor Lawrence').length).toBeGreaterThan(0))
 
-  let release!: () => void
-  held['snapshots/second.json'] = new Promise<void>((resolve) => (release = resolve))
-  await producerCycle('snapshots/second.json')
+    let release!: () => void
+    held['snapshots/second.json'] = new Promise<void>((resolve) => (release = resolve))
+    await producerCycle('snapshots/second.json')
 
-  expect(screen.queryByText(loading)).toBeNull()
-  expect(playerRows('Trevor Lawrence').length).toBeGreaterThan(0)
-  release()
-  client.clear()
-})
+    expect(screen.queryByText(loading)).toBeNull()
+    expect(playerRows('Trevor Lawrence').length).toBeGreaterThan(0)
+    release()
+    client.clear()
+  },
+)
 
 function LandedOn() {
   return <p>Landed on {useParams().sport}</p>

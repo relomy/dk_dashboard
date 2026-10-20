@@ -50,7 +50,7 @@ function buildNoPrimaryFixture() {
 }
 
 it('renders the cached latest snapshot as grouped contests plus the player table', async () => {
-    const fetchSpy = vi.fn()
+  const fetchSpy = vi.fn()
   vi.stubGlobal('fetch', fetchSpy)
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })

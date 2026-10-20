@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  bootstrapOwner,
-  resetLocalAuth,
-  resetOwnerPassword,
-  type SqlRunner,
-} from '../lib/commands'
+import { bootstrapOwner, resetLocalAuth, resetOwnerPassword, type SqlRunner } from '../lib/commands'
 
 interface QueryExpectation {
   includes: string
@@ -33,9 +28,7 @@ class MockRunner implements SqlRunner {
 
 describe('auth command flows', () => {
   it('bootstrap-owner is single-use unless force is enabled', async () => {
-    const existingOwnerRunner = new MockRunner([
-      { includes: "role = 'owner'", rows: [{ count: 1 }] },
-    ])
+    const existingOwnerRunner = new MockRunner([{ includes: "role = 'owner'", rows: [{ count: 1 }] }])
 
     await expect(
       bootstrapOwner(existingOwnerRunner, {

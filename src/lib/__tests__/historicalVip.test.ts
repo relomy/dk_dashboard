@@ -24,12 +24,15 @@ it.each([
   { rank: ' 12 ', pmr: ' 0 ', points: 0, expected: { rank: 12, pmr: 0, points: 0 } },
   { rank: '', pmr: 'Infinity', points: '42', expected: { rank: null, pmr: null, points: null } },
   { rank: 'wrong', pmr: ' ', points: null, expected: { rank: null, pmr: null, points: null } },
-])('normalizes only finite historical figures without losing zero ($rank / $pmr)', ({ rank, pmr, points, expected }) => {
-  const snapshot = structuredClone(captured)
-  Object.assign(snapshot.sports.nfl.contests[0].vip_lineups[0], { rank, pmr, points })
-  const result = buildLiveModel(snapshot, 'nfl')
-  expect(result.kind === 'ready' && result.model.vips[0]).toMatchObject(expected)
-})
+])(
+  'normalizes only finite historical figures without losing zero ($rank / $pmr)',
+  ({ rank, pmr, points, expected }) => {
+    const snapshot = structuredClone(captured)
+    Object.assign(snapshot.sports.nfl.contests[0].vip_lineups[0], { rank, pmr, points })
+    const result = buildLiveModel(snapshot, 'nfl')
+    expect(result.kind === 'ready' && result.model.vips[0]).toMatchObject(expected)
+  },
+)
 
 it('does not credit discarded malformed figures as consumed', () => {
   const snapshot = structuredClone(captured)

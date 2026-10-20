@@ -61,11 +61,15 @@ function playerPool() {
 /** Reads the player pool table as {header: cell text} records, ignoring column order. */
 function poolRecords() {
   const rows = within(playerPool()).getAllByRole('row')
-  const headers = within(rows[0]).getAllByRole('columnheader').map((h) => h.textContent ?? '')
+  const headers = within(rows[0])
+    .getAllByRole('columnheader')
+    .map((h) => h.textContent ?? '')
   return {
     headers,
     records: rows.slice(1).map((row) => {
-      const cells = within(row).getAllByRole('cell').map((c) => c.textContent ?? '')
+      const cells = within(row)
+        .getAllByRole('cell')
+        .map((c) => c.textContent ?? '')
       return Object.fromEntries(headers.map((h, i) => [h, cells[i]]))
     }),
   }
@@ -78,7 +82,9 @@ function livePlayersRecords() {
     .getAllByRole('columnheader')
     .map((h) => (h.textContent ?? '').replace(/[↑↓]/g, '').trim())
   return rows.slice(1).map((row) => {
-    const cells = within(row).getAllByRole('cell').map((c) => c.textContent ?? '')
+    const cells = within(row)
+      .getAllByRole('cell')
+      .map((c) => c.textContent ?? '')
     return Object.fromEntries(headers.map((h, i) => [h, cells[i]]))
   })
 }
@@ -104,7 +110,9 @@ it('Sport cards render the producer roster slots and names', async () => {
 it('Sport cards hide player details for a locked roster slot', async () => {
   const snapshot = structuredClone(producerSnapshot)
   Object.assign(snapshot.sports.nfl.contests[0].vip_lineups[0].players_live[0], {
-    is_locked: true, player_name: 'Hidden player', salary: 9900,
+    is_locked: true,
+    player_name: 'Hidden player',
+    salary: 9900,
   })
   await renderRoute('/sport/nfl', /sport: nfl/i, snapshot)
   expect(screen.getAllByText('Locked 🔒').length).toBeGreaterThan(0)
@@ -118,7 +126,10 @@ it('Sport cards never use another entry cashing evidence and leave missing evide
   contest.vip_lineups = [contest.vip_lineups[0]]
   Object.assign(contest, {
     standings: [{ entry_key: 'someone-else', is_cashing: true, payout_cents: 12000 }],
-    metrics: { updated_at: snapshot.generated_at, distance_to_cash: { per_vip: [{ vip_entry_key: 'someone-else', points_delta: 30 }] } },
+    metrics: {
+      updated_at: snapshot.generated_at,
+      distance_to_cash: { per_vip: [{ vip_entry_key: 'someone-else', points_delta: 30 }] },
+    },
   })
   await renderRoute('/sport/nfl', /sport: nfl/i, snapshot)
   expect(screen.queryByText('Cashing')).not.toBeInTheDocument()

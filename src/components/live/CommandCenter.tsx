@@ -36,7 +36,11 @@ function FinalMarker({ contest, snapshotAt }: { contest: LiveModel['contest']; s
     ? (formatAge(contest.startTime, snapshotAt) ?? formatAge(contest.startTime, new Date().toISOString()))
     : null
   return (
-    <div role="group" aria-label="Contest state" className="flex min-h-[var(--final-marker-height)] items-center gap-2 border-b px-4 text-xs">
+    <div
+      role="group"
+      aria-label="Contest state"
+      className="flex min-h-[var(--final-marker-height)] items-center gap-2 border-b px-4 text-xs"
+    >
       <span className="rounded-sm bg-muted px-1.5 py-0.5 font-mono font-semibold tracking-widest uppercase">Final</span>
       {contest.startTime ? (
         <span className="text-muted-foreground">
@@ -190,7 +194,9 @@ function CommandCenter({ model, title }: { model: LiveModel; title: ReactNode })
   return (
     <div
       className={cn('min-h-[calc(100vh-37px)]', isPhone && 'pb-20')}
-      style={{ '--final-marker-height': model.contest.state === 'completed' ? FINAL_MARKER_HEIGHT : '0px' } as CSSProperties}
+      style={
+        { '--final-marker-height': model.contest.state === 'completed' ? FINAL_MARKER_HEIGHT : '0px' } as CSSProperties
+      }
     >
       <h1 className="sr-only">{title}</h1>
       <TopBarSlot>
@@ -215,11 +221,21 @@ function CommandCenter({ model, title }: { model: LiveModel; title: ReactNode })
               detail={`${model.pool.length} · ownership`}
             />
             {model.vips.length === 0 ? (
-              <RailLink to={searchFor('vips')} active={view === 'vips'} icon={Star} label="VIPs" detail="none tracked" />
+              <RailLink
+                to={searchFor('vips')}
+                active={view === 'vips'}
+                icon={Star}
+                label="VIPs"
+                detail="none tracked"
+              />
             ) : (
               <>
                 <RailHeading>VIPs</RailHeading>
-                <VipRailRows vips={model.vips} activeKey={view === 'vips' ? focusedVip?.key ?? null : null} hrefFor={vipHref} />
+                <VipRailRows
+                  vips={model.vips}
+                  activeKey={view === 'vips' ? (focusedVip?.key ?? null) : null}
+                  hrefFor={vipHref}
+                />
               </>
             )}
             {focusedTrain ? (

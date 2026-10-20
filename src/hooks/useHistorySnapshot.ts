@@ -21,7 +21,8 @@ export function useHistorySnapshot(timestampParam?: string) {
   const snapshotQuery = useQuery({
     queryKey: ['history-snapshot', snapshotPath],
     enabled: Boolean(snapshotPath),
-    queryFn: () => fetchJson<unknown>(`/api/snapshot?path=${encodeURIComponent(snapshotPath!)}`).then(interpretSnapshot),
+    queryFn: () =>
+      fetchJson<unknown>(`/api/snapshot?path=${encodeURIComponent(snapshotPath!)}`).then(interpretSnapshot),
     // Preserve the interpreter's root identity and raw provenance on explicit refetches.
     structuralSharing: false,
     staleTime: 300_000,

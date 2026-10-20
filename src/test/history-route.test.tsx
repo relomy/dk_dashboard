@@ -103,27 +103,28 @@ it('resolves timestamp via UTC day manifest and renders snapshot', async () => {
 it('shows snapshot not found for missing exact match', async () => {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          manifest_version: 1,
-          date_utc: '2026-02-13',
-          generated_at: '2026-02-13T23:59:55Z',
-          snapshots: [
-            {
-              snapshot_at: '2026-02-13T18:20:00Z',
-              path: 'snapshots/2026-02-13T18-20-00Z.json',
-              sports_present: ['nba'],
-              contest_counts_by_sport: { nba: 0 },
-              state_counts: {},
-              sports_status: {
-                nba: { status: 'ok', updated_at: '2026-02-13T18:20:00Z' },
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            manifest_version: 1,
+            date_utc: '2026-02-13',
+            generated_at: '2026-02-13T23:59:55Z',
+            snapshots: [
+              {
+                snapshot_at: '2026-02-13T18:20:00Z',
+                path: 'snapshots/2026-02-13T18-20-00Z.json',
+                sports_present: ['nba'],
+                contest_counts_by_sport: { nba: 0 },
+                state_counts: {},
+                sports_status: {
+                  nba: { status: 'ok', updated_at: '2026-02-13T18:20:00Z' },
+                },
               },
-            },
-          ],
-        }),
-        { status: 200 },
-      ),
+            ],
+          }),
+          { status: 200 },
+        ),
     ),
   )
 

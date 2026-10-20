@@ -12,7 +12,8 @@ import { load } from './liveHarness'
 import { stamp, stubHistory } from './timelineHistory'
 
 const NO_ITEMS: never[] = []
-const clockAt = (slot: number) => new Date(stamp(slot)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+const clockAt = (slot: number) =>
+  new Date(stamp(slot)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
 
 function stubFeed(): ShiftsFeed {
   return {
@@ -79,13 +80,17 @@ function stubApi() {
   )
 }
 
-const realSource = (history = stubHistory().history) => createTimelineSource({ history, now: () => 1, yieldToMain: async () => {} })
+const realSource = (history = stubHistory().history) =>
+  createTimelineSource({ history, now: () => 1, yieldToMain: async () => {} })
 
 function Where() {
   return <p data-testid="where">{useLocation().pathname}</p>
 }
 
-function renderAt(path: string, options: { feed?: ShiftsFeed | null; source?: TimelineSource; rules?: Record<string, string> } = {}) {
+function renderAt(
+  path: string,
+  options: { feed?: ShiftsFeed | null; source?: TimelineSource; rules?: Record<string, string> } = {},
+) {
   stubApi()
   const feed = options.feed === undefined ? stubFeed() : options.feed
   const profile = { id: 'me', name: 'Me', rules: options.rules ?? { exact: 'Cubbiesftw23' } }
@@ -153,7 +158,10 @@ describe('the Timeline tab', () => {
   })
 
   it('fetches nothing for the Timeline until its tab is visited', async () => {
-    const open = vi.fn<TimelineSource['open']>(async () => ({ kind: 'not-renderable', reason: { kind: 'sport-missing' } }))
+    const open = vi.fn<TimelineSource['open']>(async () => ({
+      kind: 'not-renderable',
+      reason: { kind: 'sport-missing' },
+    }))
     renderAt('/shifts/nfl', { source: { open } })
     await screen.findByRole('tab', { name: 'Summary', selected: true })
     expect(open).not.toHaveBeenCalled()
@@ -174,23 +182,33 @@ describe('the Timeline tab', () => {
     expect(times).toEqual([6, 5, 4, 3].map(stamp))
   })
 
-  it('shows one row per followed VIP, by name, and only the active Profile\'s VIPs', async () => {
+  it("shows one row per followed VIP, by name, and only the active Profile's VIPs", async () => {
     renderAt('/shifts/nfl/timeline', { rules: { exact: 'Cubbiesftw23' } })
     const steps = await screen.findAllByRole('article')
     for (const step of steps) {
-      expect(within(step).getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Cubbiesftw23'])
+      expect(
+        within(step)
+          .getAllByRole('heading', { level: 2 })
+          .map((h) => h.textContent),
+      ).toEqual(['Cubbiesftw23'])
     }
     expect(screen.queryByText('cglenn91')).toBeNull()
     cleanup()
     renderAt('/shifts/nfl/timeline', { rules: { exact: 'cglenn91' } })
     const other = await screen.findAllByRole('article')
-    expect(within(other[0]).getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['cglenn91'])
+    expect(
+      within(other[0])
+        .getAllByRole('heading', { level: 2 })
+        .map((h) => h.textContent),
+    ).toEqual(['cglenn91'])
   })
 
   it('follows every VIP when the active Profile has no rules', async () => {
     renderAt('/shifts/nfl/timeline', { rules: {} })
     const [newest] = await screen.findAllByRole('article')
-    const names = within(newest).getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
+    const names = within(newest)
+      .getAllByRole('heading', { level: 2 })
+      .map((h) => h.textContent)
     expect(names).toEqual(expect.arrayContaining(['cglenn91', 'Cubbiesftw23']))
   })
 
@@ -217,7 +235,12 @@ describe('the Timeline tab', () => {
     const progress = await screen.findByText(/2 of 5/)
     expect(progress.closest('[role="status"]')).toBeNull()
     expect(status.textContent).not.toContain('2 of 5')
-    finish({ kind: 'ready', completed: false, timeline: { entries: [], rangeNote: null }, range: { loaded: 0, cap: 60, reach: 'window' } })
+    finish({
+      kind: 'ready',
+      completed: false,
+      timeline: { entries: [], rangeNote: null },
+      range: { loaded: 0, cap: 60, reach: 'window' },
+    })
     await waitFor(() => expect(screen.queryByText(/loading the timeline/i)).toBeNull())
     expect(screen.getAllByRole('status').some((node) => node.textContent === 'Timeline loaded')).toBe(true)
   })
@@ -225,7 +248,12 @@ describe('the Timeline tab', () => {
   it('shows an error with a retry when the source fails, and retries', async () => {
     const open = vi.fn<TimelineSource['open']>()
     open.mockRejectedValueOnce(new Error('manifest down'))
-    open.mockResolvedValueOnce({ kind: 'ready', completed: false, timeline: { entries: [], rangeNote: null }, range: { loaded: 0, cap: 60, reach: 'window' } })
+    open.mockResolvedValueOnce({
+      kind: 'ready',
+      completed: false,
+      timeline: { entries: [], rangeNote: null },
+      range: { loaded: 0, cap: 60, reach: 'window' },
+    })
     renderAt('/shifts/nfl/timeline', { source: { open } })
     expect((await screen.findByRole('alert')).textContent).toContain('manifest down')
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
@@ -234,13 +262,27 @@ describe('the Timeline tab', () => {
   })
 
   it('shows the nothing-to-follow message when the source finds nothing renderable', async () => {
-    const open: TimelineSource['open'] = async () => ({ kind: 'not-renderable', reason: { kind: 'no-primary-contest' } })
+    const open: TimelineSource['open'] = async () => ({
+      kind: 'not-renderable',
+      reason: { kind: 'no-primary-contest' },
+    })
     renderAt('/shifts/nfl/timeline', { source: { open } })
     expect(await screen.findByText('There is nothing to follow live for this sport.')).toBeTruthy()
   })
 
   it('says "No VIP shifts yet" when no Step has anything to show', async () => {
-    const flat = stubHistory({ mutate: Object.fromEntries([2, 3, 4, 5, 6].map((slot) => [slot, (s: { sports: { nfl: { contests: Array<{ vip_lineups: Array<Record<string, number>> }> } } }) => s.sports.nfl.contests[0].vip_lineups.forEach((vip) => { vip.rank = 900; vip.points = 10 })])) })
+    const flat = stubHistory({
+      mutate: Object.fromEntries(
+        [2, 3, 4, 5, 6].map((slot) => [
+          slot,
+          (s: { sports: { nfl: { contests: Array<{ vip_lineups: Array<Record<string, number>> }> } } }) =>
+            s.sports.nfl.contests[0].vip_lineups.forEach((vip) => {
+              vip.rank = 900
+              vip.points = 10
+            }),
+        ]),
+      ),
+    })
     renderAt('/shifts/nfl/timeline', { source: realSource(flat.history) })
     expect(await screen.findByText('No VIP shifts yet')).toBeTruthy()
     expect(screen.queryAllByRole('article')).toHaveLength(0)
@@ -272,7 +314,13 @@ describe('the Timeline tab', () => {
       renderAt('/shifts/nfl/timeline', { source: realSource(stubHistory({ failing: [4] }).history) })
       const gap = await screen.findByRole('group', { name: /snapshot unavailable/i })
       fireEvent.click(within(gap).getByRole('button', { name: /retry/i }))
-      await waitFor(() => expect(within(screen.getByRole('group', { name: /snapshot unavailable/i })).getByRole('button', { name: /retry/i }).hasAttribute('disabled')).toBe(false))
+      await waitFor(() =>
+        expect(
+          within(screen.getByRole('group', { name: /snapshot unavailable/i }))
+            .getByRole('button', { name: /retry/i })
+            .hasAttribute('disabled'),
+        ).toBe(false),
+      )
       expect(screen.getByRole('group', { name: /snapshot unavailable/i })).toBeTruthy()
     })
 
@@ -300,16 +348,28 @@ describe('the Timeline tab', () => {
 
     it('makes the retry keyboard operable with a visible focus ring', async () => {
       renderAt('/shifts/nfl/timeline', { source: realSource(stubHistory({ failing: [4] }).history) })
-      const retry = within(await screen.findByRole('group', { name: /snapshot unavailable/i })).getByRole('button', { name: /retry/i })
+      const retry = within(await screen.findByRole('group', { name: /snapshot unavailable/i })).getByRole('button', {
+        name: /retry/i,
+      })
       expect(retry.tagName).toBe('BUTTON')
       expect(retry.className).toMatch(/focus-visible:ring/)
     })
   })
 
   describe('range and Load more', () => {
-    const clock = (slot: number) => new Date(stamp(slot)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
-    const sourceFor = (slots: number[], extra: Partial<Parameters<typeof createTimelineSource>[0]> = {}, stub: Parameters<typeof stubHistory>[0] = {}) =>
-      createTimelineSource({ history: stubHistory({ slots, ...stub }).history, now: () => 1, yieldToMain: async () => {}, ...extra })
+    const clock = (slot: number) =>
+      new Date(stamp(slot)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+    const sourceFor = (
+      slots: number[],
+      extra: Partial<Parameters<typeof createTimelineSource>[0]> = {},
+      stub: Parameters<typeof stubHistory>[0] = {},
+    ) =>
+      createTimelineSource({
+        history: stubHistory({ slots, ...stub }).history,
+        now: () => 1,
+        yieldToMain: async () => {},
+        ...extra,
+      })
     const long = Array.from({ length: 30 }, (_, i) => i)
 
     it('shows a sticky range meter of snapshots loaded out of the cap, as a labelled progressbar', async () => {
@@ -370,7 +430,11 @@ describe('the Timeline tab', () => {
     it('announces loading and the result through the polite live region', async () => {
       renderAt('/shifts/nfl/timeline', { source: sourceFor(long) })
       fireEvent.click(await screen.findByRole('button', { name: 'Load more' }))
-      await waitFor(() => expect(screen.getAllByRole('status').some((node) => /loaded 10 more snapshots/i.test(node.textContent ?? ''))).toBe(true))
+      await waitFor(() =>
+        expect(
+          screen.getAllByRole('status').some((node) => /loaded 10 more snapshots/i.test(node.textContent ?? '')),
+        ).toBe(true),
+      )
       const live = screen.getAllByRole('status').find((node) => /loaded 10 more/i.test(node.textContent ?? ''))
       expect(live?.getAttribute('aria-live')).toBe('polite')
     })
@@ -386,7 +450,9 @@ describe('the Timeline tab', () => {
       const rotated = (snapshot: { sports: { nfl: { contests: Array<{ name: string }> } } }) => {
         snapshot.sports.nfl.contests[0].name = 'Yesterday slate'
       }
-      renderAt('/shifts/nfl/timeline', { source: sourceFor([0, 1, 2, 3, 4, 5, 6], {}, { mutate: { 0: rotated, 1: rotated } }) })
+      renderAt('/shifts/nfl/timeline', {
+        source: sourceFor([0, 1, 2, 3, 4, 5, 6], {}, { mutate: { 0: rotated, 1: rotated } }),
+      })
       fireEvent.click(await screen.findByRole('button', { name: 'Load more' }))
       expect(await screen.findByText(new RegExp(`contest start.*${clock(2)}`, 'i'))).toBeTruthy()
       expect(screen.queryByRole('button', { name: /load more/i })).toBeNull()
@@ -490,7 +556,10 @@ describe('a live Timeline', () => {
     visibility = state
     document.dispatchEvent(new Event('visibilitychange'))
   }
-  const tick = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms) })
+  const tick = (ms: number) =>
+    act(async () => {
+      await vi.advanceTimersByTimeAsync(ms)
+    })
 
   beforeEach(() => {
     visibility = 'visible'
@@ -511,7 +580,9 @@ describe('a live Timeline', () => {
     await tick(REFRESH)
     await waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(5))
     const after = screen.getAllByRole('article')
-    expect(after.map((step) => within(step).getByRole('time').getAttribute('datetime'))).toEqual([7, 6, 5, 4, 3].map(stamp))
+    expect(after.map((step) => within(step).getByRole('time').getAttribute('datetime'))).toEqual(
+      [7, 6, 5, 4, 3].map(stamp),
+    )
     after.slice(1).forEach((node, i) => expect(node).toBe(before[i]))
     expect(stub.calls.snapshots).toEqual(['snapshots/live-7.json'])
   })
@@ -521,7 +592,9 @@ describe('a live Timeline', () => {
     renderAt('/shifts/nfl/timeline', { source: realSource(stub.history) })
     await screen.findAllByRole('article')
     const manifest = stub.history.manifest
-    stub.history.manifest = async () => { throw new Error('manifest down') }
+    stub.history.manifest = async () => {
+      throw new Error('manifest down')
+    }
     await tick(REFRESH)
     expect(await screen.findByText(/could not refresh the timeline/i)).toBeTruthy()
     expect(screen.getAllByRole('article')).toHaveLength(4)
@@ -603,7 +676,9 @@ describe('a live Timeline', () => {
     renderAt('/shifts/nfl/timeline', { source: realSource(stub.history) })
     await screen.findAllByRole('article')
     const original = stub.history.manifest
-    stub.history.manifest = async () => { throw new Error('manifest down') }
+    stub.history.manifest = async () => {
+      throw new Error('manifest down')
+    }
     await tick(REFRESH)
     expect(screen.getAllByRole('article')).toHaveLength(4)
     expect(screen.queryByRole('alert')).toBeNull()

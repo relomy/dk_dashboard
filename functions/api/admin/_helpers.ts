@@ -4,9 +4,7 @@ import { validateStateChangingOrigin } from '../../_shared/origin'
 import { requireAuthenticatedSession, type AuthenticatedSession } from '../../_shared/sessionAuth'
 import type { EnvBindings } from '../../_shared/types'
 
-export type OwnerGuardResult =
-  | { ok: true; session: AuthenticatedSession }
-  | { ok: false; response: Response }
+export type OwnerGuardResult = { ok: true; session: AuthenticatedSession } | { ok: false; response: Response }
 
 function randomToken(bytes = 16): string {
   const tokenBytes = new Uint8Array(bytes)

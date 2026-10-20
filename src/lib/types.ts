@@ -1,14 +1,27 @@
 import type {
-  Contest as GeneratedContest, SnapshotEnvelope, SportPayload, SportPlayer,
+  Contest as GeneratedContest,
+  SnapshotEnvelope,
+  SportPayload,
+  SportPlayer,
   StandingsRow as GeneratedStanding,
-  TrainCluster as GeneratedTrain, OwnershipWatchlist as GeneratedWatchlist,
+  TrainCluster as GeneratedTrain,
+  OwnershipWatchlist as GeneratedWatchlist,
 } from './generated/snapshot'
 import type { Status as SportStatus } from './generated/snapshot'
 export type {
-  Status as SportStatus, PrimaryContest, SelectionReason, ValueIcon, VipLineupRow as VipLineup, VipLineupSlot,
-  VipLineupSlot as VipLineupPlayerLive, LiveMetrics, ContestMetrics,
-  DistanceToCash as ContestMetricsDistanceToCash, Threat as ContestMetricsThreat,
-  OwnershipSummary as ContestMetricsOwnershipSummary, NonCashing as ContestMetricsNonCashing,
+  Status as SportStatus,
+  PrimaryContest,
+  SelectionReason,
+  ValueIcon,
+  VipLineupRow as VipLineup,
+  VipLineupSlot,
+  VipLineupSlot as VipLineupPlayerLive,
+  LiveMetrics,
+  ContestMetrics,
+  DistanceToCash as ContestMetricsDistanceToCash,
+  Threat as ContestMetricsThreat,
+  OwnershipSummary as ContestMetricsOwnershipSummary,
+  NonCashing as ContestMetricsNonCashing,
 } from './generated/snapshot'
 /** Dashboard display groups; producer state strings remain open. */
 export type ContestState = 'upcoming' | 'live' | 'completed' | 'cancelled' | 'unknown'

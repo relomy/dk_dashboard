@@ -1,7 +1,13 @@
 import type { ShiftItem, ShiftPart, TimelineEntry, TimelineGapEntry, TimelineStep } from './shifts'
 
 /** The five kinds, in the order the filter bar lists them. */
-export const ALL_KINDS: readonly ShiftPart[] = ['rank-points', 'player-events', 'cash-line', 'crossings', 'contest-state']
+export const ALL_KINDS: readonly ShiftPart[] = [
+  'rank-points',
+  'player-events',
+  'cash-line',
+  'crossings',
+  'contest-state',
+]
 
 export const KIND_LABEL: Record<ShiftPart, string> = {
   'rank-points': 'Rank & points',

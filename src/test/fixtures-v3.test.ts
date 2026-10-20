@@ -96,8 +96,9 @@ describe('prod fixture live-2026-10-04T18-41-34Z', () => {
     player_key: string
     game_status?: string
   }
-  const sports = (snapshotNflMidSlate as unknown as { sports: Record<string, { contests: Contest[]; players: Player[] }> })
-    .sports
+  const sports = (
+    snapshotNflMidSlate as unknown as { sports: Record<string, { contests: Contest[]; players: Player[] }> }
+  ).sports
   const nfl = sports.nfl.contests[0]
   const golf = sports.golf.contests[0]
 

@@ -79,10 +79,9 @@ export const onRequestPost: PagesFunction<EnvBindings> = async ({ request, env }
 
   const nowIso = new Date().toISOString()
   const newPasswordHash = await hashPassword(newPassword)
-  await env.AUTH_DB
-    .prepare(
-      `UPDATE users SET password_hash = ?, must_change_password = 0, temp_password_expires_at = NULL, updated_at = ? WHERE id = ?`,
-    )
+  await env.AUTH_DB.prepare(
+    `UPDATE users SET password_hash = ?, must_change_password = 0, temp_password_expires_at = NULL, updated_at = ? WHERE id = ?`,
+  )
     .bind(newPasswordHash, nowIso, auth.session.userId)
     .run()
 
