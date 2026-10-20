@@ -70,3 +70,31 @@ jobs:
 
       - name: Test
         run: npm test
+
+  pure-move:
+    name: npm run check:pure-move
+    # A token-budget split (#142) must be a pure move; those PRs say "under token budget" in their title.
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.title, 'under token budget')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The check reads the PR's base commit.
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Pure move
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: npm run check:pure-move -- "$BASE_SHA"

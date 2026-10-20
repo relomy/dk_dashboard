@@ -27,6 +27,19 @@ When the hook blocks a commit, it names each file, its tokens, the budget and th
 - **Markdown doc.** Split by H2 into linked pages, or move content that isn't the doc's job to the doc that owns it.
 - **Anything else.** Split by responsibility into smaller files near the original.
 
+### Checking a split
+
+A split must be a pure move, and must pass `npm run check:pure-move`; paste the before/after table it prints into the PR body. It compares HEAD with its merge base with `origin/main`; pass other refs as `npm run check:pure-move -- <base> [<head>]`:
+
+- **Tests:** `vitest list` on the touched test files on both sides must give the same test names (`project|describe > it`), so a lost, renamed, duplicated or no-longer-collected test fails.
+- **Code:** every line of a touched `.ts`/`.tsx` file must reappear on the other side, after Prettier collapses reflows. Glue doesn't count: imports, re-exports, `export` on a moved declaration, `eslint-disable` headers, closing brackets and `describe(` wrappers. Any other unmatched line fails, such as an edited assertion or a helper copied instead of moved to a kit. An unmatched comment is listed but doesn't fail.
+
+The check is a guard, not a proof: it compares test names and line multisets, so it can't see line order, scope changes, a line moved between tests, `import` changes or a dropped `export`. The reviewer still reads the diff.
+
+CI runs it on every PR whose title contains `under token budget`.
+
+Never run `vitest list --json <path>`: Vitest takes `<path>` as the output file and overwrites it. Write `--json=<file>`.
+
 ### Grandfathered files
 
 Files already over budget when the check landed carry a `token-budget=<tokens>` line in `.gitattributes`: their size then, rounded up. They may shrink but never grow past it. Once a split brings a file under 5,000 tokens, delete its line in the same commit. Never raise a recorded budget to get a commit through.

@@ -16,6 +16,7 @@
     "contract:sync": "node --import tsx scripts/contract/sync-contract.ts",
     "fixture:refresh": "node --import tsx scripts/fixtures/refresh-fixture.ts",
     "prod:check": "node --import tsx scripts/prod-check/prod-check.ts",
+    "check:pure-move": "node --import tsx scripts/check-pure-move.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
