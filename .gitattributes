@@ -14,7 +14,6 @@ public/mock/snapshots/** linguist-generated
 # capped at its size then (tokens = bytes / 4, rounded up). They may shrink but
 # never grow. Delete a file's line once it is split under 5,000 tokens.
 src/components/shifts/TimelineRail.tsx token-budget=5978
-src/lib/__tests__/liveModel.test.ts token-budget=12569
 src/lib/__tests__/timelineSource.test.ts token-budget=8468
 src/test/live-route.test.tsx token-budget=6394
 src/test/live-train.test.tsx token-budget=5701
