@@ -68,6 +68,8 @@ jobs:
         run: npm run contract:sync -- "$LATEST"
         env:
           LATEST: ${{ steps.compare.outputs.latest }}
+          # Authenticated reads of the public producer repo: anonymous API calls share a per-IP rate limit.
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Push the bump branch
         id: push

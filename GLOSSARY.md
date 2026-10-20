@@ -267,6 +267,17 @@ _Avoid_: production check
 The producer commit that built a snapshot, when the snapshot records one.
 _Avoid_: producer version, build ID
 
+**Producer pin**:
+The producer commit whose schema and Goldens this repository's types and contract
+suite are checked against, recorded in `contract/producer-pin.json`. It moves only
+when a Bump PR merges.
+_Avoid_: producer version, contract version
+
+**Bump PR**:
+The one open pull request that moves the Producer pin to the producer's latest
+`main`. Its CI is the verdict on whether the dashboard still fits.
+_Avoid_: contract bump, producer update
+
 ### Shifts
 
 **VIP shift**:
