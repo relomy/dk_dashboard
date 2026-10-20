@@ -144,7 +144,7 @@ The producer's schema and golden envelopes are pinned at a `relomy/dk_results` c
 - One-time repository setting: enable Settings > Actions > General > "Allow GitHub Actions to create and
   approve pull requests", or the workflow cannot open the PR.
 - The goldens are listed through the GitHub contents API. In CI the sync sends `GITHUB_TOKEN`, because anonymous
-  requests share a 60-an-hour limit per runner IP; locally it runs anonymously. Transient 403, 429 and 5xx
+  requests share a 60-an-hour limit per runner IP; locally it runs anonymously. Transient 429 and 5xx
   responses are retried. If a run still fails, rerun it with `workflow_dispatch`.
 
 ## Validation checklist

@@ -2,7 +2,7 @@ import { PRODUCER_REPO, type ProducerSource } from './syncContract'
 
 const CONTRACT_DIR = 'contract'
 
-const RETRY_STATUSES = new Set([403, 429, 500, 502, 503, 504])
+const RETRY_STATUSES = new Set([429, 500, 502, 503, 504])
 const ATTEMPTS = 3
 
 /**
