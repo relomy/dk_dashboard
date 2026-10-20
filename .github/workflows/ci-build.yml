@@ -42,6 +42,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # The token budget step diffs against the PR's base commit.
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -51,6 +54,13 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # The pre-commit hook's check, run on the PR's changed files so --no-verify can't skip it.
+      - name: Token budget
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: git diff -z --name-only --diff-filter=d "$BASE_SHA...HEAD" | xargs -0 -r sh scripts/check-token-budget.sh
 
       - name: Lint
         run: npm run lint
