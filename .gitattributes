@@ -1,0 +1,26 @@
+# Token budget: see docs/WORKFLOW.md#token-budget.
+# Files git should treat as generated: the token budget check skips them, and
+# GitHub collapses them in diffs.
+package-lock.json linguist-generated
+# Copied from the producer by `npm run contract:sync`.
+contract/** linguist-generated
+src/lib/generated/** linguist-generated
+# Producer-emitted mock data (`npm run fixture:refresh`); PRODUCER_FIXTURE.md stays authored.
+public/mock/latest.json linguist-generated
+public/mock/manifest/** linguist-generated
+public/mock/snapshots/** linguist-generated
+
+# Grandfathered: files over 5,000 tokens when the token budget landed, each
+# capped at its size then (tokens = bytes / 4, rounded up). They may shrink but
+# never grow. Delete a file's line once it is split under 5,000 tokens.
+src/components/shifts/TimelineRail.tsx token-budget=5978
+src/lib/__tests__/liveModel.test.ts token-budget=12569
+src/lib/__tests__/shifts.test.ts token-budget=16098
+src/lib/__tests__/timelineSource.test.ts token-budget=8468
+src/lib/liveModel.ts token-budget=7811
+src/lib/shifts.ts token-budget=8723
+src/test/live-route.test.tsx token-budget=6394
+src/test/live-train.test.tsx token-budget=5701
+src/test/live-vip.test.tsx token-budget=5791
+src/test/shifts-route.test.tsx token-budget=5911
+src/test/shifts-timeline.test.tsx token-budget=8426

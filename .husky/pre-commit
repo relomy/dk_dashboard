@@ -1,1 +1,2 @@
 npx lint-staged
+sh scripts/check-token-budget.sh
