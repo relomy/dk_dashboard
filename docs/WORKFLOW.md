@@ -14,7 +14,7 @@ Completion criterion: every modified file is necessary for the requested behavio
 
 No committed file may exceed **5,000 tokens**, where tokens = bytes / 4 (20,000 bytes). A file of exactly 5,000 tokens passes. Agents read files whole; the budget keeps every file small enough to read comfortably.
 
-`scripts/check-token-budget.sh` enforces it. The husky `pre-commit` hook runs lint-staged and then the script, so it measures the staged content as it will be committed. `npm install` (or `npm ci`) activates the hook through the `prepare` script. CI runs the same script on a PR's changed files, so `--no-verify` doesn't get a file past it. The script is a port of relomy/dk_results' `scripts/check-token-budget.sh`, the source of truth: change behaviour there first, then port it here, keeping only this repo's split recipes and doc pointer different.
+`scripts/check-token-budget.sh` enforces it. The husky `pre-commit` hook runs lint-staged and then the script, so it measures the staged content as it will be committed. `npm install` (or `npm ci`) activates the hook through the `prepare` script. CI runs the same script on every tracked file, so `--no-verify` doesn't get a file past it. The script is a port of relomy/dk_results' `scripts/check-token-budget.sh`, the source of truth: change behaviour there first, then port it here, keeping only this repo's split recipes and doc pointer different.
 
 The check skips deleted files, binary files and generated files. Generated files are declared once in `.gitattributes` as `linguist-generated` (`package-lock.json`, `contract/`, `src/lib/generated/`, the producer-emitted mocks under `public/mock/`); add a new generated path there, never an exemption in the script.
 
@@ -30,3 +30,5 @@ When the hook blocks a commit, it names each file, its tokens, the budget and th
 ### Grandfathered files
 
 Files already over budget when the check landed carry a `token-budget=<tokens>` line in `.gitattributes`: their size then, rounded up. They may shrink but never grow past it. Once a split brings a file under 5,000 tokens, delete its line in the same commit. Never raise a recorded budget to get a commit through.
+
+CI enforces this with `scripts/check-budget-ratchet.sh` (the "Token budget ratchet" step). It fails a PR that adds a `token-budget=` line for a new path or raises an existing one in `.gitattributes` (comparison is by path, so reordering is fine; a renamed grandfathered file counts as new and fails, so split it before renaming), and any tracked file that is within 5,000 tokens but still has a `token-budget=` line. The size check itself covers every tracked file, so deleting another file's line can't hide it.
