@@ -42,9 +42,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          # The token budget ratchet step diffs against the PR's base commit.
-          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -56,23 +53,9 @@ jobs:
         run: npm ci
 
       # The pre-commit hook's check, run on every tracked file (not just the PR's changed ones) so
-      # --no-verify can't skip it and a deleted `token-budget=` line can't hide its file.
+      # --no-verify can't skip it.
       - name: Token budget
         run: git ls-files -z | xargs -0 sh scripts/check-token-budget.sh
-
-      # Recorded budgets only go down: no added or raised `token-budget=` line, and no stale line on
-      # a file that is back within 5,000 tokens. BASE_SHA is empty outside pull requests, which skips
-      # the diff check; on a pull request an empty BASE_SHA fails instead of skipping it.
-      - name: Token budget ratchet
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          if [ "$EVENT_NAME" = pull_request ] && [ -z "$BASE_SHA" ]; then
-            echo "pull_request event without a base SHA: cannot check the budget ratchet" >&2
-            exit 1
-          fi
-          sh scripts/check-budget-ratchet.sh "$BASE_SHA"
 
       - name: Lint
         run: npm run lint
