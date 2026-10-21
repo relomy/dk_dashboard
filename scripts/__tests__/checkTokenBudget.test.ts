@@ -143,14 +143,13 @@ describe('check-token-budget', () => {
     expect(check().status).toBe(0)
   })
 
-  it('lets a grandfathered file reach its recorded budget but not grow past it', () => {
+  it('ignores a token-budget attribute: the file still fails above 5,000 tokens', () => {
     stage('src/legacy.ts', 24_000)
-    expect(check().status).toBe(0)
 
-    stage('src/legacy.ts', 24_004)
     const { status, stderr } = check()
+
     expect(status).not.toBe(0)
-    expect(stderr).toContain('src/legacy.ts')
+    expect(stderr).toContain('src/legacy.ts: 6000 tokens, budget 5000, over by 1000')
   })
 
   it('ignores deleted files', () => {

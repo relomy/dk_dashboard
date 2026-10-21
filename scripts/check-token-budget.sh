@@ -1,15 +1,10 @@
 #!/bin/sh
-# Token budget check: no committed file may exceed its token budget.
-#
-# Port of relomy/dk_results' scripts/check-token-budget.sh (the source of
-# truth): same CLI, attributes, staged-blob sizing and exit codes, with this
-# repo's split recipes and doc pointer. Change behaviour there first.
+# Token budget check: no committed file may exceed 5,000 tokens.
 #
 # Usage: check-token-budget.sh            check the staged files (pre-commit)
 #        check-token-budget.sh PATH...    check these repo-root-relative paths (CI)
 #
-# Tokens = bytes / 4 of the staged blob. The budget is 5000 tokens unless the
-# file's `token-budget=<N>` git attribute sets one (grandfathered files).
+# Tokens = bytes / 4 of the staged blob. There are no per-file exemptions.
 # Skipped: deleted files, `linguist-generated` files and binaries.
 # Needs only POSIX sh and git.
 set -u
@@ -58,13 +53,11 @@ failed=0
 for path in "$@"; do
   case $(attr linguist-generated "$path") in set | true) continue ;; esac
   bytes=$(git cat-file -s ":$path" 2>/dev/null) || continue
-  budget=$(attr token-budget "$path")
-  case $budget in '' | *[!0-9]*) budget=$LIMIT ;; esac
-  [ "$bytes" -gt $((budget * 4)) ] || continue
+  [ "$bytes" -gt $((LIMIT * 4)) ] || continue
   # git's binary detection on the staged blob: numstat prints "-" for binaries.
   case $(git diff --cached --numstat "$empty_tree" -- "$path") in -*) continue ;; esac
   tokens=$(((bytes + 3) / 4))
-  echo "$path: $tokens tokens, budget $budget, over by $((tokens - budget))" >&2
+  echo "$path: $tokens tokens, budget $LIMIT, over by $((tokens - LIMIT))" >&2
   recipe "$path" >&2
   failed=1
 done

@@ -9,7 +9,3 @@ src/lib/generated/** linguist-generated
 public/mock/latest.json linguist-generated
 public/mock/manifest/** linguist-generated
 public/mock/snapshots/** linguist-generated
-
-# Grandfathered: files over 5,000 tokens when the token budget landed, each
-# capped at its size then (tokens = bytes / 4, rounded up). They may shrink but
-# never grow. Delete a file's line once it is split under 5,000 tokens.
