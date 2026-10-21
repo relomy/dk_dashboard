@@ -1,14 +1,8 @@
 # Development workflow
 
-Apply these rules to implementation work in this repository:
+Scope and implementation rules live in [`CODING_STANDARDS.md`](../CODING_STANDARDS.md).
 
-- Keep changes scoped to this repository unless the user explicitly requests a cross-repository change.
 - Ask before changing behavior in user-facing flows.
-- Prefer the smallest change that fully solves the request.
-- Extend existing code before introducing a new abstraction.
-- Keep unrelated refactors out of the change.
-
-Completion criterion: every modified file is necessary for the requested behavior or its verification.
 
 ## Token budget
 
@@ -34,7 +28,7 @@ A split must be a pure move, and must pass `npm run check:pure-move`; paste the 
 - **Tests:** `vitest list` on the touched test files on both sides must give the same test names (`project|describe > it`), so a lost, renamed, duplicated or no-longer-collected test fails.
 - **Code:** every line of a touched `.ts`/`.tsx` file must reappear on the other side, after Prettier collapses reflows. Glue doesn't count: imports, re-exports, `export` on a moved declaration, `eslint-disable` headers, closing brackets and `describe(` wrappers. Any other unmatched line fails, such as an edited assertion or a helper copied instead of moved to a kit. An unmatched comment is listed but doesn't fail.
 
-The check is a guard, not a proof: it compares test names and line multisets, so it can't see line order, scope changes, a line moved between tests, `import` changes or a dropped `export`. The reviewer still reads the diff.
+The check is a guard, not a proof: it compares test names and line multisets, so it can't see line order, scope changes, a line moved between tests, `import` changes or a dropped `export`. The reviewer still reads the diff for those ([`CODING_STANDARDS.md`](../CODING_STANDARDS.md#module-layout)).
 
 CI runs it on every PR whose title contains `under token budget`.
 
