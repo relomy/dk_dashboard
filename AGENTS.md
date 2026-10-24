@@ -11,6 +11,7 @@
 ## Task routing
 
 - For change boundaries and implementation conventions, read [`CODING_STANDARDS.md`](CODING_STANDARDS.md) and [`docs/WORKFLOW.md`](docs/WORKFLOW.md).
+- For local setup and tool access issues, see [`docs/WORKFLOW.md`](docs/WORKFLOW.md#local-tool-access).
 - When a commit is blocked for size, or a file nears 5,000 tokens, read [Token budget](docs/WORKFLOW.md#token-budget).
 - For completion checks and reporting, read [`docs/VERIFICATION.md`](docs/VERIFICATION.md).
 - For commit messages, read [`docs/COMMITS.md`](docs/COMMITS.md).
