@@ -4,6 +4,13 @@ Scope and implementation rules live in [`CODING_STANDARDS.md`](../CODING_STANDAR
 
 - Ask before changing behavior in user-facing flows.
 
+## Local tool access
+
+- Check for `node_modules` before running project commands. If dependencies are absent, run `npm ci`.
+- If npm cannot reach the registry from the sandbox, retry `npm ci` with network access before diagnosing registry or project configuration.
+- If `gh auth status` fails in the sandbox, retry with elevated access before concluding the saved GitHub login is invalid or asking the user to log in again.
+- Run Wrangler commands with a writable log path, as the package scripts do. If the sandbox blocks Wrangler's auth/config directory, retry with elevated access. Cloudflare operations also require Wrangler authentication or the R2 credentials documented in [`VERIFICATION.md`](VERIFICATION.md).
+
 ## Token budget
 
 No committed file may exceed **5,000 tokens**, where tokens = bytes / 4 (20,000 bytes). A file of exactly 5,000 tokens passes. Agents read files whole; the budget keeps every file small enough to read comfortably.
