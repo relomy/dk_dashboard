@@ -6,7 +6,7 @@ Scope and implementation rules live in [`CODING_STANDARDS.md`](../CODING_STANDAR
 
 ## Branches and pull requests
 
-Use the default branch as the base for new work branches. Use pull requests for changes and link each PR to its issue. See [`docs/agents/issue-tracker.md`](agents/issue-tracker.md) for issue lifecycle and CLI operations. The repository has no general branch naming, review, or merge procedure beyond applicable task instructions.
+For tasks involving PR base selection or issue linking, follow the task-triggered guidance in [`docs/agents/issue-tracker.md`](agents/issue-tracker.md); consult it for issue lifecycle and CLI operations as needed. The repository has no general branch naming, review, or merge procedure beyond applicable task instructions.
 
 ## Commit messages
 
