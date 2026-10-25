@@ -1,4 +1,4 @@
-# Development workflow
+# Workflow
 
 Scope and implementation rules live in [`CODING_STANDARDS.md`](../CODING_STANDARDS.md).
 
@@ -6,15 +6,23 @@ Scope and implementation rules live in [`CODING_STANDARDS.md`](../CODING_STANDAR
 
 ## Branches and pull requests
 
-Use the default branch as the base for new work branches. Use pull requests for changes and link each PR to its issue. See [`docs/agents/issue-tracker.md`](agents/issue-tracker.md) for the repository's branch and issue-linked PR guidance. The repository has no general branch naming, review, or merge procedure beyond applicable task instructions.
+Use the default branch as the base for new work branches. Use pull requests for changes and link each PR to its issue. See [`docs/agents/issue-tracker.md`](agents/issue-tracker.md) for issue lifecycle and CLI operations. The repository has no general branch naming, review, or merge procedure beyond applicable task instructions.
 
-Commit message format lives only in [`docs/COMMITS.md`](COMMITS.md).
+## Commit messages
+
+Use this format for commits:
+
+```text
+type(scope): short summary
+```
+
+Use a lowercase type such as `feat`, `fix`, `test`, `docs`, or `chore`. Keep the summary imperative and concise.
 
 For a pure-move split, the reviewer still reads the diff for the limits of the automated check described below; see [`CODING_STANDARDS.md`](../CODING_STANDARDS.md#module-layout). Follow task instructions for any additional review or merge requirements.
 
 ## Handoff
 
-Before reporting work complete, state the changed files and behavior, every command run, every failure with its exact command and a concise summary, and any follow-up risk or next step. Completion checks and their pass criteria live in [`docs/VERIFICATION.md`](VERIFICATION.md).
+Before reporting work complete, state the changed files and behavior, every command run, every failure with its exact command and a concise summary, and any follow-up risk or next step. Completion checks and their pass criteria live in [`docs/TESTING.md`](TESTING.md).
 
 ## Token budget
 

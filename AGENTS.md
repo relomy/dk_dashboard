@@ -11,10 +11,10 @@
 ## Task routing
 
 - For change boundaries and implementation conventions, read [`CODING_STANDARDS.md`](CODING_STANDARDS.md).
-- For local setup, checks, and completion gates, read [`docs/VERIFICATION.md`](docs/VERIFICATION.md).
-- For branch/base, pull-request, review, merge, or handoff work, read [`docs/WORKFLOW.md`](docs/WORKFLOW.md); branch and issue-linked PR guidance is in [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).
+- For local setup, checks, and completion gates, read [`docs/TESTING.md`](docs/TESTING.md).
+- For branch/base, pull-request, review, merge, or handoff work, read [`docs/WORKFLOW.md`](docs/WORKFLOW.md). For issue operations, read [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).
 - For token-budget or file-splitting work, including when a file approaches 5,000 tokens or a size check blocks a commit, read [Token budget](docs/WORKFLOW.md#token-budget).
-- For commit messages, read [`docs/COMMITS.md`](docs/COMMITS.md).
+- For commit messages and workflow procedures, read [`docs/WORKFLOW.md`](docs/WORKFLOW.md).
 
 ## Agent skills
 

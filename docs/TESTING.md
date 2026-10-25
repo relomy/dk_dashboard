@@ -1,4 +1,4 @@
-# Verification
+# Testing and verification
 
 ## Setup
 
@@ -15,7 +15,7 @@ Before claiming completion:
 4. Run `npm run check:functions` when changing `functions/` or shared worker types.
 5. For changes to the Live view (`src/routes/Live.tsx`, `src/lib/live*`) or snapshot handling (`src/lib/types.ts`, the snapshot model and its helpers), run the prod check and include its report in the PR (see below).
 
-Completion criterion: all applicable checks have passed. Report commands, failures, and follow-up risks at handoff as described in [`docs/WORKFLOW.md`](WORKFLOW.md#handoff).
+Completion criterion: all applicable checks have passed, or each failure and its impact is reported. Report commands, failures, and follow-up risks at handoff as described in [`docs/WORKFLOW.md`](WORKFLOW.md#handoff).
 
 ## Prod check
 
