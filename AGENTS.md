@@ -10,15 +10,16 @@
 
 ## Task routing
 
-- For change boundaries and implementation conventions, read [`CODING_STANDARDS.md`](CODING_STANDARDS.md) and [`docs/WORKFLOW.md`](docs/WORKFLOW.md).
-- For local setup and tool access issues, see [`docs/WORKFLOW.md`](docs/WORKFLOW.md#local-tool-access).
-- When a commit is blocked for size, or a file nears 5,000 tokens, read [Token budget](docs/WORKFLOW.md#token-budget).
-- For completion checks and reporting, read [`docs/VERIFICATION.md`](docs/VERIFICATION.md).
-- For commit messages, read [`docs/COMMITS.md`](docs/COMMITS.md).
+- For change boundaries and implementation conventions, read [`CODING_STANDARDS.md`](CODING_STANDARDS.md).
+- For local setup, checks, and completion gates, read [`docs/TESTING.md`](docs/TESTING.md).
+- For branch/base, pull-request, review, merge, or handoff work, read [`docs/WORKFLOW.md`](docs/WORKFLOW.md). For issue operations, read [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).
+- For token-budget or file-splitting work, including when a file approaches 5,000 tokens or a size check blocks a commit, read [Token budget](docs/WORKFLOW.md#token-budget).
+- For commit messages and workflow procedures, read [`docs/WORKFLOW.md`](docs/WORKFLOW.md).
 
 ## Agent skills
 
 ### Issue tracker
+
 Issues and specs live in GitHub Issues; use `gh` for issue operations. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels

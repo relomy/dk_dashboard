@@ -1,15 +1,28 @@
-# Development workflow
+# Workflow
 
 Scope and implementation rules live in [`CODING_STANDARDS.md`](../CODING_STANDARDS.md).
 
 - Ask before changing behavior in user-facing flows.
 
-## Local tool access
+## Branches and pull requests
 
-- Check for `node_modules` before running project commands. If dependencies are absent, run `npm ci`.
-- If npm cannot reach the registry from the sandbox, retry `npm ci` with network access before diagnosing registry or project configuration.
-- If `gh auth status` fails in the sandbox, retry with elevated access before concluding the saved GitHub login is invalid or asking the user to log in again.
-- Run Wrangler commands with a writable log path, as the package scripts do. If the sandbox blocks Wrangler's auth/config directory, retry with elevated access. Cloudflare operations also require Wrangler authentication or the R2 credentials documented in [`VERIFICATION.md`](VERIFICATION.md).
+For tasks involving PR base selection or issue linking, follow the task-triggered guidance in [`docs/agents/issue-tracker.md`](agents/issue-tracker.md); consult it for issue lifecycle and CLI operations as needed. The repository has no general branch naming, review, or merge procedure beyond applicable task instructions.
+
+## Commit messages
+
+Use this format for commits:
+
+```text
+type(scope): short summary
+```
+
+Use a lowercase type such as `feat`, `fix`, `test`, `docs`, or `chore`. Keep the summary imperative and concise.
+
+For a pure-move split, the reviewer still reads the diff for the limits of the automated check described below; see [`CODING_STANDARDS.md`](../CODING_STANDARDS.md#module-layout). Follow task instructions for any additional review or merge requirements.
+
+## Handoff
+
+Before reporting work complete, state the changed files and behavior, every command run, every failure with its exact command and a concise summary, and any follow-up risk or next step. Completion checks and their pass criteria live in [`docs/TESTING.md`](TESTING.md).
 
 ## Token budget
 
