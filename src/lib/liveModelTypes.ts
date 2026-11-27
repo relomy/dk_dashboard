@@ -196,6 +196,17 @@ export interface LiveOwnershipLeaders {
   entries: LiveOwnershipLeader[]
 }
 
+export interface LiveNonCashingPlayer {
+  name: string
+  ownershipRemainingPct: number
+}
+
+export interface LiveNonCashing {
+  usersNotCashing: number
+  avgPmrRemaining: number
+  topRemainingPlayers: LiveNonCashingPlayer[] | null
+}
+
 export interface LiveSwingPlayer {
   key: string
   name: string
@@ -256,6 +267,7 @@ export interface LiveModel {
   trains: Section<LiveTrains>
   standings: Section<LiveStandingsRow[]>
   ownershipLeaders: Section<LiveOwnershipLeaders>
+  nonCashing: Section<LiveNonCashing>
   /** Swing players from the threat metrics: the most-owned players whose games are not final. */
   threat: Section<LiveThreat>
 }

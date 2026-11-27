@@ -38,7 +38,7 @@ describe('Leverage panel', () => {
       await renderLive(load())
 
       const aside = within(screen.getByRole('complementary', { name: /leverage/i }))
-      for (const name of ['Swing players', 'Leverage vs field', 'Ownership leaders']) {
+      for (const name of ['Swing players', 'Leverage vs field', 'Ownership leaders', 'Non-cashing summary']) {
         expect(aside.getByRole('heading', { name })).toBeInTheDocument()
       }
       expect(screen.getByRole('table', { name: /players/i })).toBeInTheDocument()
@@ -310,6 +310,49 @@ describe('Leverage panel', () => {
 
       expect(
         section('Ownership leaders').getByText('Ownership leaders are unavailable for this contest.'),
+      ).toBeInTheDocument()
+    })
+  })
+
+  describe('non-cashing summary', () => {
+    it('shows the field summary and up to ten remaining players', async () => {
+      const snapshot = load()
+      contestOf(snapshot).metrics.non_cashing = {
+        users_not_cashing: 1200,
+        avg_pmr_remaining: 175.25,
+        top_remaining_players: [{ player_name: 'Remaining Player', ownership_remaining_pct: 37.5 }],
+      }
+      await renderLive(snapshot)
+
+      const summary = screen.getByRole('region', { name: 'Non-cashing summary' })
+      expect(summary).toHaveTextContent('1,200 entries not cashing')
+      expect(summary).toHaveTextContent('Average PMR remaining 175.3')
+      expect(within(summary).getAllByRole('listitem')[0]).toHaveTextContent('Remaining Player')
+      expect(summary).toHaveTextContent('37.5%')
+    })
+
+    it('shows both figures with an empty state for an explicitly empty player list', async () => {
+      const snapshot = load()
+      contestOf(snapshot).metrics.non_cashing = {
+        users_not_cashing: 1200,
+        avg_pmr_remaining: 175.25,
+        top_remaining_players: [],
+      }
+      await renderLive(snapshot)
+
+      const summary = screen.getByRole('region', { name: 'Non-cashing summary' })
+      expect(summary).toHaveTextContent('1,200 entries not cashing')
+      expect(summary).toHaveTextContent('Average PMR remaining 175.3')
+      expect(summary).toHaveTextContent('No non-cashing players have a game remaining.')
+    })
+
+    it('shows unavailable when the producer omits the summary', async () => {
+      const snapshot = load()
+      delete contestOf(snapshot).metrics.non_cashing
+      await renderLive(snapshot)
+
+      expect(
+        section('Non-cashing summary').getByText('Non-cashing summary is unavailable for this contest.'),
       ).toBeInTheDocument()
     })
   })

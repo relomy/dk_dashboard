@@ -1,5 +1,12 @@
 import type { LiveContest as Contest } from './interpretedSnapshot'
-import type { LiveFieldRemaining, LiveOwnershipLeaders, LiveStandingsRow, LiveThreat, Section } from './liveModelTypes'
+import type {
+  LiveFieldRemaining,
+  LiveNonCashing,
+  LiveOwnershipLeaders,
+  LiveStandingsRow,
+  LiveThreat,
+  Section,
+} from './liveModelTypes'
 import { numberOrNull } from './playerPool'
 
 export const UNAVAILABLE = { availability: 'unavailable' } as const
@@ -65,6 +72,20 @@ export function buildOwnershipLeaders(contest: Contest): Section<LiveOwnershipLe
       rank: numberOrNull(entry.current_rank),
       points: numberOrNull(entry.current_points),
     })),
+  })
+}
+
+export function buildNonCashing(contest: Contest): Section<LiveNonCashing> {
+  const summary = contest.metrics?.non_cashing
+  if (!summary) return UNAVAILABLE
+  return available({
+    usersNotCashing: summary.users_not_cashing,
+    avgPmrRemaining: summary.avg_pmr_remaining,
+    topRemainingPlayers:
+      summary.top_remaining_players?.map((player) => ({
+        name: player.player_name,
+        ownershipRemainingPct: player.ownership_remaining_pct,
+      })) ?? null,
   })
 }
 
