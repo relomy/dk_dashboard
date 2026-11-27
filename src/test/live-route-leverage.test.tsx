@@ -355,5 +355,36 @@ describe('Leverage panel', () => {
         section('Non-cashing summary').getByText('Non-cashing summary is unavailable for this contest.'),
       ).toBeInTheDocument()
     })
+
+    it('shows an unavailable player list when the producer omits that field', async () => {
+      const snapshot = load()
+      contestOf(snapshot).metrics.non_cashing = {
+        users_not_cashing: 1200,
+        avg_pmr_remaining: 175.25,
+      }
+      await renderLive(snapshot)
+
+      const summary = screen.getByRole('region', { name: 'Non-cashing summary' })
+      expect(summary).toHaveTextContent('1,200 entries not cashing')
+      expect(summary).toHaveTextContent('Average PMR remaining 175.3')
+      expect(summary).toHaveTextContent('Remaining players are unavailable.')
+    })
+
+    it('limits the remaining player list to ten entries', async () => {
+      const snapshot = load()
+      contestOf(snapshot).metrics.non_cashing = {
+        users_not_cashing: 1200,
+        avg_pmr_remaining: 175.25,
+        top_remaining_players: Array.from({ length: 11 }, (_, index) => ({
+          player_name: `Remaining Player ${index + 1}`,
+          ownership_remaining_pct: index + 1,
+        })),
+      }
+      await renderLive(snapshot)
+
+      const summary = screen.getByRole('region', { name: 'Non-cashing summary' })
+      expect(within(summary).getAllByRole('listitem')).toHaveLength(10)
+      expect(within(summary).queryByText('Remaining Player 11')).not.toBeInTheDocument()
+    })
   })
 })

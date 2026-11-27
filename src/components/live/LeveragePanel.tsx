@@ -214,6 +214,8 @@ function OwnershipLeaders({ model }: { model: LiveModel }) {
 
 function NonCashingSummary({ model }: { model: LiveModel }) {
   const summary = model.nonCashing
+  const remainingPlayers = summary.availability === 'available' ? summary.data.topRemainingPlayers : null
+
   return (
     <PanelSection title="Non-cashing summary">
       {summary.availability === 'unavailable' ? (
@@ -227,14 +229,14 @@ function NonCashingSummary({ model }: { model: LiveModel }) {
             </span>
             Average PMR remaining {formatPmr(summary.data.avgPmrRemaining)}
           </p>
-          {summary.data.topRemainingPlayers === null ? (
+          {remainingPlayers === null ? (
             <Note>Remaining players are unavailable.</Note>
-          ) : summary.data.topRemainingPlayers.length === 0 ? (
+          ) : remainingPlayers.length === 0 ? (
             <Note>No non-cashing players have a game remaining.</Note>
           ) : (
             <ul className="mt-3 space-y-1">
-              {summary.data.topRemainingPlayers.slice(0, 10).map((player) => (
-                <li key={player.name} className="flex justify-between gap-2 rounded px-2 py-1 text-sm">
+              {remainingPlayers.slice(0, 10).map((player, index) => (
+                <li key={`${player.name}-${index}`} className="flex justify-between gap-2 rounded px-2 py-1 text-sm">
                   <span className="min-w-0 truncate">{player.name}</span>
                   <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
                     {formatOwnership(player.ownershipRemainingPct)}
