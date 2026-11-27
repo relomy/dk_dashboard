@@ -231,6 +231,8 @@ describe('timeline', () => {
           },
         ],
       })
+      const step = entries[1]
+      expect(step.kind === 'step' && step.items[0]).not.toHaveProperty('standings')
     })
 
     it('does not infer a going-live item from an already-live first snapshot', () => {
