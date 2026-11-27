@@ -79,10 +79,10 @@ export function buildNonCashing(contest: Contest): Section<LiveNonCashing> {
   const summary = contest.metrics?.non_cashing
   if (!summary) return UNAVAILABLE
   return available({
-    usersNotCashing: summary.users_not_cashing,
+    entriesNotCashing: summary.users_not_cashing,
     avgPmrRemaining: summary.avg_pmr_remaining,
     topRemainingPlayers:
-      summary.top_remaining_players?.map((player) => ({
+      summary.top_remaining_players?.slice(0, 10).map((player) => ({
         name: player.player_name,
         ownershipRemainingPct: player.ownership_remaining_pct,
       })) ?? null,

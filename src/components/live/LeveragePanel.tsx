@@ -223,7 +223,7 @@ function NonCashingSummary({ model }: { model: LiveModel }) {
       ) : (
         <>
           <p className="mt-2 text-sm">
-            {summary.data.usersNotCashing.toLocaleString()} entries not cashing
+            {summary.data.entriesNotCashing.toLocaleString()} entries not cashing
             <span className="mx-2 text-muted-foreground" aria-hidden="true">
               ·
             </span>
@@ -235,7 +235,7 @@ function NonCashingSummary({ model }: { model: LiveModel }) {
             <Note>No non-cashing players have a game remaining.</Note>
           ) : (
             <ul className="mt-3 space-y-1">
-              {remainingPlayers.slice(0, 10).map((player, index) => (
+              {remainingPlayers.map((player, index) => (
                 <li key={`${player.name}-${index}`} className="flex justify-between gap-2 rounded px-2 py-1 text-sm">
                   <span className="min-w-0 truncate">{player.name}</span>
                   <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">

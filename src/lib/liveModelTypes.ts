@@ -202,7 +202,7 @@ export interface LiveNonCashingPlayer {
 }
 
 export interface LiveNonCashing {
-  usersNotCashing: number
+  entriesNotCashing: number
   avgPmrRemaining: number
   topRemainingPlayers: LiveNonCashingPlayer[] | null
 }

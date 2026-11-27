@@ -137,7 +137,7 @@ describe('non-cashing summary', () => {
     expect(modelOf(snapshot).nonCashing).toEqual({
       availability: 'available',
       data: {
-        usersNotCashing: 123,
+        entriesNotCashing: 123,
         avgPmrRemaining: 45.6,
         topRemainingPlayers: [{ name: 'Test Player', ownershipRemainingPct: 12.3 }],
       },
