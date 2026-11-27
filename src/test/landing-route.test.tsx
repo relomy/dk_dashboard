@@ -226,6 +226,19 @@ it('marks a completed primary contest as Final with its start time on Live', asy
   expect(screen.getByRole('complementary', { name: /leverage/i })).toBeInTheDocument()
 })
 
+it('shows the completion time on the Final marker when the snapshot has one', async () => {
+  const snapshot = load()
+  snapshot.sports.cfb.contests[0].state = 'completed'
+  snapshot.sports.cfb.contests[0].completed_at = '2026-10-03T20:30:00Z'
+  stubApi(snapshot)
+  renderApp('/live/cfb')
+
+  const marker = await screen.findByLabelText(/contest state/i, undefined, APP_READY)
+  expect(within(marker).getByText(/finished/i)).toBeInTheDocument()
+  expect(marker.querySelector('time')).toHaveAttribute('datetime', '2026-10-03T20:30:00Z')
+  expect(within(marker).getByText(/18m ago/)).toBeInTheDocument()
+})
+
 it('measures the Final age to the current time when the snapshot time is unusable', async () => {
   const snapshot = load()
   snapshot.sports.cfb.contests[0].state = 'completed'

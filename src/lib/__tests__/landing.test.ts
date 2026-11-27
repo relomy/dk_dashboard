@@ -41,6 +41,18 @@ describe('chooseLandingSport', () => {
     expect(chooseLandingSport(snapshot, null)).toBe('golf')
   })
 
+  it('orders by completion time when present and falls back to start time when absent', () => {
+    const snapshot = load()
+    for (const sport of Object.keys(snapshot.sports)) finish(snapshot, sport)
+    snapshot.sports.cfb.contests[0].start_time = '2026-10-04T02:00:00Z'
+    snapshot.sports.cfb.contests[0].completed_at = '2026-10-04T03:00:00Z'
+    snapshot.sports.golf.contests[0].start_time = '2026-10-04T04:00:00Z'
+    snapshot.sports.golf.contests[0].completed_at = '2026-10-04T01:00:00Z'
+    snapshot.sports.mlb.contests[0].start_time = '2026-10-04T00:00:00Z'
+    delete snapshot.sports.mlb.contests[0].completed_at
+    expect(chooseLandingSport(snapshot, null)).toBe('cfb')
+  })
+
   it('orders completed contests by instant, not by ISO string, across UTC offsets', () => {
     const snapshot = load()
     for (const sport of Object.keys(snapshot.sports)) finish(snapshot, sport)

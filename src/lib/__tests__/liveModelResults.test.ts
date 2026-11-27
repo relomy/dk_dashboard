@@ -48,6 +48,7 @@ describe('primary contest', () => {
       name: 'CFB Single Entry $25 Double Up',
       state: 'live',
       startTime: '2026-10-03T16:00:00Z',
+      completedAt: null,
     })
     expect(model.cashLine).toEqual({ points: 129.04001, rank: 98 })
   })
