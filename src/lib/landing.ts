@@ -27,8 +27,8 @@ function primaryContestOf(snapshot: Snapshot, sport: string) {
 }
 
 /** Epoch milliseconds of an ISO-8601 timestamp; missing or unparseable values are the oldest possible. */
-function startedAt(startTime: string | null | undefined): number {
-  const parsed = startTime ? Date.parse(startTime) : Number.NaN
+function timestampAt(iso: string | null | undefined): number {
+  const parsed = iso ? Date.parse(iso) : Number.NaN
   return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed
 }
 
@@ -39,7 +39,7 @@ function findLatestCompletedSport(snapshot: Snapshot, sports: string[]): string 
   for (const sport of sports) {
     const contest = primaryContestOf(snapshot, sport)
     if (contest?.state !== 'completed') continue
-    const completion = startedAt(contest.completed_at ?? contest.start_time)
+    const completion = timestampAt(contest.completed_at ?? contest.start_time)
     if (latestSport === null || completion > latestCompletion) {
       latestSport = sport
       latestCompletion = completion

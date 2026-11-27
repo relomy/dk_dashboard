@@ -33,7 +33,7 @@ function FinalMarker({ contest, snapshotAt }: { contest: LiveModel['contest']; s
   if (contest.state !== 'completed') return null
   const finishTime = contest.completedAt ?? contest.startTime
   const label = contest.completedAt ? 'Finished' : 'Started'
-  const finished = finishTime ? new Date(finishTime) : null
+  const finishDate = finishTime ? new Date(finishTime) : null
   const age = finishTime ? (formatAge(finishTime, snapshotAt) ?? formatAge(finishTime, new Date().toISOString())) : null
   return (
     <div
@@ -46,8 +46,8 @@ function FinalMarker({ contest, snapshotAt }: { contest: LiveModel['contest']; s
         <span className="text-muted-foreground">
           {label}{' '}
           <time dateTime={finishTime}>
-            {finished && !Number.isNaN(finished.getTime())
-              ? finished.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+            {finishDate && !Number.isNaN(finishDate.getTime())
+              ? finishDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
               : finishTime}
           </time>
           {age ? <> · {age}</> : null}
