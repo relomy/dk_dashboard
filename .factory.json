@@ -1,0 +1,11 @@
+{
+  "setup": ["npm ci"],
+  "checks": [
+    "npm run check:functions",
+    "npm run build",
+    "git ls-files -z | xargs -0 sh scripts/check-token-budget.sh",
+    "npm run lint",
+    "npm run format:check",
+    "npm test"
+  ]
+}
