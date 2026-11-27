@@ -4,8 +4,7 @@ on:
   issues:
     types: [labeled]
 
-permissions:
-  issues: read
+permissions: {}
 
 jobs:
   dispatch:
@@ -28,30 +27,7 @@ jobs:
               return;
             }
 
-            const { owner, repo } = context.repo;
             const issueNumber = context.issue.number;
-            const issueEvents = await github.paginate(
-              github.rest.issues.listEventsForIssue,
-              { owner, repo, issue_number: issueNumber, per_page: 100 },
-            );
-            const matchingEvents = issueEvents.filter(
-              (event) => ['labeled', 'unlabeled'].includes(event.event) && event.label?.name === 'agent:implement',
-            );
-            matchingEvents.sort((left, right) => {
-              const byTime = Date.parse(right.created_at) - Date.parse(left.created_at);
-              return byTime || Number(right.id) - Number(left.id);
-            });
-
-            const labelEvent = matchingEvents[0];
-            if (!labelEvent?.id) {
-              core.setFailed(`Could not find an agent:implement label event for issue #${issueNumber}.`);
-              return;
-            }
-            if (labelEvent.event !== 'labeled' || labelEvent.actor?.login !== owner) {
-              core.notice('The latest request label event is no longer an owner request.');
-              return;
-            }
-
             const dispatch = await fetch(
               'https://api.github.com/repos/relomy/software_factory/actions/workflows/factory.yml/dispatches',
               {
@@ -68,7 +44,6 @@ jobs:
                     target_repo: 'relomy/dk_dashboard',
                     operation: 'implement',
                     number: String(issueNumber),
-                    label_event_id: String(labelEvent.id),
                   },
                 }),
               },
