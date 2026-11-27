@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { LiveModel } from '../liveModel'
 import { T0, nflModel, KEY, LAWRENCE, pooled, cashLine, INSIDE, OUTSIDE, MINUTE, completed } from './shiftsTestKit'
 import { buildTimeline, digestOf, type Digest, type TimelineInput, type VipShiftItem } from '../shifts'
+import { ALL_KINDS, filterTimeline } from '../timelineFilter'
 
 describe('timeline', () => {
   const minute = (n: number) => `2026-10-04T18:${String(40 + n).padStart(2, '0')}:00Z`
@@ -206,6 +207,48 @@ describe('timeline', () => {
       const items = entries[0].kind === 'step' ? entries[0].items : []
       expect(items.map((item) => item.kind)).toEqual(['contest-state'])
       expect(items[0].kind === 'contest-state' && items[0].standings).toHaveLength(nflModel().vips.length)
+    })
+  })
+
+  describe('going live', () => {
+    it('emits one High Contest state item on the observed upcoming to live step', () => {
+      const upcoming = nflModel()
+      upcoming.contest = { ...upcoming.contest, state: 'upcoming' }
+      const live = nflModel()
+      live.contest = { ...live.contest, state: 'live' }
+      const entries = stepsOf([snap(0, upcoming), snap(5, live), snap(10, live)])
+      expect(entries[0]).toMatchObject({ kind: 'step', items: [] })
+      expect(entries[1]).toMatchObject({
+        kind: 'step',
+        snapshotAt: minute(5),
+        items: [
+          {
+            kind: 'contest-state',
+            priority: 'high',
+            snapshotAt: minute(5),
+            parts: ['contest-state'],
+            state: { from: 'upcoming', to: 'live' },
+          },
+        ],
+      })
+    })
+
+    it('does not infer a going-live item from an already-live first snapshot', () => {
+      const live = nflModel()
+      live.contest = { ...live.contest, state: 'live' }
+      const entries = stepsOf([snap(0, live), snap(5, live)])
+      expect(entries[0]).toMatchObject({ kind: 'step', items: [] })
+    })
+
+    it('keeps the item visible with no VIPs selected and hides it with the Contest state kind', () => {
+      const upcoming = nflModel()
+      upcoming.contest = { ...upcoming.contest, state: 'upcoming' }
+      const live = nflModel()
+      live.contest = { ...live.contest, state: 'live' }
+      const [entry] = stepsOf([snap(0, upcoming), snap(5, live)])
+      const filters = { vips: new Set<string>(), kinds: new Set(ALL_KINDS), highOnly: true }
+      expect(filterTimeline([entry], filters)).toHaveLength(1)
+      expect(filterTimeline([entry], { ...filters, kinds: new Set(['rank-points'] as const) })).toEqual([])
     })
   })
 

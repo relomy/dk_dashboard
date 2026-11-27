@@ -113,6 +113,12 @@ export function detectCompletion(last: Digest, current: Digest): NewContestState
   return [{ kind: 'contest-state', at: current.at, surfaced: false, from: last.contestState, to: current.contestState }]
 }
 
+/** The contest going live between consecutive snapshots; an already-live first snapshot has no observed start. */
+export function detectGoingLive(last: Digest, current: Digest): NewContestState[] {
+  if (last.contestState !== 'upcoming' || current.contestState !== 'live') return []
+  return [{ kind: 'contest-state', at: current.at, surfaced: false, from: last.contestState, to: current.contestState }]
+}
+
 export function appendEntries(log: LogEntry[], newEntries: (NewCrossing | NewContestState)[]): LogEntry[] {
   let seq = log.reduce((max, entry) => Math.max(max, entry.seq), 0)
   const added = newEntries.map((entry): LogEntry => {

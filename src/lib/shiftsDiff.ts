@@ -7,7 +7,7 @@ import {
 import type { Digest, PlayerDigest, VipDigest } from './shiftsDigest'
 import { vipsByKey } from './shiftsDigest'
 import type { CrossingEntry, LogEntry } from './shiftsLog'
-import { contestStateItems, detectCompletion, detectCrossings } from './shiftsLog'
+import { contestStateItems, detectCompletion, detectCrossings, detectGoingLive } from './shiftsLog'
 import { cashLineMoved, cashLineMoveOf, itemId, moveOf, movedBy, pointsMoveOf, sameValue } from './shiftsMoves'
 import type { CashLineShiftItem, CrossingPath, LineupSlotDiff, ShiftItem, VipShiftItem } from './shiftsTypes'
 
@@ -211,7 +211,11 @@ export function orderFeed(items: ShiftItem[]): ShiftItem[] {
 export function diffDigests(before: Digest, after: Digest): ShiftItem[] {
   if (before.contestState === 'completed') return []
   const anchor = after.snapshotAt
-  const log = [...detectCompletion(before, after), ...detectCrossings(before, after)].map((entry): LogEntry => ({
+  const log = [
+    ...detectGoingLive(before, after),
+    ...detectCompletion(before, after),
+    ...detectCrossings(before, after),
+  ].map((entry): LogEntry => ({
     ...entry,
     seq: 0,
     id: entry.kind === 'crossing' ? itemId('crossing', entry.vipKey, anchor) : itemId('contest-state', anchor),
