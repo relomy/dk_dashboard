@@ -1,0 +1,79 @@
+name: Factory dispatch
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  issues: read
+
+jobs:
+  dispatch:
+    if: >-
+      github.event.sender.login == github.repository_owner &&
+      github.event.label.name == 'agent:implement' &&
+      github.event.issue.pull_request == null
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Forward labeled issue to the software factory
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          FACTORY_DISPATCH_TOKEN: ${{ secrets.FACTORY_DISPATCH_TOKEN }}
+        with:
+          script: |
+            const token = process.env.FACTORY_DISPATCH_TOKEN;
+            if (!token) {
+              core.setFailed('FACTORY_DISPATCH_TOKEN is not configured.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const issueNumber = context.issue.number;
+            const issueEvents = await github.paginate(
+              github.rest.issues.listEventsForIssue,
+              { owner, repo, issue_number: issueNumber, per_page: 100 },
+            );
+            const matchingEvents = issueEvents.filter(
+              (event) => ['labeled', 'unlabeled'].includes(event.event) && event.label?.name === 'agent:implement',
+            );
+            matchingEvents.sort((left, right) => {
+              const byTime = Date.parse(right.created_at) - Date.parse(left.created_at);
+              return byTime || Number(right.id) - Number(left.id);
+            });
+
+            const labelEvent = matchingEvents[0];
+            if (!labelEvent?.id) {
+              core.setFailed(`Could not find an agent:implement label event for issue #${issueNumber}.`);
+              return;
+            }
+            if (labelEvent.event !== 'labeled' || labelEvent.actor?.login !== owner) {
+              core.notice('The latest request label event is no longer an owner request.');
+              return;
+            }
+
+            const dispatch = await fetch(
+              'https://api.github.com/repos/relomy/software_factory/actions/workflows/factory.yml/dispatches',
+              {
+                method: 'POST',
+                headers: {
+                  Accept: 'application/vnd.github+json',
+                  Authorization: `Bearer ${token}`,
+                  'X-GitHub-Api-Version': '2022-11-28',
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  ref: 'main',
+                  inputs: {
+                    target_repo: 'relomy/dk_dashboard',
+                    operation: 'implement',
+                    number: String(issueNumber),
+                    label_event_id: String(labelEvent.id),
+                  },
+                }),
+              },
+            );
+
+            if (!dispatch.ok) {
+              core.setFailed(`Factory workflow dispatch failed (${dispatch.status}).`);
+            }
