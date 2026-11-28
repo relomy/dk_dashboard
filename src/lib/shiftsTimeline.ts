@@ -63,7 +63,7 @@ export interface Timeline {
 
 /** The step for the contest completing: the final standings sit on its one state item, not on per-VIP items. */
 function withFinalStandings(items: ShiftItem[], before: Digest, after: Digest): ShiftItem[] {
-  if (!items.some((item) => item.kind === 'contest-state')) return items
+  if (after.contestState !== 'completed' || !items.some((item) => item.kind === 'contest-state')) return items
   const prior = vipsByKey(before.vips)
   const standings = [...vipsByKey(after.vips).values()].map((vip): FinalStanding => ({
     vipKey: vip.key,
