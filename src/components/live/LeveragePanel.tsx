@@ -212,6 +212,45 @@ function OwnershipLeaders({ model }: { model: LiveModel }) {
   )
 }
 
+function NonCashingSummary({ model }: { model: LiveModel }) {
+  const summary = model.nonCashing
+  const remainingPlayers = summary.availability === 'available' ? summary.data.topRemainingPlayers : null
+
+  return (
+    <PanelSection title="Non-cashing summary">
+      {summary.availability === 'unavailable' ? (
+        <Note>Non-cashing summary is unavailable for this contest.</Note>
+      ) : (
+        <>
+          <p className="mt-2 text-sm">
+            {summary.data.entriesNotCashing.toLocaleString()} entries not cashing
+            <span className="mx-2 text-muted-foreground" aria-hidden="true">
+              ·
+            </span>
+            Average PMR remaining {formatPmr(summary.data.avgPmrRemaining)}
+          </p>
+          {remainingPlayers === null ? (
+            <Note>Remaining players are unavailable.</Note>
+          ) : remainingPlayers.length === 0 ? (
+            <Note>No non-cashing players have a game remaining.</Note>
+          ) : (
+            <ul className="mt-3 space-y-1">
+              {remainingPlayers.map((player, index) => (
+                <li key={`${player.name}-${index}`} className="flex justify-between gap-2 rounded px-2 py-1 text-sm">
+                  <span className="min-w-0 truncate">{player.name}</span>
+                  <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+                    {formatOwnership(player.ownershipRemainingPct)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </PanelSection>
+  )
+}
+
 /** Swing players marked HAVE/FADE against the lineup in focus, each VIP's leverage against the field, and the ownership leaders. */
 function LeveragePanel({ model, focus }: { model: LiveModel; focus: LeverageFocus | null }) {
   return (
@@ -219,6 +258,7 @@ function LeveragePanel({ model, focus }: { model: LiveModel; focus: LeverageFocu
       <SwingPlayers model={model} focus={focus} />
       <LeverageVsField model={model} focus={focus} />
       <OwnershipLeaders model={model} />
+      <NonCashingSummary model={model} />
     </div>
   )
 }

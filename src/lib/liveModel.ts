@@ -7,7 +7,13 @@ import {
 } from './interpretedSnapshot'
 import type { LiveModelResult, LiveNotRenderableReason } from './liveModelTypes'
 import { buildPool, buildTotalOwnership, indexPool } from './livePlayers'
-import { buildFieldRemaining, buildOwnershipLeaders, buildStandings, buildThreat } from './liveSections'
+import {
+  buildFieldRemaining,
+  buildNonCashing,
+  buildOwnershipLeaders,
+  buildStandings,
+  buildThreat,
+} from './liveSections'
 import { buildTrains } from './liveTrains'
 import { buildVips } from './liveVips'
 import { numberOrNull } from './playerPool'
@@ -21,6 +27,8 @@ export type {
   LiveLineupPlayer,
   LiveModel,
   LiveModelResult,
+  LiveNonCashing,
+  LiveNonCashingPlayer,
   LiveNotRenderableReason,
   LiveOwnershipLeader,
   LiveOwnershipLeaders,
@@ -108,6 +116,7 @@ export function buildInterpretedLiveModel(snapshot: InterpretedSnapshot, sportKe
       trains,
       standings,
       ownershipLeaders: buildOwnershipLeaders(contest),
+      nonCashing: buildNonCashing(contest),
       threat: buildThreat(contest),
     },
   }

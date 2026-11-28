@@ -45,7 +45,7 @@ Status: Covered
 
 ### 5) Non-cashing panel
 Status: Covered
-- Renders `users_not_cashing`, `avg_pmr_remaining`, and `top_remaining_players`.
+- The Leverage view renders `users_not_cashing`, `avg_pmr_remaining`, and up to ten `top_remaining_players` below Ownership leaders.
 - Missing/empty handling:
   - missing `non_cashing` => unavailable
   - missing `top_remaining_players` in present section => unavailable top list

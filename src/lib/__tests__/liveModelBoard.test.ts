@@ -125,6 +125,44 @@ describe('ownership leaders', () => {
   })
 })
 
+describe('non-cashing summary', () => {
+  it('reads the summary figures and remaining players', () => {
+    const snapshot = load()
+    contestOf(snapshot).metrics.non_cashing = {
+      users_not_cashing: 123,
+      avg_pmr_remaining: 45.6,
+      top_remaining_players: [{ player_name: 'Test Player', ownership_remaining_pct: 12.3 }],
+    }
+
+    expect(modelOf(snapshot).nonCashing).toEqual({
+      availability: 'available',
+      data: {
+        entriesNotCashing: 123,
+        avgPmrRemaining: 45.6,
+        topRemainingPlayers: [{ name: 'Test Player', ownershipRemainingPct: 12.3 }],
+      },
+    })
+  })
+
+  it('keeps an explicit empty player list available', () => {
+    const snapshot = load()
+    contestOf(snapshot).metrics.non_cashing = {
+      users_not_cashing: 10,
+      avg_pmr_remaining: 20,
+      top_remaining_players: [],
+    }
+
+    expect(modelOf(snapshot).nonCashing).toMatchObject({ availability: 'available', data: { topRemainingPlayers: [] } })
+  })
+
+  it('is unavailable when the producer omits the summary', () => {
+    const snapshot = load()
+    delete contestOf(snapshot).metrics.non_cashing
+
+    expect(modelOf(snapshot).nonCashing).toEqual({ availability: 'unavailable' })
+  })
+})
+
 describe('swing players', () => {
   it('lists swing players from the canonical fixture', () => {
     const threat = modelOf(load()).threat
