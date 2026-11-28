@@ -106,6 +106,7 @@ export function buildInterpretedLiveModel(snapshot: InterpretedSnapshot, sportKe
         name: contest.name,
         state: normalizeContestState(contest.state),
         startTime: contest.start_time || null,
+        completedAt: contest.completed_at || null,
       },
       fieldSize: numberOrNull(contest.max_entries),
       cashLine: { points: numberOrNull(cashLine?.points_cutoff), rank: numberOrNull(cashLine?.rank_cutoff) },

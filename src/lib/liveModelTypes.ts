@@ -19,8 +19,10 @@ export type Section<T> = { availability: 'unavailable' } | { availability: 'avai
 export interface LiveContestHeader {
   name: string
   state: ContestState
-  /** The contest's start time; null when absent. Stands in for a finish time until the feed has one. */
+  /** The contest's start time; null when absent. */
   startTime: string | null
+  /** The producer's completion time; null when absent. */
+  completedAt: string | null
 }
 
 export interface LiveCashLine {

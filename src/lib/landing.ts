@@ -27,22 +27,22 @@ function primaryContestOf(snapshot: Snapshot, sport: string) {
 }
 
 /** Epoch milliseconds of an ISO-8601 timestamp; missing or unparseable values are the oldest possible. */
-function startedAt(startTime: string | null | undefined): number {
-  const parsed = startTime ? Date.parse(startTime) : Number.NaN
+function timestampAt(iso: string | null | undefined): number {
+  const parsed = iso ? Date.parse(iso) : Number.NaN
   return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed
 }
 
-/** The sport whose completed primary contest started last; the first sport wins a tie. Null when none completed. */
+/** The sport whose primary contest completed last; the first sport wins a tie. Null when none completed. */
 function findLatestCompletedSport(snapshot: Snapshot, sports: string[]): string | null {
   let latestSport: string | null = null
-  let latestStart = Number.NEGATIVE_INFINITY
+  let latestCompletion = Number.NEGATIVE_INFINITY
   for (const sport of sports) {
     const contest = primaryContestOf(snapshot, sport)
     if (contest?.state !== 'completed') continue
-    const start = startedAt(contest.start_time)
-    if (latestSport === null || start > latestStart) {
+    const completion = timestampAt(contest.completed_at ?? contest.start_time)
+    if (latestSport === null || completion > latestCompletion) {
       latestSport = sport
-      latestStart = start
+      latestCompletion = completion
     }
   }
   return latestSport
@@ -52,10 +52,6 @@ function findLatestCompletedSport(snapshot: Snapshot, sports: string[]): string 
  * The sport the home page opens on: the first sport whose primary contest is live, then the sport whose
  * primary contest completed most recently, then the last-viewed sport if the snapshot still has it, then
  * the first sport. Cancelled contests never count as completed. Null only when the snapshot has no sports.
- *
- * Known limitation: the feed has no completion timestamp, so "most recently completed" is ordered by the
- * contest's `start_time`. A contest that runs long can be mis-ordered against one that started later.
- * Switch to `completed_at` once the producer emits it (relomy/dk_results#210).
  */
 export function chooseLandingSport(snapshot: Snapshot, lastViewed: string | null): string | null {
   const sports = Object.keys(snapshot.sports)

@@ -25,16 +25,16 @@ function formatSnapshotTime(iso: string): string {
 const FINAL_MARKER_HEIGHT = '2.25rem'
 
 /**
- * Marks a completed contest as Final. The feed has no completion time yet, so the contest's start time
- * stands in for it and is labelled as such, with its age measured from the snapshot's time (the current
- * time when the snapshot's is unusable). Other states, cancelled included, show nothing.
+ * Marks a completed contest as Final, showing its completion time when present and its start time otherwise.
+ * Its age is measured from the snapshot's time (the current time when the snapshot's is unusable). Other
+ * states, cancelled included, show nothing.
  */
 function FinalMarker({ contest, snapshotAt }: { contest: LiveModel['contest']; snapshotAt: string }) {
   if (contest.state !== 'completed') return null
-  const started = contest.startTime ? new Date(contest.startTime) : null
-  const age = contest.startTime
-    ? (formatAge(contest.startTime, snapshotAt) ?? formatAge(contest.startTime, new Date().toISOString()))
-    : null
+  const finishTime = contest.completedAt ?? contest.startTime
+  const label = contest.completedAt ? 'Finished' : 'Started'
+  const finishDate = finishTime ? new Date(finishTime) : null
+  const age = finishTime ? (formatAge(finishTime, snapshotAt) ?? formatAge(finishTime, new Date().toISOString())) : null
   return (
     <div
       role="group"
@@ -42,13 +42,13 @@ function FinalMarker({ contest, snapshotAt }: { contest: LiveModel['contest']; s
       className="flex min-h-[var(--final-marker-height)] items-center gap-2 border-b px-4 text-xs"
     >
       <span className="rounded-sm bg-muted px-1.5 py-0.5 font-mono font-semibold tracking-widest uppercase">Final</span>
-      {contest.startTime ? (
+      {finishTime ? (
         <span className="text-muted-foreground">
-          Started{' '}
-          <time dateTime={contest.startTime}>
-            {started && !Number.isNaN(started.getTime())
-              ? started.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
-              : contest.startTime}
+          {label}{' '}
+          <time dateTime={finishTime}>
+            {finishDate && !Number.isNaN(finishDate.getTime())
+              ? finishDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+              : finishTime}
           </time>
           {age ? <> · {age}</> : null}
         </span>

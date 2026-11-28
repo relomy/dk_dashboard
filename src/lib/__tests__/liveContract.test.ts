@@ -57,6 +57,12 @@ it('runs on every prod fixture from a failing prod check', () => {
   }
 })
 
+it('carries the producer completion time into the Live model', () => {
+  const completed = CASES.find(({ contest }) => contest?.completed_at)
+  if (!completed?.contest?.completed_at) throw new Error('Expected a producer fixture with completed_at')
+  expect(modelOf(completed).contest.completedAt).toBe(completed.contest.completed_at)
+})
+
 it('allowlists only fields some input still emits and the Live model leaves unread', () => {
   const unread = CASES.map(({ snapshot, sport }) => liveUnreadPaths(snapshot, sport))
   expect(staleAllowlistEntries(unread, LIVE_UNREAD_ALLOWLIST)).toEqual([])
